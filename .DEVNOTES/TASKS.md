@@ -14,5 +14,8 @@
 [ ] Add more tests to ensure the application works as expected.
 [ ] Improve error handling and logging.
 [ ] Improve code readability and maintainability.
-[ ] Improve code organization and modularity.
+[x] Improve code organization and modularity.
 [x] Add inline documentation to `cmd/notes/main.go`.
+
+## Testing
+[ ] Add unit tests for tree building and render cache behavior in `internal/app`.

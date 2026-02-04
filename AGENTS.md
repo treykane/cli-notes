@@ -1,5 +1,7 @@
 ## Agent Notes
 
+In every decision and action, consider Go best practices, coding standards, maintainability, and security.
+
 Please review the shared workspace notes in `.DEVNOTES` before making changes. The current files to consult are:
 
 - `.DEVNOTES/README.md`
