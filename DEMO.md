@@ -5,33 +5,28 @@ This document demonstrates the CLI Notes application features.
 ## Installation
 
 ```bash
-pip install -e .
+go build -o notes ./cmd/notes
 ```
 
 ## Running the Application
 
 ```bash
-notes
+./notes
 ```
 
 ## Application Layout
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    CLI Notes — 📂 ~/notes                    │
+│                    CLI Notes — Notes: ~/notes               │
 ├──────────────────┬──────────────────────────────────────────┤
 │                  │                                          │
-│ 📁 notes/        │  # Welcome to CLI Notes!                │
-│ ├── Welcome.md   │                                          │
-│ ├── Ideas.md     │  This is your personal notes manager    │
-│ │                │  in the terminal.                        │
-│ └── 📁 Projects/ │                                          │
-│     └── ...      │  ## Features                             │
-│                  │  - Create notes in Markdown              │
-│                  │  - Organize in folders                   │
-│                  │  - Rendered preview                      │
+│ /                │  # Welcome to CLI Notes!                 │
+│   [-] Projects   │                                          │
+│       Ideas.md   │  This is your personal notes manager     │
+│                  │  in the terminal.                        │
 │                  │                                          │
-│ Directory Tree   │  Rendered Markdown View                 │
+│ Directory Tree   │  Rendered Markdown View                  │
 │                  │                                          │
 └──────────────────┴──────────────────────────────────────────┘
 ```
@@ -60,7 +55,6 @@ notes
 
 ### 4. Edit Notes
 - Press `e` to edit the selected note
-- Full markdown syntax highlighting
 - Save with Ctrl+S
 - Cancel with Esc
 
@@ -72,7 +66,7 @@ notes
 ### 6. Delete Items
 - Press `d` to delete selected note or folder
 - Folders must be empty to delete
-- Confirmation via notification
+- Confirmation via status message
 
 ### 7. Keyboard Shortcuts
 | Key | Action |
@@ -106,27 +100,8 @@ This means you can:
 
 ## Technical Implementation
 
-- **Framework**: Textual (modern Python TUI framework)
-- **Rendering**: Rich (terminal formatting and markdown rendering)
+- **Framework**: Bubble Tea + Bubbles
+- **Rendering**: Glamour (Markdown to ANSI)
 - **Storage**: Plain .md files on filesystem
 - **Organization**: Directory-based (no database)
-- **Language**: Python 3.8+
-
-## Testing
-
-Run the test suite:
-
-```bash
-pytest tests/test_app.py -v
-```
-
-All tests pass:
-- App initialization ✓
-- Directory creation ✓
-- Welcome note creation ✓
-- Note creation ✓
-- Folder creation ✓
-
-## Security
-
-CodeQL scan completed with 0 vulnerabilities.
+- **Language**: Go
