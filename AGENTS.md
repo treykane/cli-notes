@@ -3,7 +3,6 @@
 Please review the shared workspace notes in `.DEVNOTES` before making changes. The current files to consult are:
 
 - `.DEVNOTES/README.md`
-- `.DEVNOTES/TASKS.md`
 - `.DEVNOTES/MEMORY.md`
 - `.DEVNOTES/DEMO.md`
 
