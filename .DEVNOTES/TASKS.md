@@ -1,7 +1,17 @@
 # Tasks
 
 ## UI
-[x] Add notes to the UI for all keybinds. (2026-02-04)
-[x] Render the markdown notes unless in Edit mode. (2026-02-04)
+[ ] Add notes to the UI for all keybinds.
+[ ] Render the markdown notes unless in Edit mode. 
 [ ] Add a search bar to the UI.
-[ ] Expand vim-friendly keybinds (beyond k/j; consider h/l). 
+[ ] Look into using VIM friendly keybinds.
+
+## Performance
+[ ] Improve performance on a fresh build.
+
+## Developer Experience
+[ ] Improve developer experience by adding more detailed documentation.
+[ ] Add more tests to ensure the application works as expected.
+[ ] Improve error handling and logging.
+[ ] Improve code readability and maintainability.
+[ ] Improve code organization and modularity.
