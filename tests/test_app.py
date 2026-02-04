@@ -15,18 +15,28 @@ def test_app_initialization():
 def test_notes_directory_creation():
     """Test that notes directory is created if it doesn't exist."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        notes_dir = Path(tmpdir) / "test_notes"
-        
-        # Verify directory doesn't exist yet
-        assert not notes_dir.exists()
-        
-        # Create app (should create directory)
-        app = NotesApp()
-        app.notes_dir = notes_dir
-        app.notes_dir.mkdir(exist_ok=True)
-        
-        # Verify directory was created
-        assert notes_dir.exists()
+        # Change HOME to temp directory to test fresh initialization
+        import os
+        original_home = os.environ.get('HOME')
+        try:
+            test_home = Path(tmpdir) / "test_home"
+            test_home.mkdir()
+            os.environ['HOME'] = str(test_home)
+            
+            # Verify directory doesn't exist yet
+            notes_dir = test_home / "notes"
+            assert not notes_dir.exists()
+            
+            # Create app (should create directory)
+            app = NotesApp()
+            
+            # Verify directory was created by the app
+            assert app.notes_dir.exists()
+            assert app.notes_dir == notes_dir
+        finally:
+            # Restore original HOME
+            if original_home:
+                os.environ['HOME'] = original_home
 
 
 def test_welcome_note_creation():

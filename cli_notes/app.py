@@ -38,7 +38,13 @@ class NewNoteScreen(Screen):
         yield Header()
         with Vertical():
             yield Static("Create New Note", classes="screen-title")
-            yield Static(f"Location: {self.parent_dir.relative_to(self.notes_dir)}")
+            # Safely display relative path
+            try:
+                rel_path = self.parent_dir.relative_to(self.notes_dir)
+                location = str(rel_path) if str(rel_path) != "." else "/"
+            except ValueError:
+                location = str(self.parent_dir)
+            yield Static(f"Location: {location}")
             yield Input(placeholder="Note name (without .md extension)", id="note-name")
             with Horizontal():
                 yield Button("Save (Ctrl+S)", variant="success", id="save-btn")
@@ -92,7 +98,13 @@ class NewFolderScreen(Screen):
         yield Header()
         with Vertical():
             yield Static("Create New Folder", classes="screen-title")
-            yield Static(f"Location: {self.parent_dir.relative_to(self.notes_dir)}")
+            # Safely display relative path
+            try:
+                rel_path = self.parent_dir.relative_to(self.notes_dir)
+                location = str(rel_path) if str(rel_path) != "." else "/"
+            except ValueError:
+                location = str(self.parent_dir)
+            yield Static(f"Location: {location}")
             yield Input(placeholder="Folder name", id="folder-name")
             with Horizontal():
                 yield Button("Create (Ctrl+S)", variant="success", id="save-btn")
@@ -312,7 +324,9 @@ Happy note-taking! 📚
         """Create a new note."""
         # Get the currently selected directory
         tree = self.query_one("#tree", DirectoryTree)
-        selected_path = tree.cursor_node.data.path if tree.cursor_node else self.notes_dir
+        selected_path = (tree.cursor_node.data.path 
+                        if tree.cursor_node and tree.cursor_node.data 
+                        else self.notes_dir)
         
         # If selected path is a file, use its parent directory
         if selected_path.is_file():
@@ -333,7 +347,9 @@ Happy note-taking! 📚
         """Create a new folder."""
         # Get the currently selected directory
         tree = self.query_one("#tree", DirectoryTree)
-        selected_path = tree.cursor_node.data.path if tree.cursor_node else self.notes_dir
+        selected_path = (tree.cursor_node.data.path 
+                        if tree.cursor_node and tree.cursor_node.data 
+                        else self.notes_dir)
         
         # If selected path is a file, use its parent directory
         if selected_path.is_file():
