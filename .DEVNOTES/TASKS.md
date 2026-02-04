@@ -18,4 +18,5 @@
 [x] Add inline documentation to `cmd/notes/main.go`.
 
 ## Testing
+[ ] Implement testing framework
 [ ] Add unit tests for tree building and render cache behavior in `internal/app`.
