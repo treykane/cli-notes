@@ -39,16 +39,33 @@ Your notes will be stored in `~/notes` by default.
 
 ## Keyboard Shortcuts
 
+### Browse Mode
+
 | Key | Action |
 |-----|--------|
+| `↑`/`↓` or `k`/`j` | Move selection |
+| `Enter` or `→` | Expand/collapse folder |
+| `←` | Collapse folder |
 | `n` | Create a new note |
 | `f` | Create a new folder |
 | `e` | Edit the selected note |
 | `d` | Delete the selected note/folder |
 | `r` | Refresh the directory tree |
-| `q` | Quit the application |
-| `Ctrl+S` | Save (when editing/creating) |
-| `Esc` | Cancel (when editing/creating) |
+| `q` or `Ctrl+C` | Quit the application |
+
+### New Note/Folder
+
+| Key | Action |
+|-----|--------|
+| `Enter` or `Ctrl+S` | Save |
+| `Esc` | Cancel |
+
+### Edit Note
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+S` | Save |
+| `Esc` | Cancel |
 
 ## How It Works
 

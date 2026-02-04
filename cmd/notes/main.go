@@ -74,12 +74,18 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- View rendered Markdown formatting\n" +
 	"- Keyboard-driven interface\n\n" +
 	"## Keyboard Shortcuts\n\n" +
+	"- Up/Down or k/j: Move selection\n" +
+	"- Enter/Right: Expand or collapse folder\n" +
+	"- Left: Collapse folder\n" +
 	"- n: Create a new note\n" +
 	"- f: Create a new folder\n" +
 	"- e: Edit the selected note\n" +
 	"- d: Delete the selected note\n" +
 	"- r: Refresh the directory tree\n" +
-	"- q: Quit the application\n\n" +
+	"- Enter or Ctrl+S: Save (when naming new note/folder)\n" +
+	"- Ctrl+S: Save (when editing)\n" +
+	"- Esc: Cancel (when naming or editing)\n" +
+	"- q or Ctrl+C: Quit the application\n\n" +
 	"## Getting Started\n\n" +
 	"1. Press n to create a new note\n" +
 	"2. Select a note and press e to edit it\n" +
