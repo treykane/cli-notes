@@ -79,6 +79,7 @@ go build -o notes ./cmd/notes
 | e | Edit note |
 | d | Delete |
 | r | Refresh |
+| ? | Toggle help |
 | q or Ctrl+C | Quit |
 
 ## File Storage

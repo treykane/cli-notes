@@ -51,6 +51,7 @@ Your notes will be stored in `~/notes` by default.
 | `e` | Edit the selected note |
 | `d` | Delete the selected note/folder |
 | `r` | Refresh the directory tree |
+| `?` | Toggle help |
 | `q` or `Ctrl+C` | Quit the application |
 
 ### New Note/Folder

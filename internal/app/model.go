@@ -42,6 +42,7 @@ type Model struct {
 	editor   textarea.Model
 	mode     mode
 	status   string
+	showHelp bool
 
 	// Layout sizing
 	width      int
@@ -244,6 +245,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "?":
+			m.showHelp = !m.showHelp
+			if m.showHelp {
+				m.status = ""
+			}
+			return m, nil
 		case "up", "k":
 			m.moveCursor(-1)
 			cmd := m.maybeShowSelectedFile()

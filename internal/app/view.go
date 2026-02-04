@@ -77,9 +77,13 @@ func (m *Model) renderRight(width, height int) string {
 			helper,
 		}, "\n")
 	default:
-		m.viewport.Width = innerWidth
-		m.viewport.Height = innerHeight
-		content = m.viewport.View()
+		if m.showHelp {
+			content = m.renderHelp(innerWidth, innerHeight)
+		} else {
+			m.viewport.Width = innerWidth
+			m.viewport.Height = innerHeight
+			content = m.viewport.View()
+		}
 	}
 
 	return paneStyle.Width(width).Height(height).Render(content)
@@ -87,12 +91,58 @@ func (m *Model) renderRight(width, height int) string {
 
 // renderStatus renders the footer help line and any status message.
 func (m *Model) renderStatus(width int) string {
-	help := "n new  f folder  e edit  d delete  r refresh  q quit"
+	help := m.statusHelp()
 	line := help
 	if m.status != "" {
 		line = help + " | " + m.status
 	}
 	return statusStyle.Width(width).Render(truncate(line, width))
+}
+
+func (m *Model) statusHelp() string {
+	switch m.mode {
+	case modeEditNote:
+		return "Ctrl+S save  Esc cancel"
+	case modeNewNote, modeNewFolder:
+		return "Enter/Ctrl+S save  Esc cancel"
+	default:
+		return "n new  f folder  e edit  d delete  r refresh  ? help  q quit"
+	}
+}
+
+func (m *Model) renderHelp(width, height int) string {
+	lines := []string{
+		titleStyle.Render("Keyboard Shortcuts"),
+		"",
+		"Browse",
+		"  ↑/↓ or k/j   Move selection",
+		"  Enter or →   Expand/collapse folder",
+		"  ←            Collapse folder",
+		"  n            New note",
+		"  f            New folder",
+		"  e            Edit note",
+		"  d            Delete",
+		"  r            Refresh",
+		"  ?            Toggle help",
+		"  q or Ctrl+C  Quit",
+		"",
+		"New Note/Folder",
+		"  Enter or Ctrl+S  Save",
+		"  Esc              Cancel",
+		"",
+		"Edit Note",
+		"  Ctrl+S  Save",
+		"  Esc     Cancel",
+		"",
+		"Press ? to return.",
+	}
+
+	visible := min(height, len(lines))
+	out := make([]string, 0, visible)
+	for i := 0; i < visible; i++ {
+		out = append(out, truncate(lines[i], width))
+	}
+	return strings.Join(out, "\n")
 }
 
 // formatTreeItem formats a directory or file row with indentation and markers.

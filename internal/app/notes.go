@@ -26,6 +26,7 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- e: Edit the selected note\n" +
 	"- d: Delete the selected note\n" +
 	"- r: Refresh the directory tree\n" +
+	"- ?: Toggle help\n" +
 	"- Enter or Ctrl+S: Save (when naming new note/folder)\n" +
 	"- Ctrl+S: Save (when editing)\n" +
 	"- Esc: Cancel (when naming or editing)\n" +
@@ -88,6 +89,7 @@ func (m *Model) selectedParentDir() string {
 // startNewNote switches to new-note mode and configures the input.
 func (m *Model) startNewNote() {
 	m.mode = modeNewNote
+	m.showHelp = false
 	m.newParent = m.selectedParentDir()
 	m.input.Reset()
 	m.input.Placeholder = "Note name (without .md extension)"
@@ -98,6 +100,7 @@ func (m *Model) startNewNote() {
 // startNewFolder switches to new-folder mode and configures the input.
 func (m *Model) startNewFolder() {
 	m.mode = modeNewFolder
+	m.showHelp = false
 	m.newParent = m.selectedParentDir()
 	m.input.Reset()
 	m.input.Placeholder = "Folder name"
@@ -119,6 +122,7 @@ func (m *Model) startEditNote() (tea.Model, tea.Cmd) {
 	}
 
 	m.mode = modeEditNote
+	m.showHelp = false
 	m.editor.SetValue(string(content))
 	m.editor.CursorEnd()
 	m.editor.Focus()
