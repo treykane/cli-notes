@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 type mode int
@@ -681,7 +682,7 @@ func truncate(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	return lipgloss.Truncate(s, width)
+	return runewidth.Truncate(s, width, "")
 }
 
 func clamp(value, minVal, maxVal int) int {
