@@ -1,4 +1,4 @@
-# cli-notes
+# cli-notes - SUPER EARLY BETA - DO NOT TRUST THIS APPLICATION
 
 A beautiful TUI (Text User Interface) notes application that lives in your CLI. Manage your notes with Markdown formatting, organized in a directory structure.
 
