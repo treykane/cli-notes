@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -54,6 +54,9 @@ type model struct {
 	leftHeight int
 	newParent  string
 
+	spinner   spinner.Model
+	rendering bool
+
 	renderSeq     int
 	pendingPath   string
 	pendingWidth  int
@@ -96,8 +99,6 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"Happy note-taking!\n"
 
 const renderDebounce = 500 * time.Millisecond
-const previewMaxLines = 40
-const previewMaxBytes = 32 * 1024
 
 type renderCacheEntry struct {
 	mtime   time.Time
@@ -117,13 +118,6 @@ type renderResultMsg struct {
 	seq     int
 	content string
 	mtime   time.Time
-	err     error
-}
-
-type previewResultMsg struct {
-	path    string
-	seq     int
-	content string
 	err     error
 }
 
@@ -176,6 +170,9 @@ func initialModel() (*model, error) {
 	editor.Placeholder = "Your note content here..."
 	editor.CharLimit = 0
 
+	spin := spinner.New()
+	spin.Spinner = spinner.Line
+
 	return &model{
 		notesDir:    notesDir,
 		items:       items,
@@ -185,17 +182,27 @@ func initialModel() (*model, error) {
 		editor:      editor,
 		mode:        modeBrowse,
 		status:      "Ready",
+		spinner:     spin,
 		leftHeight:  0,
 		renderCache: map[string]renderCacheEntry{},
 	}, nil
 }
 
 func (m *model) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
 	switch msg := msg.(type) {
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		cmds = append(cmds, cmd)
+		if m.rendering {
+			m.viewport.SetContent(m.spinner.View() + " Rendering...")
+		}
+		return m, tea.Batch(cmds...)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -210,34 +217,32 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, renderMarkdownCmd(msg.path, msg.width, msg.seq)
 	case renderResultMsg:
+		if msg.err != nil {
+			if msg.seq == m.renderSeq && msg.path == m.currentFile {
+				m.viewport.SetContent("Error reading note")
+				m.status = "Error reading note"
+				m.rendering = false
+				m.renderingPath = ""
+				m.renderingSeq = 0
+			}
+			return m, nil
+		}
+		if entry, ok := m.renderCache[msg.path]; !ok || !entry.mtime.After(msg.mtime) {
+			m.renderCache[msg.path] = renderCacheEntry{
+				mtime:   msg.mtime,
+				width:   msg.width,
+				content: msg.content,
+			}
+		}
 		if msg.seq != m.renderSeq || msg.path != m.currentFile {
 			return m, nil
 		}
-		if msg.err != nil {
-			m.viewport.SetContent("Error reading note")
-			m.status = "Error reading note"
+		if msg.width == renderWidthBucket(m.viewport.Width) {
+			m.viewport.SetContent(msg.content)
+			m.rendering = false
 			m.renderingPath = ""
 			m.renderingSeq = 0
-			return m, nil
 		}
-		m.renderCache[msg.path] = renderCacheEntry{
-			mtime:   msg.mtime,
-			width:   msg.width,
-			content: msg.content,
-		}
-		m.viewport.SetContent(msg.content)
-		m.renderingPath = ""
-		m.renderingSeq = 0
-		return m, nil
-	case previewResultMsg:
-		if msg.seq != m.renderingSeq || msg.path != m.renderingPath {
-			return m, nil
-		}
-		if msg.err != nil {
-			return m, nil
-		}
-		previewHeader := "Preview (rendering full view...)"
-		m.viewport.SetContent(previewHeader + "\n\n" + msg.content)
 		return m, nil
 	case tea.KeyMsg:
 		switch m.mode {
@@ -803,24 +808,23 @@ func (m *model) requestRender(path string) tea.Cmd {
 	if info, err := os.Stat(path); err == nil {
 		if entry, ok := m.renderCache[path]; ok && entry.width == width && entry.mtime.Equal(info.ModTime()) {
 			m.viewport.SetContent(entry.content)
+			m.rendering = false
 			m.renderingPath = ""
 			m.renderingSeq = 0
 			return nil
 		}
 	}
-	m.viewport.SetContent("Loading preview...")
+	m.rendering = true
+	m.viewport.SetContent(m.spinner.View() + " Rendering...")
 	m.renderSeq++
 	seq := m.renderSeq
 	m.pendingPath = path
 	m.pendingWidth = width
 	m.renderingPath = path
 	m.renderingSeq = seq
-	return tea.Batch(
-		m.requestPreview(path, seq),
-		tea.Tick(renderDebounce, func(time.Time) tea.Msg {
-			return renderRequestMsg{path: path, width: width, seq: seq}
-		}),
-	)
+	return tea.Tick(renderDebounce, func(time.Time) tea.Msg {
+		return renderRequestMsg{path: path, width: width, seq: seq}
+	})
 }
 
 func renderMarkdownCmd(path string, width int, seq int) tea.Cmd {
@@ -842,42 +846,6 @@ func renderMarkdownCmd(path string, width int, seq int) tea.Cmd {
 			mtime:   info.ModTime(),
 		}
 	}
-}
-
-func (m *model) requestPreview(path string, seq int) tea.Cmd {
-	return func() tea.Msg {
-		content, err := previewContent(path, previewMaxLines, previewMaxBytes)
-		return previewResultMsg{path: path, seq: seq, content: content, err: err}
-	}
-}
-
-func previewContent(path string, maxLines, maxBytes int) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 64*1024), 512*1024)
-
-	lines := make([]string, 0, maxLines)
-	total := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		lines = append(lines, line)
-		total += len(line) + 1
-		if len(lines) >= maxLines || total >= maxBytes {
-			break
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return strings.Join(lines, "\n"), err
-	}
-	if len(lines) == 0 {
-		return "(Empty note)", nil
-	}
-	return strings.Join(lines, "\n"), nil
 }
 
 func isDirEmpty(path string) bool {
