@@ -18,7 +18,7 @@ go build -o notes ./cmd/notes
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    CLI Notes — Notes: ~/notes               │
+│                    Notes: /Users/you/notes                  │
 ├──────────────────┬──────────────────────────────────────────┤
 │                  │                                          │
 │ /                │  # Welcome to CLI Notes!                 │
@@ -34,7 +34,7 @@ go build -o notes ./cmd/notes
 ## Features Demonstrated
 
 ### 1. Browse Notes
-- Navigate through notes using arrow keys
+- Navigate through notes using arrow keys or `k`/`j`
 - Directory tree shows folder structure
 - Files and folders clearly distinguished
 
@@ -71,12 +71,15 @@ go build -o notes ./cmd/notes
 ### 7. Keyboard Shortcuts
 | Key | Action |
 |-----|--------|
-| n   | New note |
-| f   | New folder |
-| e   | Edit note |
-| d   | Delete |
-| r   | Refresh |
-| q   | Quit |
+| ↑/↓ or k/j | Move selection |
+| Enter or → | Expand/collapse folder |
+| ← | Collapse folder |
+| n | New note |
+| f | New folder |
+| e | Edit note |
+| d | Delete |
+| r | Refresh |
+| q or Ctrl+C | Quit |
 
 ## File Storage
 
