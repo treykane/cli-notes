@@ -151,19 +151,49 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.adjustTreeOffset()
 		return m, nil
 	case tea.KeyMsg:
-		return m.handleKey(msg)
-	}
-
-	if m.mode == modeEditNote {
-		var cmd tea.Cmd
-		m.editor, cmd = m.editor.Update(msg)
-		return m, cmd
-	}
-
-	if m.mode == modeNewNote || m.mode == modeNewFolder {
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, cmd
+		switch m.mode {
+		case modeEditNote:
+			switch msg.String() {
+			case "ctrl+s":
+				return m.saveEdit()
+			case "esc":
+				m.mode = modeBrowse
+				m.status = "Edit cancelled"
+				return m, nil
+			default:
+				var cmd tea.Cmd
+				m.editor, cmd = m.editor.Update(msg)
+				return m, cmd
+			}
+		case modeNewNote:
+			switch msg.String() {
+			case "ctrl+s", "enter":
+				return m.saveNewNote()
+			case "esc":
+				m.mode = modeBrowse
+				m.status = "New note cancelled"
+				return m, nil
+			default:
+				var cmd tea.Cmd
+				m.input, cmd = m.input.Update(msg)
+				return m, cmd
+			}
+		case modeNewFolder:
+			switch msg.String() {
+			case "ctrl+s", "enter":
+				return m.saveNewFolder()
+			case "esc":
+				m.mode = modeBrowse
+				m.status = "New folder cancelled"
+				return m, nil
+			default:
+				var cmd tea.Cmd
+				m.input, cmd = m.input.Update(msg)
+				return m, cmd
+			}
+		default:
+			return m.handleKey(msg)
+		}
 	}
 
 	return m, nil
