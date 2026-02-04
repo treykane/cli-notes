@@ -19,6 +19,7 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+// mode controls the UI state and which input widget is active.
 type mode int
 
 const (
@@ -28,6 +29,7 @@ const (
 	modeEditNote
 )
 
+// treeItem represents a single row in the left-hand tree pane.
 type treeItem struct {
 	path  string
 	name  string
@@ -35,7 +37,9 @@ type treeItem struct {
 	isDir bool
 }
 
+// model holds the Bubble Tea state for the entire UI.
 type model struct {
+	// Filesystem state
 	notesDir    string
 	items       []treeItem
 	expanded    map[string]bool
@@ -43,20 +47,24 @@ type model struct {
 	treeOffset  int
 	currentFile string
 
+	// UI widgets
 	viewport viewport.Model
 	input    textinput.Model
 	editor   textarea.Model
 	mode     mode
 	status   string
 
+	// Layout sizing
 	width      int
 	height     int
 	leftHeight int
 	newParent  string
 
+	// Rendering indicator
 	spinner   spinner.Model
 	rendering bool
 
+	// Debounced render bookkeeping
 	renderSeq     int
 	pendingPath   string
 	pendingWidth  int
@@ -72,6 +80,7 @@ var (
 	statusStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
 
+// welcomeNote is written to ~/notes/Welcome.md on first run.
 const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"This is your personal notes manager in the terminal.\n\n" +
 	"## Features\n\n" +
@@ -98,20 +107,24 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"3. Press f to create folders and organize your notes\n\n" +
 	"Happy note-taking!\n"
 
+// renderDebounce prevents excessive markdown re-rendering during fast navigation.
 const renderDebounce = 500 * time.Millisecond
 
+// renderCacheEntry stores rendered markdown and the inputs that created it.
 type renderCacheEntry struct {
 	mtime   time.Time
 	width   int
 	content string
 }
 
+// renderRequestMsg triggers the debounced renderer.
 type renderRequestMsg struct {
 	path  string
 	width int
 	seq   int
 }
 
+// renderResultMsg carries the render output back to Update.
 type renderResultMsg struct {
 	path    string
 	width   int
@@ -122,6 +135,7 @@ type renderResultMsg struct {
 }
 
 var (
+	// Cache per-width Glamour renderers; keyed by terminal width bucket.
 	rendererCacheMu sync.Mutex
 	rendererCache   = map[int]*glamour.TermRenderer{}
 )
@@ -140,6 +154,7 @@ func main() {
 	}
 }
 
+// initialModel prepares the initial UI model and ensures the notes directory exists.
 func initialModel() (*model, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -188,10 +203,12 @@ func initialModel() (*model, error) {
 	}, nil
 }
 
+// Init starts the spinner so we can show async rendering progress.
 func (m *model) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
+// Update is the Bubble Tea update loop: handle events and emit commands.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -293,6 +310,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleKey routes key presses based on the current mode.
 func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
@@ -363,6 +381,7 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// View draws the full UI (left tree + right pane + status line).
 func (m *model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return "Loading..."
@@ -379,6 +398,7 @@ func (m *model) View() string {
 	return row + "\n" + m.renderStatus(m.width)
 }
 
+// renderTree draws the left-hand directory tree pane.
 func (m *model) renderTree(width, height int) string {
 	innerWidth := max(0, width-2)
 	innerHeight := max(0, height-2)
@@ -403,6 +423,7 @@ func (m *model) renderTree(width, height int) string {
 	return paneStyle.Width(width).Height(height).Render(content)
 }
 
+// renderRight draws the right-hand pane (editor, input, or markdown viewport).
 func (m *model) renderRight(width, height int) string {
 	innerWidth := max(0, width-2)
 	innerHeight := max(0, height-2)
@@ -438,6 +459,7 @@ func (m *model) renderRight(width, height int) string {
 	return paneStyle.Width(width).Height(height).Render(content)
 }
 
+// renderStatus renders the footer help line and any status message.
 func (m *model) renderStatus(width int) string {
 	help := "n new  f folder  e edit  d delete  r refresh  q quit"
 	line := help
@@ -447,6 +469,7 @@ func (m *model) renderStatus(width int) string {
 	return statusStyle.Width(width).Render(truncate(line, width))
 }
 
+// formatTreeItem formats a directory or file row with indentation and markers.
 func (m *model) formatTreeItem(item treeItem) string {
 	indent := strings.Repeat("  ", item.depth)
 	if item.isDir {
@@ -460,6 +483,7 @@ func (m *model) formatTreeItem(item treeItem) string {
 	return fmt.Sprintf("%s    %s", indent, item.name)
 }
 
+// moveCursor changes the selection and keeps it within bounds.
 func (m *model) moveCursor(delta int) {
 	if len(m.items) == 0 {
 		return
@@ -469,6 +493,7 @@ func (m *model) moveCursor(delta int) {
 	m.adjustTreeOffset()
 }
 
+// adjustTreeOffset scrolls the tree so the cursor remains visible.
 func (m *model) adjustTreeOffset() {
 	visibleHeight := max(0, m.leftHeight-2-1)
 	if visibleHeight == 0 {
@@ -484,6 +509,7 @@ func (m *model) adjustTreeOffset() {
 	}
 }
 
+// toggleExpand expands or collapses a directory row.
 func (m *model) toggleExpand(expandIfDir bool) {
 	item := m.selectedItem()
 	if item == nil || !item.isDir {
@@ -502,6 +528,7 @@ func (m *model) toggleExpand(expandIfDir bool) {
 	m.rebuildTreeKeep(item.path)
 }
 
+// selectedItem returns the currently highlighted tree item, if any.
 func (m *model) selectedItem() *treeItem {
 	if len(m.items) == 0 || m.cursor < 0 || m.cursor >= len(m.items) {
 		return nil
@@ -509,6 +536,7 @@ func (m *model) selectedItem() *treeItem {
 	return &m.items[m.cursor]
 }
 
+// selectedPath returns the selected item's path or the root notes dir.
 func (m *model) selectedPath() string {
 	item := m.selectedItem()
 	if item == nil {
@@ -517,6 +545,7 @@ func (m *model) selectedPath() string {
 	return item.path
 }
 
+// selectedParentDir returns a directory suitable for creating new items.
 func (m *model) selectedParentDir() string {
 	path := m.selectedPath()
 	info, err := os.Stat(path)
@@ -529,6 +558,7 @@ func (m *model) selectedParentDir() string {
 	return filepath.Dir(path)
 }
 
+// startNewNote switches to new-note mode and configures the input.
 func (m *model) startNewNote() {
 	m.mode = modeNewNote
 	m.newParent = m.selectedParentDir()
@@ -538,6 +568,7 @@ func (m *model) startNewNote() {
 	m.status = ""
 }
 
+// startNewFolder switches to new-folder mode and configures the input.
 func (m *model) startNewFolder() {
 	m.mode = modeNewFolder
 	m.newParent = m.selectedParentDir()
@@ -547,6 +578,7 @@ func (m *model) startNewFolder() {
 	m.status = ""
 }
 
+// startEditNote loads the current file and opens the editor.
 func (m *model) startEditNote() (tea.Model, tea.Cmd) {
 	if m.currentFile == "" {
 		m.status = "No note selected"
@@ -567,6 +599,7 @@ func (m *model) startEditNote() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// saveNewNote writes a new markdown file and refreshes the tree.
 func (m *model) saveNewNote() (tea.Model, tea.Cmd) {
 	name := strings.TrimSpace(m.input.Value())
 	if name == "" {
@@ -592,6 +625,7 @@ func (m *model) saveNewNote() (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// saveNewFolder creates a directory and refreshes the tree.
 func (m *model) saveNewFolder() (tea.Model, tea.Cmd) {
 	name := strings.TrimSpace(m.input.Value())
 	if name == "" {
@@ -612,6 +646,7 @@ func (m *model) saveNewFolder() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// saveEdit writes the editor contents to the current file.
 func (m *model) saveEdit() (tea.Model, tea.Cmd) {
 	if m.currentFile == "" {
 		m.status = "No note selected"
@@ -628,6 +663,7 @@ func (m *model) saveEdit() (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// deleteSelected removes the selected file or empty folder.
 func (m *model) deleteSelected() {
 	item := m.selectedItem()
 	if item == nil {
@@ -665,12 +701,14 @@ func (m *model) deleteSelected() {
 	m.refreshTree()
 }
 
+// refreshTree rebuilds the tree while preserving selection.
 func (m *model) refreshTree() {
 	selected := m.selectedPath()
 	m.rebuildTreeKeep(selected)
 	m.adjustTreeOffset()
 }
 
+// rebuildTreeKeep rebuilds the tree and keeps the cursor near the given path.
 func (m *model) rebuildTreeKeep(path string) {
 	m.items = buildTree(m.notesDir, m.expanded)
 	m.cursor = 0
@@ -683,6 +721,7 @@ func (m *model) rebuildTreeKeep(path string) {
 	m.adjustTreeOffset()
 }
 
+// maybeShowSelectedFile shows the file in the right pane if it is markdown.
 func (m *model) maybeShowSelectedFile() tea.Cmd {
 	item := m.selectedItem()
 	if item == nil || item.isDir {
@@ -694,11 +733,13 @@ func (m *model) maybeShowSelectedFile() tea.Cmd {
 	return nil
 }
 
+// setCurrentFile tracks the file and triggers a render.
 func (m *model) setCurrentFile(path string) tea.Cmd {
 	m.currentFile = path
 	return m.requestRender(path)
 }
 
+// refreshViewport rerenders the active file, if any.
 func (m *model) refreshViewport() tea.Cmd {
 	if m.currentFile != "" {
 		return m.requestRender(m.currentFile)
@@ -706,6 +747,7 @@ func (m *model) refreshViewport() tea.Cmd {
 	return nil
 }
 
+// updateLayout recomputes viewport sizing after a window resize.
 func (m *model) updateLayout() {
 	leftWidth := min(40, m.width/3)
 	rightWidth := max(0, m.width-leftWidth-1)
@@ -714,6 +756,7 @@ func (m *model) updateLayout() {
 	m.viewport.Height = max(0, contentHeight-2)
 }
 
+// displayRelative shows paths relative to the notes root for UI display.
 func (m *model) displayRelative(path string) string {
 	rel, err := filepath.Rel(m.notesDir, path)
 	if err != nil || rel == "." {
@@ -722,6 +765,7 @@ func (m *model) displayRelative(path string) string {
 	return rel
 }
 
+// buildTree builds a flat list of items for rendering the tree view.
 func buildTree(root string, expanded map[string]bool) []treeItem {
 	items := []treeItem{{
 		path:  root,
@@ -737,6 +781,7 @@ func buildTree(root string, expanded map[string]bool) []treeItem {
 	return items
 }
 
+// walkTree recursively appends directory contents in sorted order.
 func walkTree(dir string, depth int, expanded map[string]bool, items *[]treeItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -765,6 +810,7 @@ func walkTree(dir string, depth int, expanded map[string]bool, items *[]treeItem
 	}
 }
 
+// renderMarkdown converts markdown text to ANSI output for the viewport.
 func renderMarkdown(content string, width int) string {
 	if width <= 0 {
 		width = 80
@@ -780,6 +826,7 @@ func renderMarkdown(content string, width int) string {
 	return out
 }
 
+// getRenderer returns a cached Glamour renderer for the given width.
 func getRenderer(width int) (*glamour.TermRenderer, error) {
 	if width <= 0 {
 		width = 80
@@ -800,6 +847,7 @@ func getRenderer(width int) (*glamour.TermRenderer, error) {
 	return renderer, nil
 }
 
+// requestRender initiates a debounced render with caching.
 func (m *model) requestRender(path string) tea.Cmd {
 	if path == "" {
 		return nil
@@ -827,6 +875,7 @@ func (m *model) requestRender(path string) tea.Cmd {
 	})
 }
 
+// renderMarkdownCmd performs the file read + markdown render off the UI thread.
 func renderMarkdownCmd(path string, width int, seq int) tea.Cmd {
 	return func() tea.Msg {
 		info, err := os.Stat(path)
@@ -848,6 +897,7 @@ func renderMarkdownCmd(path string, width int, seq int) tea.Cmd {
 	}
 }
 
+// isDirEmpty reports whether a directory has no entries.
 func isDirEmpty(path string) bool {
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -856,6 +906,7 @@ func isDirEmpty(path string) bool {
 	return len(entries) == 0
 }
 
+// truncate fits a string to the given terminal width.
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
@@ -866,6 +917,7 @@ func truncate(s string, width int) string {
 	return runewidth.Truncate(s, width, "")
 }
 
+// clamp bounds a value between minVal and maxVal.
 func clamp(value, minVal, maxVal int) int {
 	if value < minVal {
 		return minVal
@@ -876,6 +928,7 @@ func clamp(value, minVal, maxVal int) int {
 	return value
 }
 
+// min returns the smaller of two ints.
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -883,6 +936,7 @@ func min(a, b int) int {
 	return b
 }
 
+// max returns the larger of two ints.
 func max(a, b int) int {
 	if a > b {
 		return a
@@ -890,6 +944,7 @@ func max(a, b int) int {
 	return b
 }
 
+// renderWidthBucket buckets widths so the cache is more reusable.
 func renderWidthBucket(width int) int {
 	if width <= 0 {
 		return 80

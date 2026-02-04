@@ -15,3 +15,4 @@
 [ ] Improve error handling and logging.
 [ ] Improve code readability and maintainability.
 [ ] Improve code organization and modularity.
+[x] Add inline documentation to `cmd/notes/main.go`.
