@@ -1,10 +1,14 @@
 # Tasks
 
+## Features
+[ ] Allow Syncing Via GIT repository
+
 ## UI
 [ ] Add notes to the UI for all keybinds.
 [ ] Render the markdown notes unless in Edit mode. 
 [ ] Add a search bar to the UI.
 [ ] Look into using VIM friendly keybinds.
+[ ] First note always gets stuck "Rendering..." until you view the next next note in the tree.
 
 ## Performance
 [ ] Improve performance on a fresh build.
