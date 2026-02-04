@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -50,6 +52,11 @@ type model struct {
 	height     int
 	leftHeight int
 	newParent  string
+
+	renderSeq    int
+	pendingPath  string
+	pendingWidth int
+	renderCache  map[string]renderCacheEntry
 }
 
 var (
@@ -78,6 +85,34 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"2. Select a note and press e to edit it\n" +
 	"3. Press f to create folders and organize your notes\n\n" +
 	"Happy note-taking!\n"
+
+const renderDebounce = 200 * time.Millisecond
+
+type renderCacheEntry struct {
+	mtime   time.Time
+	width   int
+	content string
+}
+
+type renderRequestMsg struct {
+	path  string
+	width int
+	seq   int
+}
+
+type renderResultMsg struct {
+	path    string
+	width   int
+	seq     int
+	content string
+	mtime   time.Time
+	err     error
+}
+
+var (
+	rendererCacheMu sync.Mutex
+	rendererCache   = map[int]*glamour.TermRenderer{}
+)
 
 func main() {
 	m, err := initialModel()
@@ -133,6 +168,7 @@ func initialModel() (*model, error) {
 		mode:      modeBrowse,
 		status:    "Ready",
 		leftHeight: 0,
+		renderCache: map[string]renderCacheEntry{},
 	}, nil
 }
 
@@ -147,8 +183,29 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.leftHeight = max(0, m.height-2)
 		m.updateLayout()
-		m.refreshViewport()
+		cmd := m.refreshViewport()
 		m.adjustTreeOffset()
+		return m, cmd
+	case renderRequestMsg:
+		if msg.seq != m.renderSeq || msg.path != m.pendingPath || msg.width != m.pendingWidth {
+			return m, nil
+		}
+		return m, renderMarkdownCmd(msg.path, msg.width, msg.seq)
+	case renderResultMsg:
+		if msg.seq != m.renderSeq || msg.path != m.currentFile {
+			return m, nil
+		}
+		if msg.err != nil {
+			m.viewport.SetContent("Error reading note")
+			m.status = "Error reading note"
+			return m, nil
+		}
+		m.renderCache[msg.path] = renderCacheEntry{
+			mtime:   msg.mtime,
+			width:   msg.width,
+			content: msg.content,
+		}
+		m.viewport.SetContent(msg.content)
 		return m, nil
 	case tea.KeyMsg:
 		switch m.mode {
@@ -230,18 +287,18 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.status = "New folder cancelled"
 			return m, nil
 		}
-	case modeBrowse:
-		switch key {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "up", "k":
-			m.moveCursor(-1)
-			m.maybeShowSelectedFile()
-			return m, nil
-		case "down", "j":
-			m.moveCursor(1)
-			m.maybeShowSelectedFile()
-			return m, nil
+		case modeBrowse:
+			switch key {
+			case "q", "ctrl+c":
+				return m, tea.Quit
+			case "up", "k":
+				m.moveCursor(-1)
+				cmd := m.maybeShowSelectedFile()
+				return m, cmd
+			case "down", "j":
+				m.moveCursor(1)
+				cmd := m.maybeShowSelectedFile()
+				return m, cmd
 		case "enter", "right":
 			m.toggleExpand(true)
 			return m, nil
@@ -494,8 +551,8 @@ func (m *model) saveNewNote() (tea.Model, tea.Cmd) {
 	m.status = "Created note: " + name
 	m.expanded[m.newParent] = true
 	m.refreshTree()
-	m.setCurrentFile(path)
-	return m, nil
+	cmd := m.setCurrentFile(path)
+	return m, cmd
 }
 
 func (m *model) saveNewFolder() (tea.Model, tea.Cmd) {
@@ -530,8 +587,8 @@ func (m *model) saveEdit() (tea.Model, tea.Cmd) {
 
 	m.mode = modeBrowse
 	m.status = "Saved: " + filepath.Base(m.currentFile)
-	m.setCurrentFile(m.currentFile)
-	return m, nil
+	cmd := m.setCurrentFile(m.currentFile)
+	return m, cmd
 }
 
 func (m *model) deleteSelected() {
@@ -589,35 +646,27 @@ func (m *model) rebuildTreeKeep(path string) {
 	m.adjustTreeOffset()
 }
 
-func (m *model) maybeShowSelectedFile() {
+func (m *model) maybeShowSelectedFile() tea.Cmd {
 	item := m.selectedItem()
 	if item == nil || item.isDir {
-		return
+		return nil
 	}
 	if strings.HasSuffix(strings.ToLower(item.path), ".md") {
-		m.setCurrentFile(item.path)
+		return m.setCurrentFile(item.path)
 	}
+	return nil
 }
 
-func (m *model) setCurrentFile(path string) {
+func (m *model) setCurrentFile(path string) tea.Cmd {
 	m.currentFile = path
-	content, err := os.ReadFile(path)
-	if err != nil {
-		m.viewport.SetContent("Error reading note")
-		m.status = "Error reading note"
-		return
-	}
-
-	m.viewport.SetContent(renderMarkdown(string(content), m.viewport.Width))
+	return m.requestRender(path)
 }
 
-func (m *model) refreshViewport() {
+func (m *model) refreshViewport() tea.Cmd {
 	if m.currentFile != "" {
-		content, err := os.ReadFile(m.currentFile)
-		if err == nil {
-			m.viewport.SetContent(renderMarkdown(string(content), m.viewport.Width))
-		}
+		return m.requestRender(m.currentFile)
 	}
+	return nil
 }
 
 func (m *model) updateLayout() {
@@ -683,10 +732,7 @@ func renderMarkdown(content string, width int) string {
 	if width <= 0 {
 		width = 80
 	}
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(width),
-	)
+	renderer, err := getRenderer(width)
 	if err != nil {
 		return content
 	}
@@ -695,6 +741,71 @@ func renderMarkdown(content string, width int) string {
 		return content
 	}
 	return out
+}
+
+func getRenderer(width int) (*glamour.TermRenderer, error) {
+	if width <= 0 {
+		width = 80
+	}
+	rendererCacheMu.Lock()
+	defer rendererCacheMu.Unlock()
+	if renderer, ok := rendererCache[width]; ok {
+		return renderer, nil
+	}
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return nil, err
+	}
+	rendererCache[width] = renderer
+	return renderer, nil
+}
+
+func (m *model) requestRender(path string) tea.Cmd {
+	if path == "" {
+		return nil
+	}
+	width := m.viewport.Width
+	if width <= 0 {
+		width = 80
+	}
+	if info, err := os.Stat(path); err == nil {
+		if entry, ok := m.renderCache[path]; ok && entry.width == width && entry.mtime.Equal(info.ModTime()) {
+			m.viewport.SetContent(entry.content)
+			return nil
+		}
+	}
+	m.viewport.SetContent("Rendering...")
+	m.renderSeq++
+	seq := m.renderSeq
+	m.pendingPath = path
+	m.pendingWidth = width
+	return tea.Tick(renderDebounce, func(time.Time) tea.Msg {
+		return renderRequestMsg{path: path, width: width, seq: seq}
+	})
+}
+
+func renderMarkdownCmd(path string, width int, seq int) tea.Cmd {
+	return func() tea.Msg {
+		info, err := os.Stat(path)
+		if err != nil {
+			return renderResultMsg{path: path, width: width, seq: seq, err: err}
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return renderResultMsg{path: path, width: width, seq: seq, err: err}
+		}
+		rendered := renderMarkdown(string(content), width)
+		return renderResultMsg{
+			path:    path,
+			width:   width,
+			seq:     seq,
+			content: rendered,
+			mtime:   info.ModTime(),
+		}
+	}
 }
 
 func isDirEmpty(path string) bool {
