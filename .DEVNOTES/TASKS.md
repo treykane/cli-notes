@@ -16,12 +16,13 @@
 [ ] Improve performance on a fresh build.
 
 ## Developer Experiqence
-[ ] Improve developer experience by adding more detailed documentation.
+[x] Improve developer experience by adding more detailed documentation.
 [ ] Add more tests to ensure the application works as expected.
 [ ] Improve error handling and logging.
 [ ] Improve code readability and maintainability.
 [x] Improve code organization and modularity.
 [x] Add inline documentation to `cmd/notes/main.go`.
+[x] Add CONTRIBUTING.md with PR and code style guidelines.
 
 ## Testing
 [ ] Implement testing framework

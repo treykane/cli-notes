@@ -90,6 +90,14 @@ All notes are stored as plain Markdown files in `~/notes`. You can:
 - Go 1.21 or higher
 - Terminal with ANSI color support for best experience
 
+## Developer Documentation
+
+See `docs/DEVELOPMENT.md` for local setup, project layout, and runtime flow details.
+
+## Contributing
+
+See `CONTRIBUTING.md` for code style and PR guidelines.
+
 ## License
 
 MIT

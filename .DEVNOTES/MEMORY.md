@@ -14,6 +14,8 @@
 - 2026-02-04: Documented full keybindings (browse, new note/folder, edit) in README and in-app welcome note.
 - 2026-02-04: Refactored UI logic into `internal/app` to keep `cmd/notes/main.go` minimal and improve maintainability.
 - 2026-02-04: Added an in-app help panel (toggle with `?`) and mode-specific status hints so keybindings are visible in the UI.
+- 2026-02-05: Added `docs/DEVELOPMENT.md` with a developer guide (setup, layout, and rendering flow) and linked it from README.
+- 2026-02-05: Added `CONTRIBUTING.md` with code style and PR guidelines; linked it from README.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`
