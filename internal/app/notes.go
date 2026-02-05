@@ -52,7 +52,7 @@ func ensureNotesDir() (string, error) {
 
 	if isDirEmpty(notesDir) {
 		welcomePath := filepath.Join(notesDir, "Welcome.md")
-		_ = os.WriteFile(welcomePath, []byte(welcomeNote), 0o644)
+		_ = os.WriteFile(welcomePath, []byte(normalizeNoteContent(welcomeNote)), 0o644)
 	}
 
 	return notesDir, nil
@@ -145,7 +145,7 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 
 	path := filepath.Join(m.newParent, name)
 	content := fmt.Sprintf("# %s\n\nYour note content here...\n", strings.TrimSuffix(name, ".md"))
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(normalizeNoteContent(content)), 0o644); err != nil {
 		m.status = "Error creating note"
 		return m, nil
 	}
@@ -185,7 +185,8 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 		m.status = "No note selected"
 		return m, nil
 	}
-	if err := os.WriteFile(m.currentFile, []byte(m.editor.Value()), 0o644); err != nil {
+	content := normalizeNoteContent(m.editor.Value())
+	if err := os.WriteFile(m.currentFile, []byte(content), 0o644); err != nil {
 		m.status = "Error saving note"
 		return m, nil
 	}
@@ -194,6 +195,11 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 	m.status = "Saved: " + filepath.Base(m.currentFile)
 	cmd := m.setCurrentFile(m.currentFile)
 	return m, cmd
+}
+
+// normalizeNoteContent ensures notes always end with exactly one newline.
+func normalizeNoteContent(content string) string {
+	return strings.TrimRight(content, "\r\n") + "\n"
 }
 
 // deleteSelected removes the selected file or empty folder.

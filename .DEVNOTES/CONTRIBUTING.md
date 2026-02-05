@@ -13,6 +13,7 @@ See `DEVELOPMENT.md` for setup requirements and run commands.
 - Prefer standard library solutions when practical.
 - Avoid hidden filesystem side effects; all notes live in `~/notes`.
 - Keep the README, `docs/DEVELOPMENT.md`, and in-app help aligned.
+- Preserve note file normalization rules (notes end with exactly one trailing newline).
 
 ## Code Style
 

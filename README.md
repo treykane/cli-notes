@@ -1,4 +1,4 @@
-# cli-notes - SUPER EARLY BETA - DO NOT TRUST THIS APPLICATION
+# cli-notes - BETA VERSION
 
 A beautiful TUI (Text User Interface) notes application that lives in your CLI. Manage your notes with Markdown formatting, organized in a directory structure.
 
@@ -104,6 +104,7 @@ All notes are stored as plain Markdown files in `~/notes`. You can:
 - Version control them with Git
 - Sync them with cloud storage
 - Use them with other Markdown tools
+- Expect notes saved by the app to end with exactly one trailing newline
 
 ## Requirements
 

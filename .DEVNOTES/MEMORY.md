@@ -27,6 +27,7 @@
 - 2026-02-05: Added more Vim-friendly navigation in browse mode (`h/l`, `j/k`, `g/G`, and `Ctrl+N`).
 - 2026-02-05: Brought app color styling into the edit textarea (prompt, line numbers, cursor line, and muted placeholders).
 - 2026-02-05: Expanded injected-input classification for debug mode to label ignored sequences (OSC/CSI/escape/control) via `CLI_NOTES_DEBUG_INPUT`.
+- 2026-02-05: Normalized note writes to always end with exactly one trailing newline (applies to welcome note creation, new notes, and edits).
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`
