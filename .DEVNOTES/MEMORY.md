@@ -33,6 +33,7 @@
 - 2026-02-05: Restyled the right-pane filename row as a solid-color status bar and refreshed tree row styling (DIR/MD tags plus colorized +/- folder markers).
 - 2026-02-05: Updated tree palette to blue markdown tags/files and green folder tags/names, and made selection highlighting span the full tree row width.
 - 2026-02-05: Updated selected tree rows to render unstyled row text before highlight so the selection color clearly covers both the full row and its text.
+- 2026-02-05: Switched UI string truncation to ANSI-aware truncation to avoid clipping styled tree rows.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`

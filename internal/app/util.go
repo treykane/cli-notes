@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // truncate fits a string to the given terminal width.
@@ -15,7 +15,7 @@ func truncate(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	return runewidth.Truncate(s, width, "")
+	return ansi.Truncate(s, width, "")
 }
 
 // padBlock normalizes content to a fixed width and height so old UI text is cleared.
