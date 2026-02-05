@@ -33,6 +33,7 @@ Notes storage:
 - `internal/app/model.go`: Core Bubble Tea model and update loop; handles modes and input routing.
 - `internal/app/view.go`: UI layout and rendering (tree pane, right pane, status line).
 - `internal/app/tree.go`: Filesystem tree building and selection movement logic.
+- `internal/app/search_index.go`: Cached/incremental search index used by the `Ctrl+P` popup.
 - `internal/app/render.go`: Debounced markdown rendering and render cache.
 - `internal/app/notes.go`: Notes workspace seeding and file operations (create/edit/delete).
 - `internal/app/styles.go`: Lip Gloss styles for panes, headers, and status line.
@@ -43,8 +44,9 @@ Notes storage:
 1. `main()` ensures config exists (runs configurator when needed), then starts the app.
 2. `New()` loads config and ensures the configured notes directory exists.
 3. `Update()` handles key input, window resize, and render results.
-4. Selecting a Markdown file triggers a debounced render pipeline.
-5. The right pane shows either rendered Markdown, edit mode, or help text.
+4. Opening `Ctrl+P` search uses a cached content index; normal create/edit/delete operations update that index incrementally.
+5. Selecting a Markdown file triggers a debounced render pipeline.
+6. The right pane shows either rendered Markdown, edit mode, or help text.
 
 ## Rendering Pipeline
 

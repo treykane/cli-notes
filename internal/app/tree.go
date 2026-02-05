@@ -114,42 +114,12 @@ func walkTree(dir string, depth int, expanded map[string]bool, items *[]treeItem
 }
 
 func searchTreeItems(root, query string) []treeItem {
-	query = strings.TrimSpace(strings.ToLower(query))
-	if query == "" {
+	if strings.TrimSpace(query) == "" {
 		return nil
 	}
-	results := []treeItem{}
-	searchTree(root, 0, query, &results)
-	return results
-}
-
-func searchTree(dir string, depth int, query string, results *[]treeItem) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
+	idx := newSearchIndex(root)
+	if err := idx.ensureBuilt(); err != nil {
+		return nil
 	}
-
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].IsDir() != entries[j].IsDir() {
-			return entries[i].IsDir()
-		}
-		return strings.ToLower(entries[i].Name()) < strings.ToLower(entries[j].Name())
-	})
-
-	for _, entry := range entries {
-		path := filepath.Join(dir, entry.Name())
-		nameMatch := strings.Contains(strings.ToLower(entry.Name()), query)
-
-		if nameMatch {
-			*results = append(*results, treeItem{
-				path:  path,
-				name:  entry.Name(),
-				depth: depth,
-				isDir: entry.IsDir(),
-			})
-		}
-		if entry.IsDir() {
-			searchTree(path, depth+1, query, results)
-		}
-	}
+	return idx.search(query)
 }

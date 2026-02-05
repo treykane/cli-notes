@@ -84,7 +84,7 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 
 ### 8. Search Notes
 - Press `Ctrl+P` to open the search popup
-- Type to filter notes/folders by name
+- Type to filter folders by name and notes by name/content
 - Use `↑/↓` or `j`/`k` to choose a match
 - Press `Enter` to jump to the selected item
 - Press `Esc` to close the popup

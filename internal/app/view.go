@@ -161,7 +161,7 @@ func (m *Model) renderHelp(width, height int) string {
 		"  notes --configure         Re-run configurator",
 		"",
 		"Search Popup",
-		"  Type                Filter notes/folders by name",
+		"  Type                Filter folders by name, notes by name/content",
 		"  ↑/↓, j/k            Move search selection",
 		"  Enter               Jump to selected result",
 		"  Esc                 Close search popup",

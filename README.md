@@ -8,7 +8,8 @@ A beautiful TUI (Text User Interface) notes application that lives in your CLI. 
 - Mode-aware colors with distinct preview vs edit accents
 - Colorful tree rows that visually separate folders and notes
 - Directory organization (folders instead of notebooks)
-- Search popup (`Ctrl+P`) for filtering notes and folders by name
+- Search popup (`Ctrl+P`) for filtering folders by name and notes by name/content
+- Cached search index keeps `Ctrl+P` responsive on larger note collections
 - Keyboard-driven workflow
 - Plain text storage as `.md` files on your filesystem
 
@@ -88,7 +89,7 @@ Use `--configure` to re-run the configurator and change the notes directory.
 
 | Key | Action |
 |-----|--------|
-| Type while popup is open | Filter notes/folders by name |
+| Type while popup is open | Filter folders by name and notes by name/content |
 | `↑`/`↓` or `j`/`k` | Move search selection |
 | `Enter` | Jump to selected result |
 | `Esc` | Close popup |

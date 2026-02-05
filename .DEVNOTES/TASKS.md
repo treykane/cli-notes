@@ -19,10 +19,12 @@
 [x] Turn the right-pane filename row into a solid status bar and add more visual distinction in the file tree.
 [x] Swap tree colors to blue MD files + green folders and make tree selection highlight full-width.
 [x] Ensure selected tree rows highlight both the full row and row text clearly.
-[ ] Search currently matches note and folder names only (no note body/content search).
+[x] Search currently matches note and folder names only (no note body/content search).
 
 ## Performance
 [x] Improve performance on a fresh build.
+[x] Consider adding an incremental/cached content index for search to keep `Ctrl+P` fast with large note collections.
+[ ] Add a search-index benchmark suite (cold build vs warm query; small vs large note sets) to guard future regressions.
 
 ## Developer Experiqence
 [x] Improve developer experience by adding more detailed documentation.

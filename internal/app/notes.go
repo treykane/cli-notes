@@ -147,6 +147,9 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 	m.status = "Created note: " + name
 	m.expanded[m.newParent] = true
 	m.refreshTree()
+	if m.searchIdx != nil {
+		m.searchIdx.upsertPath(path)
+	}
 	cmd := m.setCurrentFile(path)
 	return m, cmd
 }
@@ -169,6 +172,9 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 	m.status = "Created folder: " + name
 	m.expanded[m.newParent] = true
 	m.refreshTree()
+	if m.searchIdx != nil {
+		m.searchIdx.upsertPath(path)
+	}
 	return m, nil
 }
 
@@ -186,6 +192,9 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 
 	m.mode = modeBrowse
 	m.status = "Saved: " + filepath.Base(m.currentFile)
+	if m.searchIdx != nil {
+		m.searchIdx.upsertPath(m.currentFile)
+	}
 	cmd := m.setCurrentFile(m.currentFile)
 	return m, cmd
 }
@@ -229,6 +238,9 @@ func (m *Model) deleteSelected() {
 	if item.path == m.currentFile {
 		m.currentFile = ""
 		m.viewport.SetContent("Select a note to view")
+	}
+	if m.searchIdx != nil {
+		m.searchIdx.removePath(item.path)
 	}
 	m.refreshTree()
 }

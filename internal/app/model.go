@@ -41,6 +41,7 @@ type Model struct {
 	cursor      int
 	treeOffset  int
 	currentFile string
+	searchIdx   *searchIndex
 
 	// UI widgets
 	viewport   viewport.Model
@@ -112,6 +113,7 @@ func New() (*Model, error) {
 		notesDir:    notesDir,
 		items:       items,
 		expanded:    expanded,
+		searchIdx:   newSearchIndex(notesDir),
 		viewport:    vp,
 		input:       input,
 		search:      search,
@@ -372,6 +374,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "r":
 			m.refreshTree()
+			if m.searchIdx != nil {
+				m.searchIdx.invalidate()
+			}
 			m.status = "Refreshed"
 			return m, nil
 		}
@@ -387,6 +392,9 @@ func (m *Model) openSearchPopup() {
 	m.searchRows = nil
 	m.searchPos = 0
 	m.showHelp = false
+	if m.searchIdx != nil {
+		_ = m.searchIdx.ensureBuilt()
+	}
 	m.status = "Search popup: type to filter, Enter to jump, Esc to cancel"
 }
 
@@ -400,7 +408,16 @@ func (m *Model) closeSearchPopup() {
 
 func (m *Model) updateSearchRows() {
 	query := strings.TrimSpace(m.search.Value())
-	m.searchRows = searchTreeItems(m.notesDir, query)
+	if m.searchIdx == nil {
+		m.searchIdx = newSearchIndex(m.notesDir)
+	}
+	if err := m.searchIdx.ensureBuilt(); err != nil {
+		m.searchRows = nil
+		m.searchPos = 0
+		m.status = "Search index error"
+		return
+	}
+	m.searchRows = m.searchIdx.search(query)
 	if len(m.searchRows) == 0 {
 		m.searchPos = 0
 		m.status = fmt.Sprintf("Search \"%s\" (0 matches)", query)
