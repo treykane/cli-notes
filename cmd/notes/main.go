@@ -1,26 +1,49 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/treykane/cli-notes/internal/app"
+	"github.com/treykane/cli-notes/internal/config"
 )
 
 func main() {
 	renderLight := flag.Bool("render-light", false, "render markdown using a light theme")
+	configure := flag.Bool("configure", false, "run configurator to choose the notes directory")
 	flag.Parse()
 
 	if *renderLight {
 		_ = os.Setenv("CLI_NOTES_GLAMOUR_STYLE", "light")
 	}
 
-	m, err := app.New()
+	configured, err := config.Exists()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	if *configure || !configured {
+		if err := runConfigurator(os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+	}
+
+	m, err := app.New()
+	if err != nil {
+		if errors.Is(err, config.ErrNotConfigured) {
+			fmt.Fprintln(os.Stderr, "error: app is not configured; run notes --configure")
+		} else {
+			fmt.Fprintln(os.Stderr, "error:", err)
+		}
 		os.Exit(1)
 	}
 
@@ -28,5 +51,53 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
+	}
+}
+
+func runConfigurator(in io.Reader, out io.Writer) error {
+	defaultDir, err := config.DefaultNotesDir()
+	if err != nil {
+		return err
+	}
+
+	reader := bufio.NewReader(in)
+	fmt.Fprintln(out, "CLI Notes Configurator")
+	fmt.Fprintln(out, "Set the directory where your markdown notes will be stored.")
+
+	for {
+		fmt.Fprintf(out, "Notes directory [%s]: ", defaultDir)
+		line, err := reader.ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+
+		value := strings.TrimSpace(line)
+		if value == "" {
+			value = defaultDir
+		}
+
+		notesDir, normErr := config.NormalizeNotesDir(value)
+		if normErr != nil {
+			fmt.Fprintf(out, "Invalid directory: %v\n", normErr)
+			if errors.Is(err, io.EOF) {
+				return normErr
+			}
+			continue
+		}
+
+		if mkErr := os.MkdirAll(notesDir, 0o755); mkErr != nil {
+			fmt.Fprintf(out, "Unable to create directory: %v\n", mkErr)
+			if errors.Is(err, io.EOF) {
+				return mkErr
+			}
+			continue
+		}
+
+		if saveErr := config.Save(config.Config{NotesDir: notesDir}); saveErr != nil {
+			return saveErr
+		}
+
+		fmt.Fprintf(out, "Saved configuration: notes_dir=%s\n", notesDir)
+		return nil
 	}
 }

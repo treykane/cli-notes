@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/treykane/cli-notes/internal/config"
 )
 
 // mode controls the UI state and which input widget is active.
@@ -73,10 +74,14 @@ type Model struct {
 	renderingSeq  int
 }
 
-// New prepares the initial UI model and ensures the notes directory exists.
+// New prepares the initial UI model and ensures the configured notes directory exists.
 func New() (*Model, error) {
-	notesDir, err := ensureNotesDir()
+	cfg, err := config.Load()
 	if err != nil {
+		return nil, err
+	}
+	notesDir := cfg.NotesDir
+	if err := ensureNotesDir(notesDir); err != nil {
 		return nil, err
 	}
 

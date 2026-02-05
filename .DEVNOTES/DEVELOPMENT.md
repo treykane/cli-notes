@@ -22,26 +22,29 @@ go run ./cmd/notes
 ```
 
 Notes storage:
-- Notes are stored as Markdown files in `~/notes`.
-- The directory is created on first run and seeded with `Welcome.md` if empty.
+- On first run (or with `--configure`), a configurator prompts for the notes directory and saves it in `~/.cli-notes/config.json` as `notes_dir`.
+- Notes are stored as Markdown files in the configured `notes_dir`.
+- The configured directory is created on startup and seeded with `Welcome.md` if empty.
 
 ## Project Layout
 
-- `cmd/notes/main.go`: Program entry point. Initializes and runs the Bubble Tea app.
+- `cmd/notes/main.go`: Program entry point. Runs first-time configuration and starts the Bubble Tea app.
+- `internal/config/config.go`: Config file pathing, load/save, and notes directory normalization.
 - `internal/app/model.go`: Core Bubble Tea model and update loop; handles modes and input routing.
 - `internal/app/view.go`: UI layout and rendering (tree pane, right pane, status line).
 - `internal/app/tree.go`: Filesystem tree building and selection movement logic.
 - `internal/app/render.go`: Debounced markdown rendering and render cache.
-- `internal/app/notes.go`: Notes directory setup and file operations (create/edit/delete).
+- `internal/app/notes.go`: Notes workspace seeding and file operations (create/edit/delete).
 - `internal/app/styles.go`: Lip Gloss styles for panes, headers, and status line.
 - `internal/app/util.go`: Rendering helpers and small utilities.
 
 ## Runtime Flow
 
-1. `New()` initializes the model and ensures `~/notes` exists.
-2. `Update()` handles key input, window resize, and render results.
-3. Selecting a Markdown file triggers a debounced render pipeline.
-4. The right pane shows either rendered Markdown, edit mode, or help text.
+1. `main()` ensures config exists (runs configurator when needed), then starts the app.
+2. `New()` loads config and ensures the configured notes directory exists.
+3. `Update()` handles key input, window resize, and render results.
+4. Selecting a Markdown file triggers a debounced render pipeline.
+5. The right pane shows either rendered Markdown, edit mode, or help text.
 
 ## Rendering Pipeline
 
@@ -54,7 +57,7 @@ Markdown rendering is intentionally asynchronous and debounced to keep navigatio
 
 ## Testing
 
-There are no tests yet, but the standard entry point is:
+Current entry point:
 
 ```bash
 go test ./...
@@ -64,4 +67,4 @@ go test ./...
 
 - If the UI looks misaligned, ensure your terminal supports ANSI colors and has enough width.
 - If rendered content appears stale, press `r` to refresh the tree and re-render.
-- If `Welcome.md` is missing, delete `~/notes` and re-run the app to regenerate it.
+- If `Welcome.md` is missing, ensure the configured `notes_dir` exists and is empty, then re-run the app.

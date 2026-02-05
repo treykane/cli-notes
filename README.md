@@ -38,15 +38,18 @@ Run the `notes` command to start the application:
 ./notes
 ```
 
-Your notes will be stored in `~/notes` by default.
+On first run, the app runs a configurator and asks where to store your notes. This path is saved in `~/.cli-notes/config.json` as `notes_dir`.
 
 ### Optional Flags
 
 ```bash
 ./notes --render-light
+./notes --configure
 ```
 
 Use `--render-light` to render markdown with a light theme (default is dark). This is equivalent to setting `CLI_NOTES_GLAMOUR_STYLE=light`.
+
+Use `--configure` to re-run the configurator and change the notes directory.
 
 ## Keyboard Shortcuts
 
@@ -101,7 +104,7 @@ Use `--render-light` to render markdown with a light theme (default is dark). Th
 
 ## Notes Storage
 
-All notes are stored as plain Markdown files in `~/notes`. You can:
+All notes are stored as plain Markdown files in your configured `notes_dir` (set in `~/.cli-notes/config.json`). You can:
 - Edit them with any text editor
 - Version control them with Git
 - Sync them with cloud storage

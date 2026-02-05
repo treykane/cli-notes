@@ -1,0 +1,60 @@
+package config
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestLoadReturnsErrNotConfiguredWhenMissing(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	_, err := Load()
+	if !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("expected ErrNotConfigured, got %v", err)
+	}
+}
+
+func TestSaveAndLoadRoundTrip(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg := Config{NotesDir: "~/my-notes"}
+	if err := Save(cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	exists, err := Exists()
+	if err != nil {
+		t.Fatalf("exists: %v", err)
+	}
+	if !exists {
+		t.Fatal("expected config file to exist")
+	}
+
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	expected := filepath.Join(home, "my-notes")
+	if loaded.NotesDir != expected {
+		t.Fatalf("expected notes dir %q, got %q", expected, loaded.NotesDir)
+	}
+
+	path, err := ConfigPath()
+	if err != nil {
+		t.Fatalf("config path: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("stat config path: %v", err)
+	}
+}
+
+func TestNormalizeNotesDirRejectsEmpty(t *testing.T) {
+	if _, err := NormalizeNotesDir("   "); err == nil {
+		t.Fatal("expected error for empty path")
+	}
+}

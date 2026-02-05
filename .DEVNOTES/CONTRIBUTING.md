@@ -11,7 +11,7 @@ See `DEVELOPMENT.md` for setup requirements and run commands.
 - Keep behavior changes small and focused.
 - Favor clear, readable Go over clever code.
 - Prefer standard library solutions when practical.
-- Avoid hidden filesystem side effects; all notes live in `~/notes`.
+- Avoid hidden filesystem side effects; notes live in the configured `notes_dir` from `~/.cli-notes/config.json`.
 - Keep the README, `docs/DEVELOPMENT.md`, and in-app help aligned.
 - Preserve note file normalization rules (notes end with exactly one trailing newline).
 

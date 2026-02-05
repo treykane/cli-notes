@@ -10,6 +10,8 @@ See `DEVELOPMENT.md` for setup requirements and build commands.
 
 See `DEVELOPMENT.md` for run commands.
 
+Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
+
 ## Application Layout
 
 ```
@@ -89,7 +91,7 @@ See `DEVELOPMENT.md` for run commands.
 
 ## File Storage
 
-Example storage layout (notes are Markdown files; see `DEVELOPMENT.md` for details):
+Example storage layout (replace with your configured `notes_dir`; see `DEVELOPMENT.md` for details):
 
 ```
 ~/notes/

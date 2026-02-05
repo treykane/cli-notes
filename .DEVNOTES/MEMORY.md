@@ -2,7 +2,7 @@
 
 ## Project Overview
 - CLI/TUI notes app built with Bubble Tea.
-- Stores Markdown files in `~/notes` (created on first run).
+- Stores Markdown files in a user-configured `notes_dir` from `~/.cli-notes/config.json`.
 - Entry point: `cmd/notes/main.go` (binary name `notes`).
 
 ## Conventions
@@ -34,6 +34,7 @@
 - 2026-02-05: Updated tree palette to blue markdown tags/files and green folder tags/names, and made selection highlighting span the full tree row width.
 - 2026-02-05: Updated selected tree rows to render unstyled row text before highlight so the selection color clearly covers both the full row and its text.
 - 2026-02-05: Switched UI string truncation to ANSI-aware truncation to avoid clipping styled tree rows.
+- 2026-02-05: Added first-run configurator and `--configure` flag; notes directory is now stored in `~/.cli-notes/config.json` and surfaced in in-app help.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`

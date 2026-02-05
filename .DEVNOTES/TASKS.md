@@ -2,6 +2,7 @@
 
 ## Features
 [ ] Allow Syncing Via GIT repository
+[x] Add a first-run configurator and `--configure` command for selecting notes storage directory.
 
 ## UI
 [x] Add notes to the UI for all keybinds.
@@ -35,3 +36,4 @@
 ## Testing
 [ ] Implement testing framework
 [ ] Add unit tests for tree building and render cache behavior in `internal/app`.
+[x] Add unit tests for config load/save and first-run configurator behavior.

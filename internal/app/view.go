@@ -135,7 +135,7 @@ func (m *Model) statusHelp() string {
 		if m.searching {
 			return "Search popup: type  ↑/↓ move  Enter jump  Esc cancel"
 		}
-		return "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  d delete  r refresh  ? help  q quit"
+		return "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  d delete  r refresh  ? help  q quit  (reconfigure: notes --configure)"
 	}
 }
 
@@ -156,6 +156,9 @@ func (m *Model) renderHelp(width, height int) string {
 		"  r                         Refresh",
 		"  ?                         Toggle help",
 		"  q or Ctrl+C               Quit",
+		"",
+		"CLI",
+		"  notes --configure         Re-run configurator",
 		"",
 		"Search Popup",
 		"  Type                Filter notes/folders by name",

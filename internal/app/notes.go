@@ -9,7 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// welcomeNote is written to ~/notes/Welcome.md on first run.
 const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"This is your personal notes manager in the terminal.\n\n" +
 	"## Features\n\n" +
@@ -39,15 +38,9 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"3. Press f to create folders and organize your notes\n\n" +
 	"Happy note-taking!\n"
 
-func ensureNotesDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	notesDir := filepath.Join(home, "notes")
+func ensureNotesDir(notesDir string) error {
 	if err := os.MkdirAll(notesDir, 0o755); err != nil {
-		return "", err
+		return err
 	}
 
 	if isDirEmpty(notesDir) {
@@ -55,7 +48,7 @@ func ensureNotesDir() (string, error) {
 		_ = os.WriteFile(welcomePath, []byte(normalizeNoteContent(welcomeNote)), 0o644)
 	}
 
-	return notesDir, nil
+	return nil
 }
 
 // selectedItem returns the currently highlighted tree item, if any.
