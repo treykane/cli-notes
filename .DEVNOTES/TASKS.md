@@ -5,12 +5,11 @@
 
 ## UI
 [x] Add notes to the UI for all keybinds.
-[ ] Render the markdown notes unless in Edit mode. 
 [x] Add a search to the UI.
 [x] Move search to a popup opened with Ctrl+P.
 [x] Look into using VIM friendly keybinds.
 [ ] First note always gets stuck "Rendering..." until you view the next next note in the tree.
-[ ] Clear stale pane text when switching help or screens (ensure panes pad to full width/height).
+[x] Clear stale pane text when switching help or screens (ensure panes pad to full width/height).
 [x] Bring the colors and styles into the Note Edit UI.
 [x] Avoid OSC background color query strings (ex: `1;rgb:...`) being inserted into notes when editing.
 [x] Filter stray OSC background response sequences from editor input on first edit.
@@ -22,7 +21,7 @@
 [ ] Search currently matches note and folder names only (no note body/content search).
 
 ## Performance
-[ ] Improve performance on a fresh build.
+[x] Improve performance on a fresh build.
 
 ## Developer Experiqence
 [x] Improve developer experience by adding more detailed documentation.

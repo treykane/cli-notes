@@ -14,8 +14,8 @@ func (m *Model) View() string {
 	}
 
 	leftWidth := min(40, m.width/3)
-	rightWidth := max(0, m.width-leftWidth-1)
-	contentHeight := max(0, m.height-2)
+	rightWidth := max(0, m.width-leftWidth)
+	contentHeight := max(0, m.height-1)
 
 	leftPane := m.renderTree(leftWidth, contentHeight)
 	rightPane := m.renderRight(rightWidth, contentHeight)
@@ -24,13 +24,14 @@ func (m *Model) View() string {
 		row = m.renderSearchPopupOverlay(m.width, contentHeight)
 	}
 
-	return row + "\n" + m.renderStatus(m.width)
+	view := row + "\n" + m.renderStatus(m.width)
+	return padBlock(view, m.width, m.height)
 }
 
 // renderTree draws the left-hand directory tree pane.
 func (m *Model) renderTree(width, height int) string {
-	innerWidth := max(0, width-2)
-	innerHeight := max(0, height-2)
+	innerWidth := max(0, width-paneStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-paneStyle.GetVerticalFrameSize())
 
 	header := titleStyle.Render("Notes: " + m.notesDir)
 	lines := []string{truncate(header, innerWidth)}
@@ -62,8 +63,6 @@ func (m *Model) renderTree(width, height int) string {
 
 // renderRight draws the right-hand pane (editor, input, or markdown viewport).
 func (m *Model) renderRight(width, height int) string {
-	innerWidth := max(0, width-2)
-	innerHeight := max(0, height-2)
 	rightPaneStyle := previewPane
 	headerStyle := previewHeader
 	if m.mode == modeEditNote {
@@ -71,6 +70,8 @@ func (m *Model) renderRight(width, height int) string {
 		headerStyle = editHeader
 	}
 
+	innerWidth := max(0, width-rightPaneStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-rightPaneStyle.GetVerticalFrameSize())
 	contentHeight := max(0, innerHeight-1)
 
 	var content string
@@ -189,8 +190,8 @@ func (m *Model) renderSearchPopupOverlay(width, height int) string {
 }
 
 func (m *Model) renderSearchPopup(width, height int) string {
-	innerWidth := max(0, width-4)
-	innerHeight := max(0, height-2)
+	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
 	m.search.Width = innerWidth
 
 	lines := []string{
@@ -265,8 +266,12 @@ func (m *Model) formatTreeItemSelected(item treeItem) string {
 // updateLayout recomputes viewport sizing after a window resize.
 func (m *Model) updateLayout() {
 	leftWidth := min(40, m.width/3)
-	rightWidth := max(0, m.width-leftWidth-1)
-	contentHeight := max(0, m.height-2)
-	m.viewport.Width = max(0, rightWidth-2)
-	m.viewport.Height = max(0, contentHeight-2)
+	rightWidth := max(0, m.width-leftWidth)
+	contentHeight := max(0, m.height-1)
+	rightPaneStyle := previewPane
+	if m.mode == modeEditNote {
+		rightPaneStyle = editPane
+	}
+	m.viewport.Width = max(0, rightWidth-rightPaneStyle.GetHorizontalFrameSize())
+	m.viewport.Height = max(0, contentHeight-rightPaneStyle.GetVerticalFrameSize()-1)
 }
