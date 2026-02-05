@@ -9,7 +9,7 @@
 [x] Add a search to the UI.
 [x] Move search to a popup opened with Ctrl+P.
 [x] Look into using VIM friendly keybinds.
-[ ] First note always gets stuck "Rendering..." until you view the next next note in the tree.
+[x] First note always gets stuck "Rendering..." until you view the next next note in the tree.
 [x] Clear stale pane text when switching help or screens (ensure panes pad to full width/height).
 [x] Bring the colors and styles into the Note Edit UI.
 [x] Avoid OSC background color query strings (ex: `1;rgb:...`) being inserted into notes when editing.
