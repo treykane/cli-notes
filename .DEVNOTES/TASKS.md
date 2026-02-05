@@ -9,11 +9,13 @@
 [ ] Add a search bar to the UI.
 [ ] Look into using VIM friendly keybinds.
 [ ] First note always gets stuck "Rendering..." until you view the next next note in the tree.
+[ ] Clear stale pane text when switching help or screens (ensure panes pad to full width/height).
+[ ] Bring the colors and styles into the Note Edit UI.
 
 ## Performance
 [ ] Improve performance on a fresh build.
 
-## Developer Experience
+## Developer Experiqence
 [ ] Improve developer experience by adding more detailed documentation.
 [ ] Add more tests to ensure the application works as expected.
 [ ] Improve error handling and logging.

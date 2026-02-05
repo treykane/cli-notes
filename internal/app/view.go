@@ -45,7 +45,7 @@ func (m *Model) renderTree(width, height int) string {
 		lines = append(lines, truncate(line, innerWidth))
 	}
 
-	content := strings.Join(lines, "\n")
+	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
 	return paneStyle.Width(width).Height(height).Render(content)
 }
 
@@ -86,6 +86,7 @@ func (m *Model) renderRight(width, height int) string {
 		}
 	}
 
+	content = padBlock(content, innerWidth, innerHeight)
 	return paneStyle.Width(width).Height(height).Render(content)
 }
 

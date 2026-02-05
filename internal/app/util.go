@@ -18,6 +18,33 @@ func truncate(s string, width int) string {
 	return runewidth.Truncate(s, width, "")
 }
 
+// padBlock normalizes content to a fixed width and height so old UI text is cleared.
+func padBlock(content string, width, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+
+	lines := strings.Split(content, "\n")
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+
+	for i, line := range lines {
+		line = truncate(line, width)
+		visible := lipgloss.Width(line)
+		if visible < width {
+			line += strings.Repeat(" ", width-visible)
+		}
+		lines[i] = line
+	}
+
+	for len(lines) < height {
+		lines = append(lines, strings.Repeat(" ", width))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 // clamp bounds a value between minVal and maxVal.
 func clamp(value, minVal, maxVal int) int {
 	if value < minVal {
