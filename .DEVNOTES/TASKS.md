@@ -15,6 +15,7 @@
 [x] Avoid OSC background color query strings (ex: `1;rgb:...`) being inserted into notes when editing.
 [x] Filter stray OSC background response sequences from editor input on first edit.
 [x] Capture and classify remaining "random" injected input on first edit (enable `CLI_NOTES_DEBUG_INPUT`).
+[x] Add mode-aware preview/edit color accents so it is obvious when edit mode is active.
 [ ] Search currently matches note and folder names only (no note body/content search).
 
 ## Performance

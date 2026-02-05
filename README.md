@@ -5,6 +5,7 @@ A beautiful TUI (Text User Interface) notes application that lives in your CLI. 
 ## Features
 
 - Markdown support with rendered preview
+- Mode-aware colors with distinct preview vs edit accents
 - Directory organization (folders instead of notebooks)
 - Search popup (`Ctrl+P`) for filtering notes and folders by name
 - Keyboard-driven workflow

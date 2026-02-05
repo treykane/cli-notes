@@ -28,6 +28,8 @@
 - 2026-02-05: Brought app color styling into the edit textarea (prompt, line numbers, cursor line, and muted placeholders).
 - 2026-02-05: Expanded injected-input classification for debug mode to label ignored sequences (OSC/CSI/escape/control) via `CLI_NOTES_DEBUG_INPUT`.
 - 2026-02-05: Normalized note writes to always end with exactly one trailing newline (applies to welcome note creation, new notes, and edits).
+- 2026-02-05: Added mode-aware right-pane theming so preview and edit mode use distinct accents/badges and are visually easy to distinguish.
+- 2026-02-05: Removed explicit "PREVIEW"/"EDIT MODE" labels from the right-pane header; the UI now uses path-only headers with mode-specific colors.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`

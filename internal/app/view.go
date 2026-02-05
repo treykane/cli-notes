@@ -59,12 +59,20 @@ func (m *Model) renderTree(width, height int) string {
 func (m *Model) renderRight(width, height int) string {
 	innerWidth := max(0, width-2)
 	innerHeight := max(0, height-2)
+	rightPaneStyle := previewPane
+	header := truncate(m.rightHeaderPath(), innerWidth)
+
+	if m.mode == modeEditNote {
+		rightPaneStyle = editPane
+	}
+
+	contentHeight := max(0, innerHeight-1)
 
 	var content string
 	switch m.mode {
 	case modeEditNote:
 		m.editor.SetWidth(innerWidth)
-		m.editor.SetHeight(innerHeight)
+		m.editor.SetHeight(contentHeight)
 		content = m.editor.View()
 	case modeNewNote, modeNewFolder:
 		m.input.Width = innerWidth
@@ -84,16 +92,16 @@ func (m *Model) renderRight(width, height int) string {
 		}, "\n")
 	default:
 		if m.showHelp {
-			content = m.renderHelp(innerWidth, innerHeight)
+			content = m.renderHelp(innerWidth, contentHeight)
 		} else {
 			m.viewport.Width = innerWidth
-			m.viewport.Height = innerHeight
+			m.viewport.Height = contentHeight
 			content = m.viewport.View()
 		}
 	}
 
-	content = padBlock(content, innerWidth, innerHeight)
-	return paneStyle.Width(width).Height(height).Render(content)
+	body := padBlock(content, innerWidth, contentHeight)
+	return rightPaneStyle.Width(width).Height(height).Render(header + "\n" + body)
 }
 
 // renderStatus renders the footer help line and any status message.
@@ -103,7 +111,11 @@ func (m *Model) renderStatus(width int) string {
 	if m.status != "" {
 		line = help + " | " + m.status
 	}
-	return statusStyle.Width(width).Render(truncate(line, width))
+	style := statusStyle
+	if m.mode == modeEditNote {
+		style = editStatus
+	}
+	return style.Width(width).Render(truncate(line, width))
 }
 
 func (m *Model) statusHelp() string {
@@ -202,6 +214,14 @@ func (m *Model) renderSearchPopup(width, height int) string {
 
 	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
 	return popupStyle.Width(width).Height(height).Render(content)
+}
+
+func (m *Model) rightHeaderPath() string {
+	path := "No note selected"
+	if m.currentFile != "" {
+		path = m.displayRelative(m.currentFile)
+	}
+	return mutedStyle.Render(path)
 }
 
 // formatTreeItem formats a directory or file row with indentation and markers.
