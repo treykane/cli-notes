@@ -96,7 +96,7 @@ See `docs/DEVELOPMENT.md` for local setup, project layout, and runtime flow deta
 
 ## Contributing
 
-See `CONTRIBUTING.md` for code style and PR guidelines.
+See `.DEVNOTES/CONTRIBUTING.md` for code style and PR guidelines.
 
 ## License
 

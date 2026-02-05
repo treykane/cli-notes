@@ -11,6 +11,7 @@
 [ ] First note always gets stuck "Rendering..." until you view the next next note in the tree.
 [ ] Clear stale pane text when switching help or screens (ensure panes pad to full width/height).
 [ ] Bring the colors and styles into the Note Edit UI.
+[x] Avoid OSC background color query strings (ex: `1;rgb:...`) being inserted into notes when editing.
 
 ## Performance
 [ ] Improve performance on a fresh build.

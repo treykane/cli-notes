@@ -7,6 +7,7 @@ Please review the shared workspace notes in `.DEVNOTES` before making changes. T
 - `.DEVNOTES/README.md`
 - `.DEVNOTES/MEMORY.md`
 - `.DEVNOTES/DEMO.md`
+- `.DEVNOTES/CONTRIBUTING.md`
 
 Please make sure to update any relevant documentation in `.DEVNOTES`.
 Please create new tasks in `.DEVNOTES/TASKS.md` when you identify any issues or improvements.

@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -145,7 +146,7 @@ func getRenderer(width int) (*glamour.TermRenderer, error) {
 		return renderer, nil
 	}
 	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamourStyleOption(),
 		glamour.WithWordWrap(width),
 	)
 	if err != nil {
@@ -153,4 +154,23 @@ func getRenderer(width int) (*glamour.TermRenderer, error) {
 	}
 	rendererCache[width] = renderer
 	return renderer, nil
+}
+
+func glamourStyleOption() glamour.TermRendererOption {
+	style := strings.ToLower(strings.TrimSpace(os.Getenv("CLI_NOTES_GLAMOUR_STYLE")))
+	if style == "" {
+		style = strings.ToLower(strings.TrimSpace(os.Getenv("GLAMOUR_STYLE")))
+	}
+	if style == "" {
+		style = "dark"
+	}
+	if style == "auto" {
+		return glamour.WithAutoStyle()
+	}
+	switch style {
+	case "dark", "light", "notty":
+		return glamour.WithStandardStyle(style)
+	default:
+		return glamour.WithStandardStyle("dark")
+	}
 }
