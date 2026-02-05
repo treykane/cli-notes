@@ -21,9 +21,9 @@ go build -o notes ./cmd/notes
 │                    Notes: /Users/you/notes                  │
 ├──────────────────┬──────────────────────────────────────────┤
 │                  │                                          │
-│ /                │  # Welcome to CLI Notes!                 │
-│   [-] Projects   │                                          │
-│       Ideas.md   │  This is your personal notes manager     │
+│ [-] Projects     │  # Welcome to CLI Notes!                 │
+│     Ideas.md     │                                          │
+│                  │  This is your personal notes manager     │
 │                  │  in the terminal.                        │
 │                  │                                          │
 │ Directory Tree   │  Rendered Markdown View                  │

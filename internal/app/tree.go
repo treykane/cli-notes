@@ -74,17 +74,8 @@ func (m *Model) rebuildTreeKeep(path string) {
 
 // buildTree builds a flat list of items for rendering the tree view.
 func buildTree(root string, expanded map[string]bool) []treeItem {
-	items := []treeItem{{
-		path:  root,
-		name:  "/",
-		depth: 0,
-		isDir: true,
-	}}
-
-	if expanded[root] {
-		walkTree(root, 1, expanded, &items)
-	}
-
+	items := []treeItem{}
+	walkTree(root, 0, expanded, &items)
 	return items
 }
 

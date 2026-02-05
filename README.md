@@ -37,6 +37,14 @@ Run the `notes` command to start the application:
 
 Your notes will be stored in `~/notes` by default.
 
+### Optional Flags
+
+```bash
+./notes --render-light
+```
+
+Use `--render-light` to render markdown with a light theme (default is dark). This is equivalent to setting `CLI_NOTES_GLAMOUR_STYLE=light`.
+
 ## Keyboard Shortcuts
 
 ### Browse Mode

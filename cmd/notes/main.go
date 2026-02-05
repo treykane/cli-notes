@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -10,6 +11,13 @@ import (
 )
 
 func main() {
+	renderLight := flag.Bool("render-light", false, "render markdown using a light theme")
+	flag.Parse()
+
+	if *renderLight {
+		_ = os.Setenv("CLI_NOTES_GLAMOUR_STYLE", "light")
+	}
+
 	m, err := app.New()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

@@ -17,6 +17,7 @@
 - 2026-02-05: Added `docs/DEVELOPMENT.md` with a developer guide (setup, layout, and rendering flow) and linked it from README.
 - 2026-02-05: Added `.DEVNOTES/CONTRIBUTING.md` with code style and PR guidelines; linked it from README.
 - 2026-02-05: Defaulted Glamour rendering to the `dark` style (configurable via `CLI_NOTES_GLAMOUR_STYLE` or `GLAMOUR_STYLE`) to avoid OSC background color queries leaking into note edits.
+- 2026-02-05: Added `--render-light` CLI flag to force light markdown rendering (sets `CLI_NOTES_GLAMOUR_STYLE=light`).
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`
