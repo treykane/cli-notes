@@ -1,6 +1,10 @@
 package app
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -43,6 +47,7 @@ type Model struct {
 	mode     mode
 	status   string
 	showHelp bool
+	debugInput bool
 
 	// Layout sizing
 	width      int
@@ -99,6 +104,7 @@ func New() (*Model, error) {
 		spinner:     spin,
 		leftHeight:  0,
 		renderCache: map[string]renderCacheEntry{},
+		debugInput:  os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
 	}, nil
 }
 
@@ -163,6 +169,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch m.mode {
 		case modeEditNote:
+			if m.shouldIgnoreInput(msg) {
+				return m, nil
+			}
 			switch msg.String() {
 			case "ctrl+s":
 				return m.saveEdit()
@@ -176,6 +185,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		case modeNewNote:
+			if m.shouldIgnoreInput(msg) {
+				return m, nil
+			}
 			switch msg.String() {
 			case "ctrl+s", "enter":
 				return m.saveNewNote()
@@ -189,6 +201,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		case modeNewFolder:
+			if m.shouldIgnoreInput(msg) {
+				return m, nil
+			}
 			switch msg.String() {
 			case "ctrl+s", "enter":
 				return m.saveNewFolder()
@@ -284,4 +299,127 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func isOSCBackgroundResponse(msg tea.KeyMsg) bool {
+	if msg.Type != tea.KeyRunes {
+		return false
+	}
+	sequence := msg.String()
+	if sequence == "" {
+		return false
+	}
+	sequence = trimOSCSequenceSuffix(sequence)
+	if !strings.Contains(sequence, "rgb:") {
+		return false
+	}
+	if !strings.Contains(sequence, "\x1b") &&
+		!strings.Contains(sequence, "11;rgb:") &&
+		!strings.Contains(sequence, "1;rgb:") &&
+		!strings.Contains(sequence, "]11;rgb:") &&
+		!strings.Contains(sequence, "]1;rgb:") {
+		return false
+	}
+	return hasRGBTriple(sequence)
+}
+
+func (m *Model) shouldIgnoreInput(msg tea.KeyMsg) bool {
+	if msg.Type != tea.KeyRunes {
+		return false
+	}
+	if isOSCBackgroundResponse(msg) || containsControlRunes(msg.String()) {
+		if m.debugInput {
+			m.status = fmt.Sprintf("Ignored input: %q", msg.String())
+		}
+		return true
+	}
+	return false
+}
+
+func trimOSCSequenceSuffix(sequence string) string {
+	if strings.HasSuffix(sequence, "\x1b\\") {
+		return strings.TrimSuffix(sequence, "\x1b\\")
+	}
+	if strings.HasSuffix(sequence, "\a") {
+		return strings.TrimSuffix(sequence, "\a")
+	}
+	if strings.HasSuffix(sequence, "\\") {
+		return strings.TrimSuffix(sequence, "\\")
+	}
+	if strings.HasSuffix(sequence, "\x1b") {
+		return strings.TrimSuffix(sequence, "\x1b")
+	}
+	return sequence
+}
+
+func containsControlRunes(sequence string) bool {
+	for _, r := range sequence {
+		switch {
+		case r == '\n' || r == '\t':
+			continue
+		case r < 32 || r == 127:
+			return true
+		}
+	}
+	return false
+}
+
+func isHex(value string) bool {
+	for _, r := range value {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		case r >= 'A' && r <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func hasRGBTriple(sequence string) bool {
+	index := strings.Index(sequence, "rgb:")
+	if index == -1 {
+		return false
+	}
+	tail := sequence[index+len("rgb:"):]
+	for i := 0; i < 3; i++ {
+		component, rest, ok := readHexComponent(tail)
+		if !ok {
+			return false
+		}
+		if len(component) < 4 || !isHex(component[:4]) {
+			return false
+		}
+		if i < 2 {
+			if rest == "" || rest[0] != '/' {
+				return false
+			}
+			tail = rest[1:]
+		} else {
+			tail = rest
+		}
+	}
+	return true
+}
+
+func readHexComponent(sequence string) (string, string, bool) {
+	if sequence == "" {
+		return "", "", false
+	}
+	var b strings.Builder
+	for _, r := range sequence {
+		if r == '/' {
+			break
+		}
+		if !isHex(string(r)) {
+			break
+		}
+		b.WriteRune(r)
+	}
+	component := b.String()
+	if component == "" {
+		return "", "", false
+	}
+	return component, sequence[len(component):], true
 }

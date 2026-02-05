@@ -12,6 +12,8 @@
 [ ] Clear stale pane text when switching help or screens (ensure panes pad to full width/height).
 [ ] Bring the colors and styles into the Note Edit UI.
 [x] Avoid OSC background color query strings (ex: `1;rgb:...`) being inserted into notes when editing.
+[x] Filter stray OSC background response sequences from editor input on first edit.
+[ ] Capture and classify remaining "random" injected input on first edit (enable `CLI_NOTES_DEBUG_INPUT`).
 
 ## Performance
 [ ] Improve performance on a fresh build.

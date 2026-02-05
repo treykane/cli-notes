@@ -18,6 +18,11 @@
 - 2026-02-05: Added `.DEVNOTES/CONTRIBUTING.md` with code style and PR guidelines; linked it from README.
 - 2026-02-05: Defaulted Glamour rendering to the `dark` style (configurable via `CLI_NOTES_GLAMOUR_STYLE` or `GLAMOUR_STYLE`) to avoid OSC background color queries leaking into note edits.
 - 2026-02-05: Added `--render-light` CLI flag to force light markdown rendering (sets `CLI_NOTES_GLAMOUR_STYLE=light`).
+- 2026-02-05: Filtered OSC background color response sequences from editor input to prevent stray `1;rgb:...` text on first edit.
+- 2026-02-05: Extended OSC background response filtering to note name and folder name inputs.
+- 2026-02-05: Hardened OSC background response detection to catch variants that include ESC or `]11;rgb:` prefixes.
+- 2026-02-05: Added `CLI_NOTES_DEBUG_INPUT` to surface ignored input sequences in the status line.
+- 2026-02-05: Relaxed OSC background response parsing to ignore variants with trailing characters.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`
