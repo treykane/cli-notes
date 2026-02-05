@@ -19,8 +19,10 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- Keyboard-driven interface\n\n" +
 	"## Keyboard Shortcuts\n\n" +
 	"- Up/Down or k/j: Move selection\n" +
-	"- Enter/Right: Expand or collapse folder\n" +
-	"- Left: Collapse folder\n" +
+	"- Enter/Right/l: Expand or collapse folder\n" +
+	"- Left/h: Collapse folder\n" +
+	"- g / G: Jump to top / bottom\n" +
+	"- Ctrl+P: Open search popup\n" +
 	"- n: Create a new note\n" +
 	"- f: Create a new folder\n" +
 	"- e: Edit the selected note\n" +

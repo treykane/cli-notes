@@ -23,6 +23,10 @@
 - 2026-02-05: Hardened OSC background response detection to catch variants that include ESC or `]11;rgb:` prefixes.
 - 2026-02-05: Added `CLI_NOTES_DEBUG_INPUT` to surface ignored input sequences in the status line.
 - 2026-02-05: Relaxed OSC background response parsing to ignore variants with trailing characters.
+- 2026-02-05: Replaced inline search with a `Ctrl+P` popup that filters notes/folders by name and jumps directly to the selected result.
+- 2026-02-05: Added more Vim-friendly navigation in browse mode (`h/l`, `j/k`, `g/G`, and `Ctrl+N`).
+- 2026-02-05: Brought app color styling into the edit textarea (prompt, line numbers, cursor line, and muted placeholders).
+- 2026-02-05: Expanded injected-input classification for debug mode to label ignored sequences (OSC/CSI/escape/control) via `CLI_NOTES_DEBUG_INPUT`.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`

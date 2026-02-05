@@ -4,16 +4,18 @@
 [ ] Allow Syncing Via GIT repository
 
 ## UI
-[ ] Add notes to the UI for all keybinds.
+[x] Add notes to the UI for all keybinds.
 [ ] Render the markdown notes unless in Edit mode. 
-[ ] Add a search bar to the UI.
-[ ] Look into using VIM friendly keybinds.
+[x] Add a search to the UI.
+[x] Move search to a popup opened with Ctrl+P.
+[x] Look into using VIM friendly keybinds.
 [ ] First note always gets stuck "Rendering..." until you view the next next note in the tree.
 [ ] Clear stale pane text when switching help or screens (ensure panes pad to full width/height).
-[ ] Bring the colors and styles into the Note Edit UI.
+[x] Bring the colors and styles into the Note Edit UI.
 [x] Avoid OSC background color query strings (ex: `1;rgb:...`) being inserted into notes when editing.
 [x] Filter stray OSC background response sequences from editor input on first edit.
-[ ] Capture and classify remaining "random" injected input on first edit (enable `CLI_NOTES_DEBUG_INPUT`).
+[x] Capture and classify remaining "random" injected input on first edit (enable `CLI_NOTES_DEBUG_INPUT`).
+[ ] Search currently matches note and folder names only (no note body/content search).
 
 ## Performance
 [ ] Improve performance on a fresh build.

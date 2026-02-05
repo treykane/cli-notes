@@ -67,9 +67,11 @@ See `DEVELOPMENT.md` for run commands.
 ### 7. Keyboard Shortcuts
 | Key | Action |
 |-----|--------|
-| ↑/↓ or k/j | Move selection |
-| Enter or → | Expand/collapse folder |
-| ← | Collapse folder |
+| ↑/↓ or k/j (or Ctrl+N) | Move selection |
+| Enter or → or l | Expand/collapse folder |
+| ← or h | Collapse folder |
+| g / G | Jump to top / bottom |
+| Ctrl+P | Open search popup |
 | n | New note |
 | f | New folder |
 | e | Edit note |
@@ -77,6 +79,13 @@ See `DEVELOPMENT.md` for run commands.
 | r | Refresh |
 | ? | Toggle help |
 | q or Ctrl+C | Quit |
+
+### 8. Search Notes
+- Press `Ctrl+P` to open the search popup
+- Type to filter notes/folders by name
+- Use `↑/↓` or `j`/`k` to choose a match
+- Press `Enter` to jump to the selected item
+- Press `Esc` to close the popup
 
 ## File Storage
 

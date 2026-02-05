@@ -6,6 +6,7 @@ A beautiful TUI (Text User Interface) notes application that lives in your CLI. 
 
 - Markdown support with rendered preview
 - Directory organization (folders instead of notebooks)
+- Search popup (`Ctrl+P`) for filtering notes and folders by name
 - Keyboard-driven workflow
 - Plain text storage as `.md` files on your filesystem
 
@@ -51,9 +52,11 @@ Use `--render-light` to render markdown with a light theme (default is dark). Th
 
 | Key | Action |
 |-----|--------|
-| `↑`/`↓` or `k`/`j` | Move selection |
-| `Enter` or `→` | Expand/collapse folder |
-| `←` | Collapse folder |
+| `↑`/`↓` or `k`/`j` or `Ctrl+N` | Move selection |
+| `Enter` or `→` or `l` | Expand/collapse folder |
+| `←` or `h` | Collapse folder |
+| `g` / `G` | Jump to top / bottom |
+| `Ctrl+P` | Open search popup |
 | `n` | Create a new note |
 | `f` | Create a new folder |
 | `e` | Edit the selected note |
@@ -75,6 +78,15 @@ Use `--render-light` to render markdown with a light theme (default is dark). Th
 |-----|--------|
 | `Ctrl+S` | Save |
 | `Esc` | Cancel |
+
+### Search Popup
+
+| Key | Action |
+|-----|--------|
+| Type while popup is open | Filter notes/folders by name |
+| `↑`/`↓` or `j`/`k` | Move search selection |
+| `Enter` | Jump to selected result |
+| `Esc` | Close popup |
 
 ## How It Works
 

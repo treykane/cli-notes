@@ -20,6 +20,9 @@ func (m *Model) View() string {
 	leftPane := m.renderTree(leftWidth, contentHeight)
 	rightPane := m.renderRight(rightWidth, contentHeight)
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
+	if m.searching {
+		row = m.renderSearchPopupOverlay(m.width, contentHeight)
+	}
 
 	return row + "\n" + m.renderStatus(m.width)
 }
@@ -32,7 +35,7 @@ func (m *Model) renderTree(width, height int) string {
 	header := titleStyle.Render("Notes: " + m.notesDir)
 	lines := []string{truncate(header, innerWidth)}
 
-	visibleHeight := max(0, innerHeight-1)
+	visibleHeight := max(0, innerHeight-len(lines))
 	start := min(m.treeOffset, max(0, len(m.items)-1))
 	end := min(len(m.items), start+visibleHeight)
 
@@ -43,6 +46,9 @@ func (m *Model) renderTree(width, height int) string {
 			line = selectedStyle.Render(line)
 		}
 		lines = append(lines, truncate(line, innerWidth))
+	}
+	if len(m.items) == 0 {
+		lines = append(lines, truncate(mutedStyle.Render("(no matches)"), innerWidth))
 	}
 
 	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
@@ -107,7 +113,10 @@ func (m *Model) statusHelp() string {
 	case modeNewNote, modeNewFolder:
 		return "Enter/Ctrl+S save  Esc cancel"
 	default:
-		return "n new  f folder  e edit  d delete  r refresh  ? help  q quit"
+		if m.searching {
+			return "Search popup: type  ↑/↓ move  Enter jump  Esc cancel"
+		}
+		return "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  d delete  r refresh  ? help  q quit"
 	}
 }
 
@@ -116,16 +125,24 @@ func (m *Model) renderHelp(width, height int) string {
 		titleStyle.Render("Keyboard Shortcuts"),
 		"",
 		"Browse",
-		"  ↑/↓ or k/j   Move selection",
-		"  Enter or →   Expand/collapse folder",
-		"  ←            Collapse folder",
-		"  n            New note",
-		"  f            New folder",
-		"  e            Edit note",
-		"  d            Delete",
-		"  r            Refresh",
-		"  ?            Toggle help",
-		"  q or Ctrl+C  Quit",
+		"  ↑/↓, k/j, Ctrl+N          Move selection",
+		"  Enter, →, l               Expand/collapse folder",
+		"  ←, h                      Collapse folder",
+		"  g / G                     Jump to top / bottom",
+		"  Ctrl+P                    Open search popup",
+		"  n                         New note",
+		"  f                         New folder",
+		"  e                         Edit note",
+		"  d                         Delete",
+		"  r                         Refresh",
+		"  ?                         Toggle help",
+		"  q or Ctrl+C               Quit",
+		"",
+		"Search Popup",
+		"  Type                Filter notes/folders by name",
+		"  ↑/↓, j/k            Move search selection",
+		"  Enter               Jump to selected result",
+		"  Esc                 Close search popup",
 		"",
 		"New Note/Folder",
 		"  Enter or Ctrl+S  Save",
@@ -146,13 +163,54 @@ func (m *Model) renderHelp(width, height int) string {
 	return strings.Join(out, "\n")
 }
 
+func (m *Model) renderSearchPopupOverlay(width, height int) string {
+	popupWidth := min(70, max(44, width-8))
+	popupHeight := min(16, max(10, height-4))
+	popup := m.renderSearchPopup(popupWidth, popupHeight)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
+}
+
+func (m *Model) renderSearchPopup(width, height int) string {
+	innerWidth := max(0, width-4)
+	innerHeight := max(0, height-2)
+	m.search.Width = innerWidth
+
+	lines := []string{
+		titleStyle.Render("Search Notes (Ctrl+P)"),
+		m.search.View(),
+		"",
+	}
+
+	limit := max(0, innerHeight-len(lines)-1)
+	for i := 0; i < min(limit, len(m.searchRows)); i++ {
+		item := m.searchRows[i]
+		label := m.displayRelative(item.path)
+		if item.isDir {
+			label += "/"
+		}
+		line := truncate(label, innerWidth)
+		if i == m.searchPos {
+			line = selectedStyle.Render(line)
+		}
+		lines = append(lines, line)
+	}
+
+	if len(m.searchRows) == 0 {
+		lines = append(lines, mutedStyle.Render("No matches yet"))
+	}
+	lines = append(lines, mutedStyle.Render("Enter: jump  Esc: close"))
+
+	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
+	return popupStyle.Width(width).Height(height).Render(content)
+}
+
 // formatTreeItem formats a directory or file row with indentation and markers.
 func (m *Model) formatTreeItem(item treeItem) string {
 	indent := strings.Repeat("  ", item.depth)
 	if item.isDir {
 		expanded := m.expanded[item.path]
 		marker := "[+]"
-		if expanded {
+		if expanded || strings.TrimSpace(m.search.Value()) != "" {
 			marker = "[-]"
 		}
 		return fmt.Sprintf("%s%s %s", indent, marker, item.name)

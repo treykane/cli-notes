@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -41,13 +42,17 @@ type Model struct {
 	currentFile string
 
 	// UI widgets
-	viewport viewport.Model
-	input    textinput.Model
-	editor   textarea.Model
-	mode     mode
-	status   string
-	showHelp bool
+	viewport   viewport.Model
+	input      textinput.Model
+	search     textinput.Model
+	editor     textarea.Model
+	mode       mode
+	status     string
+	showHelp   bool
 	debugInput bool
+	searching  bool
+	searchRows []treeItem
+	searchPos  int
 
 	// Layout sizing
 	width      int
@@ -85,9 +90,15 @@ func New() (*Model, error) {
 	input.Placeholder = "Name"
 	input.CharLimit = 120
 
+	search := textinput.New()
+	search.Prompt = ""
+	search.Placeholder = "Type to search notes"
+	search.CharLimit = 120
+
 	editor := textarea.New()
 	editor.Placeholder = "Your note content here..."
 	editor.CharLimit = 0
+	applyEditorTheme(&editor)
 
 	spin := spinner.New()
 	spin.Spinner = spinner.Line
@@ -98,6 +109,7 @@ func New() (*Model, error) {
 		expanded:    expanded,
 		viewport:    vp,
 		input:       input,
+		search:      search,
 		editor:      editor,
 		mode:        modeBrowse,
 		status:      "Ready",
@@ -257,6 +269,48 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case modeBrowse:
+		if m.searching {
+			if m.shouldIgnoreInput(msg) {
+				return m, nil
+			}
+			switch key {
+			case "esc":
+				m.closeSearchPopup()
+				m.status = "Search cancelled"
+				return m, nil
+			case "up", "k":
+				if len(m.searchRows) > 0 {
+					m.searchPos = clamp(m.searchPos-1, 0, len(m.searchRows)-1)
+				}
+				return m, nil
+			case "down", "j":
+				if len(m.searchRows) > 0 {
+					m.searchPos = clamp(m.searchPos+1, 0, len(m.searchRows)-1)
+				}
+				return m, nil
+			case "ctrl+n":
+				if len(m.searchRows) > 0 {
+					m.searchPos = clamp(m.searchPos+1, 0, len(m.searchRows)-1)
+				}
+				return m, nil
+			case "ctrl+p":
+				if len(m.searchRows) > 0 {
+					m.searchPos = clamp(m.searchPos-1, 0, len(m.searchRows)-1)
+				}
+				return m, nil
+			case "enter":
+				return m.selectSearchResult()
+			}
+
+			before := m.search.Value()
+			var cmd tea.Cmd
+			m.search, cmd = m.search.Update(msg)
+			if before != m.search.Value() {
+				m.updateSearchRows()
+			}
+			return m, cmd
+		}
+
 		switch key {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -270,15 +324,35 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.moveCursor(-1)
 			cmd := m.maybeShowSelectedFile()
 			return m, cmd
-		case "down", "j":
+		case "down", "j", "ctrl+n":
 			m.moveCursor(1)
 			cmd := m.maybeShowSelectedFile()
 			return m, cmd
-		case "enter", "right":
+		case "g":
+			if len(m.items) > 0 {
+				m.cursor = 0
+				m.adjustTreeOffset()
+			}
+			cmd := m.maybeShowSelectedFile()
+			return m, cmd
+		case "G":
+			if len(m.items) > 0 {
+				m.cursor = len(m.items) - 1
+				m.adjustTreeOffset()
+			}
+			cmd := m.maybeShowSelectedFile()
+			return m, cmd
+		case "enter", "right", "l":
 			m.toggleExpand(true)
 			return m, nil
-		case "left":
+		case "left", "h":
 			m.toggleExpand(false)
+			return m, nil
+		case "/":
+			m.status = "Use Ctrl+P for search popup"
+			return m, nil
+		case "ctrl+p":
+			m.openSearchPopup()
 			return m, nil
 		case "n":
 			m.startNewNote()
@@ -299,6 +373,81 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *Model) openSearchPopup() {
+	m.searching = true
+	m.search.SetValue("")
+	m.search.Focus()
+	m.searchRows = nil
+	m.searchPos = 0
+	m.showHelp = false
+	m.status = "Search popup: type to filter, Enter to jump, Esc to cancel"
+}
+
+func (m *Model) closeSearchPopup() {
+	m.searching = false
+	m.search.Blur()
+	m.search.SetValue("")
+	m.searchRows = nil
+	m.searchPos = 0
+}
+
+func (m *Model) updateSearchRows() {
+	query := strings.TrimSpace(m.search.Value())
+	m.searchRows = searchTreeItems(m.notesDir, query)
+	if len(m.searchRows) == 0 {
+		m.searchPos = 0
+		m.status = fmt.Sprintf("Search \"%s\" (0 matches)", query)
+		return
+	}
+	m.searchPos = clamp(m.searchPos, 0, len(m.searchRows)-1)
+	m.status = fmt.Sprintf("Search \"%s\" (%d matches)", query, len(m.searchRows))
+}
+
+func (m *Model) selectSearchResult() (tea.Model, tea.Cmd) {
+	if len(m.searchRows) == 0 {
+		m.status = "No search matches"
+		return m, nil
+	}
+
+	item := m.searchRows[m.searchPos]
+	m.closeSearchPopup()
+	m.expandParentDirs(item.path)
+	if item.isDir {
+		m.expanded[item.path] = true
+	}
+	m.rebuildTreeKeep(item.path)
+	m.status = "Jumped to " + m.displayRelative(item.path)
+	if item.isDir {
+		return m, nil
+	}
+	return m, m.setCurrentFile(item.path)
+}
+
+func (m *Model) expandParentDirs(path string) {
+	dir := path
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		dir = filepath.Dir(path)
+	}
+
+	for {
+		if dir == "" || dir == "." {
+			break
+		}
+		if !strings.HasPrefix(dir, m.notesDir) {
+			break
+		}
+		m.expanded[dir] = true
+		if dir == m.notesDir {
+			break
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
 }
 
 func isOSCBackgroundResponse(msg tea.KeyMsg) bool {
@@ -324,16 +473,40 @@ func isOSCBackgroundResponse(msg tea.KeyMsg) bool {
 }
 
 func (m *Model) shouldIgnoreInput(msg tea.KeyMsg) bool {
-	if msg.Type != tea.KeyRunes {
-		return false
-	}
-	if isOSCBackgroundResponse(msg) || containsControlRunes(msg.String()) {
+	classification, shouldIgnore := classifyInjectedInput(msg)
+	if shouldIgnore {
 		if m.debugInput {
-			m.status = fmt.Sprintf("Ignored input: %q", msg.String())
+			m.status = fmt.Sprintf("Ignored %s: %q", classification, msg.String())
 		}
 		return true
 	}
 	return false
+}
+
+func classifyInjectedInput(msg tea.KeyMsg) (string, bool) {
+	if msg.Type != tea.KeyRunes {
+		return "", false
+	}
+	sequence := msg.String()
+	if sequence == "" {
+		return "", false
+	}
+	if isOSCBackgroundResponse(msg) {
+		return "osc_background_response", true
+	}
+	if strings.Contains(sequence, "\x1b[") || strings.Contains(sequence, "\x9b") {
+		return "csi_escape_sequence", true
+	}
+	if strings.Contains(sequence, "\x1b]") || strings.Contains(sequence, "\x9d") {
+		return "osc_escape_sequence", true
+	}
+	if strings.Contains(sequence, "\x1b") {
+		return "escape_sequence", true
+	}
+	if containsControlRunes(sequence) {
+		return "control_runes", true
+	}
+	return "", false
 }
 
 func trimOSCSequenceSuffix(sequence string) string {

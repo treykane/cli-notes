@@ -62,6 +62,11 @@ func (m *Model) refreshTree() {
 // rebuildTreeKeep rebuilds the tree and keeps the cursor near the given path.
 func (m *Model) rebuildTreeKeep(path string) {
 	m.items = buildTree(m.notesDir, m.expanded)
+	if len(m.items) == 0 {
+		m.cursor = 0
+		m.treeOffset = 0
+		return
+	}
 	m.cursor = 0
 	for i, item := range m.items {
 		if item.path == path {
@@ -104,6 +109,47 @@ func walkTree(dir string, depth int, expanded map[string]bool, items *[]treeItem
 		*items = append(*items, item)
 		if entry.IsDir() && expanded[path] {
 			walkTree(path, depth+1, expanded, items)
+		}
+	}
+}
+
+func searchTreeItems(root, query string) []treeItem {
+	query = strings.TrimSpace(strings.ToLower(query))
+	if query == "" {
+		return nil
+	}
+	results := []treeItem{}
+	searchTree(root, 0, query, &results)
+	return results
+}
+
+func searchTree(dir string, depth int, query string, results *[]treeItem) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].IsDir() != entries[j].IsDir() {
+			return entries[i].IsDir()
+		}
+		return strings.ToLower(entries[i].Name()) < strings.ToLower(entries[j].Name())
+	})
+
+	for _, entry := range entries {
+		path := filepath.Join(dir, entry.Name())
+		nameMatch := strings.Contains(strings.ToLower(entry.Name()), query)
+
+		if nameMatch {
+			*results = append(*results, treeItem{
+				path:  path,
+				name:  entry.Name(),
+				depth: depth,
+				isDir: entry.IsDir(),
+			})
+		}
+		if entry.IsDir() {
+			searchTree(path, depth+1, query, results)
 		}
 	}
 }

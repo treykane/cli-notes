@@ -1,3 +1,6 @@
+# Compiled binary
+notes
+
 # Virtual environments
 venv/
 env/
@@ -13,12 +16,5 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Notes directory (for testing)
+# Test directories
 test_notes/
-./notes
-./notes/
-.notes
-.notes/
-.notes/
-/notes
-notes/
