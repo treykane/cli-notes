@@ -43,9 +43,14 @@ func (m *Model) renderTree(width, height int) string {
 		item := m.items[i]
 		line := m.formatTreeItem(item)
 		if i == m.cursor {
-			line = selectedStyle.Render(line)
+			line = m.formatTreeItemSelected(item)
+			line = truncate(line, innerWidth)
+			line = selectedStyle.Width(innerWidth).Render(line)
+			lines = append(lines, line)
+			continue
 		}
-		lines = append(lines, truncate(line, innerWidth))
+		line = truncate(line, innerWidth)
+		lines = append(lines, line)
 	}
 	if len(m.items) == 0 {
 		lines = append(lines, truncate(mutedStyle.Render("(no matches)"), innerWidth))
@@ -60,10 +65,10 @@ func (m *Model) renderRight(width, height int) string {
 	innerWidth := max(0, width-2)
 	innerHeight := max(0, height-2)
 	rightPaneStyle := previewPane
-	header := truncate(m.rightHeaderPath(), innerWidth)
-
+	headerStyle := previewHeader
 	if m.mode == modeEditNote {
 		rightPaneStyle = editPane
+		headerStyle = editHeader
 	}
 
 	contentHeight := max(0, innerHeight-1)
@@ -100,6 +105,7 @@ func (m *Model) renderRight(width, height int) string {
 		}
 	}
 
+	header := m.renderRightHeader(innerWidth, headerStyle)
 	body := padBlock(content, innerWidth, contentHeight)
 	return rightPaneStyle.Width(width).Height(height).Render(header + "\n" + body)
 }
@@ -221,7 +227,12 @@ func (m *Model) rightHeaderPath() string {
 	if m.currentFile != "" {
 		path = m.displayRelative(m.currentFile)
 	}
-	return mutedStyle.Render(path)
+	return path
+}
+
+func (m *Model) renderRightHeader(width int, style lipgloss.Style) string {
+	line := " " + truncate(m.rightHeaderPath(), max(0, width-1))
+	return style.Width(width).Render(line)
 }
 
 // formatTreeItem formats a directory or file row with indentation and markers.
@@ -229,13 +240,26 @@ func (m *Model) formatTreeItem(item treeItem) string {
 	indent := strings.Repeat("  ", item.depth)
 	if item.isDir {
 		expanded := m.expanded[item.path]
+		marker := treeClosedMark.Render("[+]")
+		if expanded || strings.TrimSpace(m.search.Value()) != "" {
+			marker = treeOpenMark.Render("[-]")
+		}
+		return fmt.Sprintf("%s%s %s %s", indent, marker, treeDirTag.Render("DIR"), treeDirName.Render(item.name))
+	}
+	return fmt.Sprintf("%s    %s %s", indent, treeFileTag.Render("MD"), treeFileName.Render(item.name))
+}
+
+func (m *Model) formatTreeItemSelected(item treeItem) string {
+	indent := strings.Repeat("  ", item.depth)
+	if item.isDir {
+		expanded := m.expanded[item.path]
 		marker := "[+]"
 		if expanded || strings.TrimSpace(m.search.Value()) != "" {
 			marker = "[-]"
 		}
-		return fmt.Sprintf("%s%s %s", indent, marker, item.name)
+		return fmt.Sprintf("%s%s DIR %s", indent, marker, item.name)
 	}
-	return fmt.Sprintf("%s    %s", indent, item.name)
+	return fmt.Sprintf("%s    MD %s", indent, item.name)
 }
 
 // updateLayout recomputes viewport sizing after a window resize.

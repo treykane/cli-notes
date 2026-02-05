@@ -16,6 +16,9 @@
 [x] Filter stray OSC background response sequences from editor input on first edit.
 [x] Capture and classify remaining "random" injected input on first edit (enable `CLI_NOTES_DEBUG_INPUT`).
 [x] Add mode-aware preview/edit color accents so it is obvious when edit mode is active.
+[x] Turn the right-pane filename row into a solid status bar and add more visual distinction in the file tree.
+[x] Swap tree colors to blue MD files + green folders and make tree selection highlight full-width.
+[x] Ensure selected tree rows highlight both the full row and row text clearly.
 [ ] Search currently matches note and folder names only (no note body/content search).
 
 ## Performance
