@@ -4,22 +4,7 @@ Thanks for contributing to CLI Notes. This project is early-stage and moving fas
 
 ## Quick Start
 
-Requirements:
-- Go 1.21+
-- A terminal with ANSI color support
-
-Build and run:
-
-```bash
-go build -o notes ./cmd/notes
-./notes
-```
-
-Run without building a binary:
-
-```bash
-go run ./cmd/notes
-```
+See `DEVELOPMENT.md` for setup requirements and run commands.
 
 ## Development Practices
 
@@ -36,18 +21,9 @@ go run ./cmd/notes
 - Keep functions cohesive; refactor if a function grows too large.
 - Add succinct comments only where intent is non-obvious.
 
-## Project Structure
-
-- `cmd/notes/main.go`: Entry point; keep minimal and wiring-focused.
-- `internal/app/`: UI model, tree logic, rendering, and helpers.
-
 ## Testing
 
-There are no formal tests yet. If you add tests, keep them fast and deterministic:
-
-```bash
-go test ./...
-```
+See `DEVELOPMENT.md` for the current testing guidance.
 
 ## Submitting Changes
 

@@ -4,15 +4,11 @@ This document demonstrates the CLI Notes application features.
 
 ## Installation
 
-```bash
-go build -o notes ./cmd/notes
-```
+See `DEVELOPMENT.md` for setup requirements and build commands.
 
 ## Running the Application
 
-```bash
-./notes
-```
+See `DEVELOPMENT.md` for run commands.
 
 ## Application Layout
 
@@ -84,7 +80,7 @@ go build -o notes ./cmd/notes
 
 ## File Storage
 
-All notes are stored as plain markdown files in `~/notes`:
+Example storage layout (notes are Markdown files; see `DEVELOPMENT.md` for details):
 
 ```
 ~/notes/
@@ -95,12 +91,6 @@ All notes are stored as plain markdown files in `~/notes`:
 └── Personal/
     └── TODO.md
 ```
-
-This means you can:
-- Edit notes with any text editor
-- Version control with Git
-- Sync with cloud storage
-- Use with other Markdown tools
 
 ## Technical Implementation
 
