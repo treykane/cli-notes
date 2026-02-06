@@ -1,7 +1,7 @@
 # Tasks
 
 ## Features
-[ ] Allow Syncing Via GIT repository
+[x] Allow Syncing Via GIT repository
 [x] Add a first-run configurator and `--configure` command for selecting notes storage directory.
 
 ## UI
@@ -32,7 +32,7 @@
 [x] Improve developer experience by adding more detailed documentation.
 [x] Add more tests to ensure the application works as expected.
 [x] Improve error handling and logging.
-[ ] Improve code readability and maintainability.
+[x] Improve code readability and maintainability.
 [x] Improve code organization and modularity.
 [x] Add inline documentation to `cmd/notes/main.go`.
 [x] Add CONTRIBUTING.md with PR and code style guidelines.
@@ -41,4 +41,4 @@
 [x] Implement testing framework
 [x] Add unit tests for tree building and render cache behavior in `internal/app`.
 [x] Add unit tests for config load/save and first-run configurator behavior.
-[ ] Add tests for filesystem failure paths (permission/read/write errors) to verify user status messages and log emission.
+[X] Add tests for filesystem failure paths (permission/read/write errors) to verify user status messages and log emission.
