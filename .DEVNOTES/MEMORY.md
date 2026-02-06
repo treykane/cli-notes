@@ -10,6 +10,7 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-06: Added edit-mode formatting shortcuts: `Ctrl+B` inserts `** **`, `Alt+I` inserts `* *` (avoids `Ctrl+I`/Tab collision), and `Ctrl+U` inserts `<u></u>` with the cursor placed between markers.
 - 2026-02-04: Added debounced + async Markdown preview rendering with caching (path + mtime + width) to keep the UI responsive while navigating notes.
 - 2026-02-04: Documented full keybindings (browse, new note/folder, edit) in README and in-app welcome note.
 - 2026-02-04: Refactored UI logic into `internal/app` to keep `cmd/notes/main.go` minimal and improve maintainability.

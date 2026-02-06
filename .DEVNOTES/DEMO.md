@@ -54,6 +54,10 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 ### 4. Edit Notes
 - Press `e` to edit the selected note
 - Save with Ctrl+S
+- Insert Markdown markers while editing:
+  - `Ctrl+B` for `**bold**`
+  - `Alt+I` for `*italic*`
+  - `Ctrl+U` for `<u>underline</u>`
 - Cancel with Esc
 
 ### 5. Organize with Folders
@@ -79,6 +83,9 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | e | Edit note |
 | d | Delete |
 | r | Refresh |
+| Ctrl+B (edit mode) | Insert `**bold**` markers |
+| Alt+I (edit mode) | Insert `*italic*` markers |
+| Ctrl+U (edit mode) | Insert `<u>underline</u>` markers |
 | ? | Toggle help |
 | q or Ctrl+C | Quit |
 

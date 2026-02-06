@@ -1,6 +1,8 @@
 package app
 
 import (
+	"unicode/utf8"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -40,14 +42,14 @@ func (m *Model) handleRenderRequest(msg renderRequestMsg) (tea.Model, tea.Cmd) {
 //
 // 1. Error Handling: If the render failed, show error only if it's still current.
 //
-// 2. Cache Update: Store the render result keyed by path, width bucket, and mtime.
-//    This allows instant display when re-selecting a file or resizing to a cached width.
+//  2. Cache Update: Store the render result keyed by path, width bucket, and mtime.
+//     This allows instant display when re-selecting a file or resizing to a cached width.
 //
-// 3. Sequence Validation: Only display if this render is still current (seq and path match).
-//    This prevents stale renders from appearing after the user has moved to a different file.
+//  3. Sequence Validation: Only display if this render is still current (seq and path match).
+//     This prevents stale renders from appearing after the user has moved to a different file.
 //
-// 4. Width Validation: Only display if the width still matches (prevents wrong-width renders).
-//    The user may have resized the terminal while the render was in flight.
+//  4. Width Validation: Only display if the width still matches (prevents wrong-width renders).
+//     The user may have resized the terminal while the render was in flight.
 //
 // The debouncing prevents excessive work during rapid navigation (e.g., holding down j/k).
 // Each navigation increments renderSeq, which invalidates in-flight renders.
@@ -92,6 +94,15 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+s":
 		return m.saveEdit()
+	case "ctrl+b":
+		m.insertEditorWrapper("**", "**")
+		return m, nil
+	case "alt+i":
+		m.insertEditorWrapper("*", "*")
+		return m, nil
+	case "ctrl+u":
+		m.insertEditorWrapper("<u>", "</u>")
+		return m, nil
 	case "esc":
 		m.mode = modeBrowse
 		m.status = "Edit cancelled"
@@ -101,6 +112,13 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.editor, cmd = m.editor.Update(msg)
 		return m, cmd
 	}
+}
+
+// insertEditorWrapper inserts open+close markers and positions the cursor between them.
+func (m *Model) insertEditorWrapper(open, close string) {
+	cursor := m.editor.LineInfo().CharOffset
+	m.editor.InsertString(open + close)
+	m.editor.SetCursor(cursor + utf8.RuneCountInString(open))
 }
 
 // handleNewNoteKey processes keypresses while creating a new note.

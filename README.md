@@ -85,6 +85,9 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | Key | Action |
 |-----|--------|
 | `Ctrl+S` | Save |
+| `Ctrl+B` | Insert `**bold**` markers |
+| `Alt+I` | Insert `*italic*` markers |
+| `Ctrl+U` | Insert `<u>underline</u>` markers |
 | `Esc` | Cancel |
 
 ### Search Popup
