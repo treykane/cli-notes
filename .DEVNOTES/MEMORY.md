@@ -40,6 +40,7 @@
 - 2026-02-06: Increased bottom status/footer contrast (solid mode-aware background + bold text) and added left-padding so the line reads as a persistent info bar even in split panes.
 - 2026-02-05: Clamped the main pane row to `height-1` before rendering footer status so border/padding growth cannot clip the bottom info line.
 - 2026-02-06: Added unit tests in `internal/app` for tree building behavior (sorting, depth, and expansion) and markdown render cache behavior (cache hit vs async render path).
+- 2026-02-06: Improved error handling/logging with a shared `internal/logging` package, contextual error wrapping in config/search/setup paths, and centralized app error logs for note operations, rendering, and search indexing.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`

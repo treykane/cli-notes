@@ -40,12 +40,14 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 
 func ensureNotesDir(notesDir string) error {
 	if err := os.MkdirAll(notesDir, 0o755); err != nil {
-		return err
+		return fmt.Errorf("create notes directory %q: %w", notesDir, err)
 	}
 
 	if isDirEmpty(notesDir) {
 		welcomePath := filepath.Join(notesDir, "Welcome.md")
-		_ = os.WriteFile(welcomePath, []byte(normalizeNoteContent(welcomeNote)), 0o644)
+		if err := os.WriteFile(welcomePath, []byte(normalizeNoteContent(welcomeNote)), 0o644); err != nil {
+			return fmt.Errorf("seed welcome note %q: %w", welcomePath, err)
+		}
 	}
 
 	return nil
@@ -112,7 +114,7 @@ func (m *Model) startEditNote() (tea.Model, tea.Cmd) {
 
 	content, err := os.ReadFile(m.currentFile)
 	if err != nil {
-		m.status = "Error reading note"
+		m.setStatusError("Error reading note", err, "path", m.currentFile)
 		return m, nil
 	}
 
@@ -143,7 +145,7 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 	}
 	content := fmt.Sprintf("# %s\n\nYour note content here...\n", strings.TrimSuffix(name, ".md"))
 	if err := os.WriteFile(path, []byte(normalizeNoteContent(content)), 0o644); err != nil {
-		m.status = "Error creating note"
+		m.setStatusError("Error creating note", err, "path", path)
 		return m, nil
 	}
 
@@ -172,7 +174,7 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if err := os.MkdirAll(path, 0o755); err != nil {
-		m.status = "Error creating folder"
+		m.setStatusError("Error creating folder", err, "path", path)
 		return m, nil
 	}
 
@@ -194,7 +196,7 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 	}
 	content := normalizeNoteContent(m.editor.Value())
 	if err := os.WriteFile(m.currentFile, []byte(content), 0o644); err != nil {
-		m.status = "Error saving note"
+		m.setStatusError("Error saving note", err, "path", m.currentFile)
 		return m, nil
 	}
 
@@ -236,13 +238,13 @@ func (m *Model) deleteSelected() {
 			return
 		}
 		if err := os.Remove(item.path); err != nil {
-			m.status = "Error deleting folder"
+			m.setStatusError("Error deleting folder", err, "path", item.path)
 			return
 		}
 		m.status = "Deleted folder: " + item.name
 	} else {
 		if err := os.Remove(item.path); err != nil {
-			m.status = "Error deleting file"
+			m.setStatusError("Error deleting file", err, "path", item.path)
 			return
 		}
 		m.status = "Deleted: " + item.name

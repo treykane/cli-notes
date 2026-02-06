@@ -88,6 +88,7 @@ func buildTree(root string, expanded map[string]bool) []treeItem {
 func walkTree(dir string, depth int, expanded map[string]bool, items *[]treeItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
+		appLog.Warn("read tree directory", "path", dir, "error", err)
 		return
 	}
 
@@ -119,6 +120,7 @@ func searchTreeItems(root, query string) []treeItem {
 	}
 	idx := newSearchIndex(root)
 	if err := idx.ensureBuilt(); err != nil {
+		appLog.Error("build search tree index", "root", root, "error", err)
 		return nil
 	}
 	return idx.search(query)

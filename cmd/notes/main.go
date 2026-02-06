@@ -13,7 +13,10 @@ import (
 
 	"github.com/treykane/cli-notes/internal/app"
 	"github.com/treykane/cli-notes/internal/config"
+	"github.com/treykane/cli-notes/internal/logging"
 )
+
+var log = logging.New("main")
 
 func main() {
 	renderLight := flag.Bool("render-light", false, "render markdown using a light theme")
@@ -26,12 +29,14 @@ func main() {
 
 	configured, err := config.Exists()
 	if err != nil {
+		log.Error("check config", "error", err)
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 
 	if *configure || !configured {
 		if err := runConfigurator(os.Stdin, os.Stdout); err != nil {
+			log.Error("run configurator", "error", err)
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
@@ -40,8 +45,10 @@ func main() {
 	m, err := app.New()
 	if err != nil {
 		if errors.Is(err, config.ErrNotConfigured) {
+			log.Warn("app not configured")
 			fmt.Fprintln(os.Stderr, "error: app is not configured; run notes --configure")
 		} else {
+			log.Error("initialize app", "error", err)
 			fmt.Fprintln(os.Stderr, "error:", err)
 		}
 		os.Exit(1)
@@ -49,6 +56,7 @@ func main() {
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
+		log.Error("run bubbletea program", "error", err)
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
@@ -57,7 +65,7 @@ func main() {
 func runConfigurator(in io.Reader, out io.Writer) error {
 	defaultDir, err := config.DefaultNotesDir()
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve default notes directory: %w", err)
 	}
 
 	reader := bufio.NewReader(in)
@@ -68,7 +76,7 @@ func runConfigurator(in io.Reader, out io.Writer) error {
 		fmt.Fprintf(out, "Notes directory [%s]: ", defaultDir)
 		line, err := reader.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
-			return err
+			return fmt.Errorf("read notes directory input: %w", err)
 		}
 
 		value := strings.TrimSpace(line)
@@ -94,7 +102,7 @@ func runConfigurator(in io.Reader, out io.Writer) error {
 		}
 
 		if saveErr := config.Save(config.Config{NotesDir: notesDir}); saveErr != nil {
-			return saveErr
+			return fmt.Errorf("save config: %w", saveErr)
 		}
 
 		fmt.Fprintf(out, "Saved configuration: notes_dir=%s\n", notesDir)

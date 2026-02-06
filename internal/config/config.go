@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/treykane/cli-notes/internal/logging"
 )
 
 const (
@@ -15,6 +17,7 @@ const (
 )
 
 var ErrNotConfigured = errors.New("cli-notes is not configured")
+var log = logging.New("config")
 
 // Config stores user-defined CLI Notes settings.
 type Config struct {
@@ -25,7 +28,7 @@ type Config struct {
 func DefaultNotesDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolve home dir: %w", err)
 	}
 	return filepath.Join(home, "notes"), nil
 }
@@ -34,7 +37,7 @@ func DefaultNotesDir() (string, error) {
 func ConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolve home dir: %w", err)
 	}
 	return filepath.Join(home, configDirName, configFileName), nil
 }
@@ -52,7 +55,7 @@ func Exists() (bool, error) {
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
-	return false, err
+	return false, fmt.Errorf("stat config path %q: %w", path, err)
 }
 
 // Load reads and validates the saved configuration.
@@ -67,7 +70,7 @@ func Load() (Config, error) {
 		if errors.Is(err, os.ErrNotExist) {
 			return Config{}, ErrNotConfigured
 		}
-		return Config{}, err
+		return Config{}, fmt.Errorf("read config %q: %w", path, err)
 	}
 
 	var cfg Config
@@ -98,16 +101,20 @@ func Save(cfg Config) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
+		return fmt.Errorf("create config dir %q: %w", filepath.Dir(path), err)
 	}
 
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal config: %w", err)
 	}
 	data = append(data, '\n')
 
-	return os.WriteFile(path, data, 0o600)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return fmt.Errorf("write config %q: %w", path, err)
+	}
+	log.Info("saved config", "path", path, "notes_dir", cfg.NotesDir)
+	return nil
 }
 
 // NormalizeNotesDir expands and normalizes a notes directory path.
@@ -124,7 +131,7 @@ func NormalizeNotesDir(path string) (string, error) {
 
 	abs, err := filepath.Abs(expanded)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolve absolute path for %q: %w", expanded, err)
 	}
 
 	return filepath.Clean(abs), nil
@@ -132,12 +139,16 @@ func NormalizeNotesDir(path string) (string, error) {
 
 func expandHome(path string) (string, error) {
 	if path == "~" {
-		return os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home dir: %w", err)
+		}
+		return home, nil
 	}
 	if strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("resolve home dir: %w", err)
 		}
 		return filepath.Join(home, strings.TrimPrefix(path, "~/")), nil
 	}

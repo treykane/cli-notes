@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -52,7 +53,7 @@ func (i *searchIndex) build() error {
 func (i *searchIndex) walk(dir string, depth int) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("read search dir %q: %w", dir, err)
 	}
 	sort.Slice(entries, func(a, b int) bool {
 		if entries[a].IsDir() != entries[b].IsDir() {
@@ -118,7 +119,9 @@ func (i *searchIndex) upsertPath(path string) {
 	}
 
 	i.removeDescendants(path)
-	_ = i.walk(path, depth+1)
+	if err := i.walk(path, depth+1); err != nil {
+		appLog.Warn("update search descendants", "path", path, "error", err)
+	}
 }
 
 func (i *searchIndex) removePath(path string) {

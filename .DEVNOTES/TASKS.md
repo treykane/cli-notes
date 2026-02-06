@@ -30,8 +30,8 @@
 
 ## Developer Experiqence
 [x] Improve developer experience by adding more detailed documentation.
-[ ] Add more tests to ensure the application works as expected.
-[ ] Improve error handling and logging.
+[x] Add more tests to ensure the application works as expected.
+[x] Improve error handling and logging.
 [ ] Improve code readability and maintainability.
 [x] Improve code organization and modularity.
 [x] Add inline documentation to `cmd/notes/main.go`.
@@ -41,3 +41,4 @@
 [x] Implement testing framework
 [x] Add unit tests for tree building and render cache behavior in `internal/app`.
 [x] Add unit tests for config load/save and first-run configurator behavior.
+[ ] Add tests for filesystem failure paths (permission/read/write errors) to verify user status messages and log emission.

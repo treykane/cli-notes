@@ -21,6 +21,9 @@ Run without building a binary:
 go run ./cmd/notes
 ```
 
+Optional logging:
+- Set `CLI_NOTES_LOG_LEVEL` to `debug`, `info`, `warn`, or `error` to control runtime log verbosity (default: `info`).
+
 Notes storage:
 - On first run (or with `--configure`), a configurator prompts for the notes directory and saves it in `~/.cli-notes/config.json` as `notes_dir`.
 - Notes are stored as Markdown files in the configured `notes_dir`.

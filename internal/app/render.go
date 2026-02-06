@@ -126,10 +126,12 @@ func renderMarkdown(content string, width int) string {
 	}
 	renderer, err := getRenderer(width)
 	if err != nil {
+		appLog.Error("create markdown renderer", "width", width, "error", err)
 		return content
 	}
 	out, err := renderer.Render(content)
 	if err != nil {
+		appLog.Error("render markdown content", "width", width, "error", err)
 		return content
 	}
 	return out

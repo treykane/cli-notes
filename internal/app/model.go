@@ -159,6 +159,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, renderMarkdownCmd(msg.path, msg.width, msg.seq)
 	case renderResultMsg:
 		if msg.err != nil {
+			appLog.Error("render markdown", "path", msg.path, "seq", msg.seq, "error", msg.err)
 			if msg.seq == m.renderSeq && msg.path == m.currentFile {
 				m.viewport.SetContent("Error reading note")
 				m.status = "Error reading note"
@@ -366,7 +367,9 @@ func (m *Model) openSearchPopup() {
 	m.searchPos = 0
 	m.showHelp = false
 	if m.searchIdx != nil {
-		_ = m.searchIdx.ensureBuilt()
+		if err := m.searchIdx.ensureBuilt(); err != nil {
+			appLog.Error("build search index", "root", m.notesDir, "error", err)
+		}
 	}
 	m.status = "Search popup: type to filter, Enter to jump, Esc to cancel"
 }
@@ -388,6 +391,7 @@ func (m *Model) updateSearchRows() {
 		m.searchRows = nil
 		m.searchPos = 0
 		m.status = "Search index error"
+		appLog.Error("build search index", "root", m.notesDir, "error", err)
 		return
 	}
 	m.searchRows = m.searchIdx.search(query)
