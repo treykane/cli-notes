@@ -89,7 +89,11 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
-	switch msg.String() {
+	key := msg.String()
+	if m.handleEditorShiftSelectionMove(msg) {
+		return m, nil
+	}
+	switch key {
 	case "ctrl+s":
 		return m.saveEdit()
 	case "alt+s":
@@ -115,6 +119,8 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.editor, cmd = m.editor.Update(msg)
 		if before != m.editor.Value() {
 			m.clearEditorSelection()
+		} else if m.hasEditorSelectionAnchor() {
+			m.updateEditorSelectionStatus()
 		}
 		return m, cmd
 	}

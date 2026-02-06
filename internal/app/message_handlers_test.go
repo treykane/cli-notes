@@ -64,6 +64,24 @@ func TestHandleEditNoteKeyCtrlUWrapsSelection(t *testing.T) {
 	}
 }
 
+func TestHandleEditNoteKeyShiftSelectThenBoldWrapsSelection(t *testing.T) {
+	m := newFocusedEditModel("hello world")
+
+	for i := 0; i < 5; i++ {
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyShiftLeft})
+	}
+	if !m.editorSelectionActive {
+		t.Fatal("expected selection anchor to be active after shift selection")
+	}
+
+	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlB})
+	got := result.(*Model)
+
+	if got.editor.Value() != "hello **world**" {
+		t.Fatalf("expected value %q, got %q", "hello **world**", got.editor.Value())
+	}
+}
+
 func TestHandleEditNoteKeyCtrlBFallsBackToMarkerInsertion(t *testing.T) {
 	m := newFocusedEditModel("hello ")
 

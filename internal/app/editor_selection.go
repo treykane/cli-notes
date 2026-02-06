@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"unicode"
 	"unicode/utf8"
 
@@ -12,6 +13,7 @@ const noEditorSelectionAnchor = -1
 func (m *Model) clearEditorSelection() {
 	m.editorSelectionAnchor = noEditorSelectionAnchor
 	m.editorSelectionActive = false
+	applyEditorSelectionVisual(&m.editor, false)
 }
 
 func (m *Model) hasEditorSelectionAnchor() bool {
@@ -56,7 +58,71 @@ func (m *Model) toggleEditorSelectionAnchor() {
 	}
 	m.editorSelectionAnchor = m.currentEditorCursorOffset()
 	m.editorSelectionActive = true
-	m.status = "Selection anchor set (Alt+S to clear)"
+	applyEditorSelectionVisual(&m.editor, true)
+	m.updateEditorSelectionStatus()
+}
+
+func (m *Model) handleEditorShiftSelectionMove(keyMsg tea.KeyMsg) bool {
+	msg, ok := selectionMovementKeyMsg(keyMsg)
+	if !ok {
+		return false
+	}
+
+	if !m.hasEditorSelectionAnchor() {
+		m.editorSelectionAnchor = m.currentEditorCursorOffset()
+		m.editorSelectionActive = true
+		applyEditorSelectionVisual(&m.editor, true)
+	}
+
+	var cmd tea.Cmd
+	m.editor, cmd = m.editor.Update(msg)
+	_ = cmd
+	m.updateEditorSelectionStatus()
+	return true
+}
+
+func selectionMovementKeyMsg(keyMsg tea.KeyMsg) (tea.KeyMsg, bool) {
+	switch keyMsg.Type {
+	case tea.KeyShiftLeft:
+		return tea.KeyMsg{Type: tea.KeyLeft}, true
+	case tea.KeyShiftRight:
+		return tea.KeyMsg{Type: tea.KeyRight}, true
+	case tea.KeyShiftUp:
+		return tea.KeyMsg{Type: tea.KeyUp}, true
+	case tea.KeyShiftDown:
+		return tea.KeyMsg{Type: tea.KeyDown}, true
+	case tea.KeyShiftHome:
+		return tea.KeyMsg{Type: tea.KeyHome}, true
+	case tea.KeyShiftEnd:
+		return tea.KeyMsg{Type: tea.KeyEnd}, true
+	}
+
+	switch keyMsg.String() {
+	case "shift+left":
+		return tea.KeyMsg{Type: tea.KeyLeft}, true
+	case "shift+right":
+		return tea.KeyMsg{Type: tea.KeyRight}, true
+	case "shift+up":
+		return tea.KeyMsg{Type: tea.KeyUp}, true
+	case "shift+down":
+		return tea.KeyMsg{Type: tea.KeyDown}, true
+	case "shift+home":
+		return tea.KeyMsg{Type: tea.KeyHome}, true
+	case "shift+end":
+		return tea.KeyMsg{Type: tea.KeyEnd}, true
+	default:
+		return tea.KeyMsg{}, false
+	}
+}
+
+func (m *Model) updateEditorSelectionStatus() {
+	if start, end, ok := m.editorSelectionRange(); ok {
+		m.status = fmt.Sprintf("Selected %d chars (Alt+S to clear)", end-start)
+		return
+	}
+	if m.hasEditorSelectionAnchor() {
+		m.status = "Selection anchor set (move cursor to select, Alt+S to clear)"
+	}
 }
 
 func (m *Model) applyEditorFormat(open, close, label string) {

@@ -30,6 +30,7 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- ?: Toggle help\n" +
 	"- Enter or Ctrl+S: Save (when naming new note/folder)\n" +
 	"- Ctrl+S: Save (when editing)\n" +
+	"- Shift+Arrows or Shift+Home/End: Extend selection (when editing)\n" +
 	"- Alt+S: Set/clear selection anchor (when editing)\n" +
 	"- Ctrl+B / Alt+I / Ctrl+U: Toggle bold/italic/underline on selection/word (when editing)\n" +
 	"- Esc: Cancel (when naming or editing)\n" +

@@ -78,7 +78,7 @@ func (m *Model) renderRight(width, height int) string {
 	case modeEditNote:
 		m.editor.SetWidth(innerWidth)
 		m.editor.SetHeight(contentHeight)
-		content = m.editor.View()
+		content = m.editorViewWithSelectionHighlight(m.editor.View())
 	case modeNewNote, modeNewFolder:
 		m.input.Width = innerWidth
 		prompt := "New note name"
@@ -110,6 +110,32 @@ func (m *Model) renderRight(width, height int) string {
 	return rightPaneStyle.Width(width).Height(height).Render(header + "\n" + body)
 }
 
+func (m *Model) editorViewWithSelectionHighlight(view string) string {
+	start, end, ok := m.editorSelectionRange()
+	if !ok {
+		return view
+	}
+
+	runes := []rune(m.editor.Value())
+	start = clamp(start, 0, len(runes))
+	end = clamp(end, 0, len(runes))
+	if start >= end {
+		return view
+	}
+
+	selected := string(runes[start:end])
+	if selected == "" || strings.Contains(selected, "\n") {
+		return view
+	}
+
+	idx := strings.Index(view, selected)
+	if idx < 0 {
+		return view
+	}
+
+	return view[:idx] + selectionText.Render(selected) + view[idx+len(selected):]
+}
+
 // renderStatus renders the footer help line and any status message.
 func (m *Model) renderStatus(width int) string {
 	help := m.statusHelp()
@@ -128,7 +154,7 @@ func (m *Model) renderStatus(width int) string {
 func (m *Model) statusHelp() string {
 	switch m.mode {
 	case modeEditNote:
-		return "Ctrl+S save  Alt+S anchor  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Esc cancel"
+		return "Ctrl+S save  Shift+Arrows select  Alt+S anchor  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Esc cancel"
 	case modeNewNote, modeNewFolder:
 		return "Enter/Ctrl+S save  Esc cancel"
 	default:
@@ -172,6 +198,8 @@ func (m *Model) renderHelp(width, height int) string {
 		"",
 		"Edit Note",
 		"  Ctrl+S         Save",
+		"  Shift+Arrows   Extend selection",
+		"  Shift+Home/End Extend selection to line boundaries",
 		"  Alt+S          Set/clear selection anchor",
 		"  Ctrl+B         Toggle **bold** on selection/word",
 		"  Alt+I          Toggle *italic* on selection/word",

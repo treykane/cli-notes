@@ -23,13 +23,14 @@ var (
 	treeFileTag    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("25"))
 	treeOpenMark   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("121"))
 	treeClosedMark = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	selectionText  = lipgloss.NewStyle().Background(lipgloss.Color("255")).Foreground(lipgloss.Color("16"))
 )
 
 func applyEditorTheme(editor *textarea.Model) {
 	focused, blurred := textarea.DefaultStyles()
 
 	base := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-	cursorLine := lipgloss.NewStyle().Background(lipgloss.Color("53")).Foreground(lipgloss.Color("252"))
+	cursorLine := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("252"))
 	lineNumber := lipgloss.NewStyle().Foreground(lipgloss.Color("218"))
 	prompt := lipgloss.NewStyle().Foreground(lipgloss.Color("204"))
 
@@ -54,4 +55,15 @@ func applyEditorTheme(editor *textarea.Model) {
 	editor.Prompt = "│ "
 	editor.EndOfBufferCharacter = ' '
 	editor.ShowLineNumbers = true
+}
+
+func applyEditorSelectionVisual(editor *textarea.Model, active bool) {
+	// Keep cursor-line visuals stable; selection highlighting is applied to selected text only.
+	_ = active
+	editor.FocusedStyle.CursorLine = lipgloss.NewStyle().
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("252"))
+	editor.FocusedStyle.CursorLineNumber = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("218")).
+		Bold(true)
 }

@@ -85,11 +85,15 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | Key | Action |
 |-----|--------|
 | `Ctrl+S` | Save |
+| `Shift+↑` / `Shift+↓` / `Shift+←` / `Shift+→` | Extend selection |
+| `Shift+Home` / `Shift+End` | Extend selection to line boundary |
 | `Alt+S` | Set/clear selection anchor |
 | `Ctrl+B` | Toggle `**bold**` on selection/current word |
 | `Alt+I` | Toggle `*italic*` on selection/current word |
 | `Ctrl+U` | Toggle `<u>underline</u>` on selection/current word |
 | `Esc` | Cancel |
+
+Edit mode highlights selected text with a light background and dark text.
 
 ### Search Popup
 

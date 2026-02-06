@@ -55,6 +55,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 - Press `e` to edit the selected note
 - Save with Ctrl+S
 - Set a selection anchor with `Alt+S` (move cursor to define range)
+- Or hold `Shift` with arrow keys/home/end to extend selection
+- Selected text is highlighted (light background with dark text)
 - Formatting toggles on the active selection (or current word if no selection):
   - `Ctrl+B` for `**bold**`
   - `Alt+I` for `*italic*`
@@ -84,6 +86,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | e | Edit note |
 | d | Delete |
 | r | Refresh |
+| Shift+↑/↓/←/→ (edit mode) | Extend selection |
+| Shift+Home/End (edit mode) | Extend selection to line boundary |
 | Alt+S (edit mode) | Set/clear selection anchor |
 | Ctrl+B (edit mode) | Toggle `**bold**` on selection/current word |
 | Alt+I (edit mode) | Toggle `*italic*` on selection/current word |
