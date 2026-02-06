@@ -68,6 +68,12 @@ Current entry point:
 go test ./...
 ```
 
+Search index benchmark suite:
+
+```bash
+go test ./internal/app -run '^$' -bench '^BenchmarkSearchIndex$' -benchmem
+```
+
 ## Troubleshooting
 
 - If the UI looks misaligned, ensure your terminal supports ANSI colors and has enough width.

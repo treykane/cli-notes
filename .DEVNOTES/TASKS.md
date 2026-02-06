@@ -26,7 +26,8 @@
 ## Performance
 [x] Improve performance on a fresh build.
 [x] Consider adding an incremental/cached content index for search to keep `Ctrl+P` fast with large note collections.
-[ ] Add a search-index benchmark suite (cold build vs warm query; small vs large note sets) to guard future regressions.
+[x] Add a search-index benchmark suite (cold build vs warm query; small vs large note sets) to guard future regressions.
+[ ] Add CI benchmark tracking for the search index suite to detect performance drifts over time.
 
 ## Developer Experiqence
 [x] Improve developer experience by adding more detailed documentation.

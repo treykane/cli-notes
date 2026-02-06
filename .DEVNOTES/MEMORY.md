@@ -41,6 +41,7 @@
 - 2026-02-05: Clamped the main pane row to `height-1` before rendering footer status so border/padding growth cannot clip the bottom info line.
 - 2026-02-06: Added unit tests in `internal/app` for tree building behavior (sorting, depth, and expansion) and markdown render cache behavior (cache hit vs async render path).
 - 2026-02-06: Improved error handling/logging with a shared `internal/logging` package, contextual error wrapping in config/search/setup paths, and centralized app error logs for note operations, rendering, and search indexing.
+- 2026-02-06: Added `internal/app/search_index_benchmark_test.go` with benchmark coverage for search-index cold builds and warm queries across small and large datasets to guard search performance regressions.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`
