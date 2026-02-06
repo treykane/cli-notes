@@ -41,7 +41,19 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 		m.deleteSelected()
 		return m, nil
 	case "r":
+		m.startRenameSelected()
+		return m, nil
+	case "R", "shift+r", "ctrl+r":
 		return m.handleRefresh()
+	case "m":
+		m.startMoveSelected()
+		return m, nil
+	case "c":
+		return m.handleGitCommitStart()
+	case "p":
+		return m.handleGitPull()
+	case "P", "shift+p":
+		return m.handleGitPush()
 	}
 	return m, nil
 }
@@ -121,6 +133,7 @@ func (m *Model) handleRefresh() (tea.Model, tea.Cmd) {
 	if m.searchIndex != nil {
 		m.searchIndex.invalidate()
 	}
+	m.refreshGitStatus()
 	m.status = "Refreshed"
 	return m, nil
 }

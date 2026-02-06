@@ -71,9 +71,20 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 ### 6. Delete Items
 - Press `d` to delete selected note or folder
 - Folders must be empty to delete
-- Confirmation via status message
+- Confirmation prompt appears (`y` to confirm, `n`/`Esc` to cancel)
 
-### 7. Keyboard Shortcuts
+### 7. Rename and Move Items
+- Press `r` to rename the selected note/folder in-place
+- Press `m` to move the selected note/folder to a destination directory
+- Both actions reuse the inline text input and update tree/search state
+
+### 8. Git Commit and Sync (when `notes_dir` is a Git repo)
+- Press `c` to run `git add -A` + `git commit -m <message>`
+- Press `p` to run `git pull --ff-only`
+- Press `P` to run `git push`
+- Footer displays branch + ahead/behind + dirty/clean status
+
+### 9. Keyboard Shortcuts
 | Key | Action |
 |-----|--------|
 | ↑/↓ or k/j (or Ctrl+N) | Move selection |
@@ -84,8 +95,13 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | n | New note |
 | f | New folder |
 | e | Edit note |
-| d | Delete |
-| r | Refresh |
+| r | Rename selected item |
+| m | Move selected item |
+| d | Delete selected item (with confirmation) |
+| Shift+R or Ctrl+R | Refresh |
+| c* | Git add + commit |
+| p* | Git pull --ff-only |
+| P* | Git push |
 | Shift+↑/↓/←/→ (edit mode) | Extend selection |
 | Shift+Home/End (edit mode) | Extend selection to line boundary |
 | Alt+S (edit mode) | Set/clear selection anchor |
@@ -95,7 +111,9 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | ? | Toggle help |
 | q or Ctrl+C | Quit |
 
-### 8. Search Notes
+\* Git shortcuts are shown only when `notes_dir` is a Git repository.
+
+### 10. Search Notes
 - Press `Ctrl+P` to open the search popup
 - Type to filter folders by name and notes by name/content
 - Use `↑/↓` or `j`/`k` to choose a match

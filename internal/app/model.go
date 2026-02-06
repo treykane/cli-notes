@@ -31,11 +31,15 @@
 // Tree Navigation: The left pane shows a tree of folders and markdown files.
 // Users navigate with vim-style keys (j/k, h/l) or arrows.
 //
-// Modes: The app has four modes that determine which widget is active:
+// Modes: The app has focused modes that determine which widget is active:
 //   - modeBrowse: Default mode, navigate tree and view notes
 //   - modeEditNote: Textarea widget is active for editing
 //   - modeNewNote: Input widget is active for naming a new note
 //   - modeNewFolder: Input widget is active for naming a new folder
+//   - modeRenameItem: Input widget is active for renaming
+//   - modeMoveItem: Input widget is active for move destination path
+//   - modeConfirmDelete: Yes/No confirmation before deleting
+//   - modeGitCommit: Input widget is active for commit message
 //
 // Rendering: Markdown rendering is debounced and cached to prevent lag.
 // When a file is selected, we wait 500ms before rendering to avoid
@@ -68,6 +72,10 @@ const (
 	modeNewNote
 	modeNewFolder
 	modeEditNote
+	modeRenameItem
+	modeMoveItem
+	modeConfirmDelete
+	modeGitCommit
 )
 
 // treeItem represents a single row in the left-hand tree pane.
@@ -138,10 +146,17 @@ type Model struct {
 	// Mode-specific State
 	// Parent directory for new note/folder creation
 	newParent string
+	// Path for rename/move actions
+	actionPath string
+	// Snapshot of the item pending delete confirmation
+	pendingDelete treeItem
 	// Anchor offset (in runes) for editor range selection
 	editorSelectionAnchor int
 	// Whether the editor selection anchor is currently active
 	editorSelectionActive bool
+
+	// Git State
+	git gitRepoStatus
 
 	// Rendering State
 	// Whether a markdown render is in progress
@@ -194,7 +209,7 @@ func New() (*Model, error) {
 	spin := spinner.New()
 	spin.Spinner = spinner.Line
 
-	return &Model{
+	m := &Model{
 		notesDir:              notesDir,
 		items:                 items,
 		expanded:              expanded,
@@ -211,7 +226,9 @@ func New() (*Model, error) {
 		editorSelectionAnchor: noEditorSelectionAnchor,
 		editorSelectionActive: false,
 		debugInput:            os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
-	}, nil
+	}
+	m.refreshGitStatus()
+	return m, nil
 }
 
 // Init starts the spinner so we can show async rendering progress.
@@ -252,6 +269,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleNewNoteKey(msg)
 		case modeNewFolder:
 			return m.handleNewFolderKey(msg)
+		case modeRenameItem:
+			return m.handleRenameItemKey(msg)
+		case modeMoveItem:
+			return m.handleMoveItemKey(msg)
+		case modeConfirmDelete:
+			return m.handleConfirmDeleteKey(msg)
+		case modeGitCommit:
+			return m.handleGitCommitKey(msg)
 		default:
 			return m.handleKey(msg)
 		}

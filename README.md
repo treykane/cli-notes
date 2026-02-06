@@ -68,10 +68,17 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `n` | Create a new note |
 | `f` | Create a new folder |
 | `e` | Edit the selected note |
-| `d` | Delete the selected note/folder |
-| `r` | Refresh the directory tree |
+| `r` | Rename the selected note/folder |
+| `m` | Move the selected note/folder |
+| `d` | Delete the selected note/folder (with confirmation) |
+| `Shift+R` or `Ctrl+R` | Refresh the directory tree |
+| `c`* | Git add + commit (prompts for message) |
+| `p`* | Git pull (`--ff-only`) |
+| `P`* | Git push |
 | `?` | Toggle help |
 | `q` or `Ctrl+C` | Quit the application |
+
+\* Git shortcuts only appear when your configured `notes_dir` is inside a Git repository.
 
 ### New Note/Folder
 
@@ -111,7 +118,7 @@ Edit mode highlights selected text with a light background and dark text.
 3. Press `n` to create a new note in the current directory
 4. Press `e` to edit the selected note
 5. Press `f` to create folders and organize your notes
-6. Press `d` to delete notes or empty folders
+6. Press `r` to rename, `m` to move, and `d` to delete notes or empty folders (with confirmation)
 
 ## Notes Storage
 

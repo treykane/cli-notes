@@ -10,6 +10,9 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-06: Added browse-mode rename (`r`) and move (`m`) workflows using the existing text input widget, including tree rebuild + search-index updates + `currentFile` path remapping after path changes.
+- 2026-02-06: Added delete confirmation mode so `d` now prompts for `y/n` before deleting notes/folders, preventing immediate accidental removal.
+- 2026-02-06: Added git-aware browse actions when `notes_dir` is in a git repo: `c` prompts for commit message then runs `git add -A && git commit -m`, `p` runs `git pull --ff-only`, `P` runs `git push`; footer now shows branch/sync/dirty status.
 - 2026-02-06: Refined edit-mode selection visuals to highlight only selected text (light background, dark text) instead of the full cursor line.
 - 2026-02-06: Improved edit-mode selection feedback: Shift-based selection handling now matches both shifted key types and key strings, and active selection updates status with selected character count.
 - 2026-02-06: Formatting shortcuts in edit mode now toggle: if the exact selection/word is already wrapped by that formatter, the surrounding markers are removed; otherwise markers are added. This preserves nested formatting by only affecting the formatter immediately surrounding the target range.

@@ -79,14 +79,9 @@ func (m *Model) renderRight(width, height int) string {
 		m.editor.SetWidth(innerWidth)
 		m.editor.SetHeight(contentHeight)
 		content = m.editorViewWithSelectionHighlight(m.editor.View())
-	case modeNewNote, modeNewFolder:
+	case modeNewNote, modeNewFolder, modeRenameItem, modeMoveItem, modeGitCommit:
 		m.input.Width = innerWidth
-		prompt := "New note name"
-		if m.mode == modeNewFolder {
-			prompt = "New folder name"
-		}
-		location := "Location: " + m.displayRelative(m.newParent)
-		helper := "Ctrl+S or Enter to save. Esc to cancel."
+		prompt, location, helper := m.inputModeMeta()
 		content = strings.Join([]string{
 			titleStyle.Render(prompt),
 			location,
@@ -139,10 +134,14 @@ func (m *Model) editorViewWithSelectionHighlight(view string) string {
 // renderStatus renders the footer help line and any status message.
 func (m *Model) renderStatus(width int) string {
 	help := m.statusHelp()
-	line := help
-	if m.status != "" {
-		line = help + " | " + m.status
+	parts := []string{help}
+	if git := m.gitFooterSummary(); git != "" {
+		parts = append(parts, git)
 	}
+	if m.status != "" {
+		parts = append(parts, m.status)
+	}
+	line := strings.Join(parts, " | ")
 	line = " " + truncate(line, max(0, width-1))
 	style := statusStyle
 	if m.mode == modeEditNote {
@@ -155,13 +154,20 @@ func (m *Model) statusHelp() string {
 	switch m.mode {
 	case modeEditNote:
 		return "Ctrl+S save  Shift+Arrows select  Alt+S anchor  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Esc cancel"
-	case modeNewNote, modeNewFolder:
+	case modeNewNote, modeNewFolder, modeRenameItem, modeMoveItem, modeGitCommit:
 		return "Enter/Ctrl+S save  Esc cancel"
+	case modeConfirmDelete:
+		return "y confirm delete  n/Esc cancel"
 	default:
 		if m.searching {
 			return "Search popup: type  ↑/↓ move  Enter jump  Esc cancel"
 		}
-		return "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  d delete  r refresh  ? help  q quit  (reconfigure: notes --configure)"
+		help := "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  r rename  m move  d delete  Shift+R refresh"
+		if m.git.isRepo {
+			help += "  c commit  p pull  P push"
+		}
+		help += "  ? help  q quit  (reconfigure: notes --configure)"
+		return help
 	}
 }
 
@@ -178,10 +184,21 @@ func (m *Model) renderHelp(width, height int) string {
 		"  n                         New note",
 		"  f                         New folder",
 		"  e                         Edit note",
-		"  d                         Delete",
-		"  r                         Refresh",
+		"  r                         Rename selected item",
+		"  m                         Move selected item",
+		"  d                         Delete (with confirmation)",
+		"  Shift+R / Ctrl+R          Refresh",
 		"  ?                         Toggle help",
 		"  q or Ctrl+C               Quit",
+	}
+	if m.git.isRepo {
+		lines = append(lines,
+			"  c                         Git add+commit",
+			"  p                         Git pull --ff-only",
+			"  P                         Git push",
+		)
+	}
+	lines = append(lines,
 		"",
 		"CLI",
 		"  notes --configure         Re-run configurator",
@@ -196,6 +213,14 @@ func (m *Model) renderHelp(width, height int) string {
 		"  Enter or Ctrl+S  Save",
 		"  Esc              Cancel",
 		"",
+		"Rename/Move/Git Commit",
+		"  Enter or Ctrl+S  Save",
+		"  Esc              Cancel",
+		"",
+		"Delete Confirmation",
+		"  y                Confirm delete",
+		"  n or Esc         Cancel delete",
+		"",
 		"Edit Note",
 		"  Ctrl+S         Save",
 		"  Shift+Arrows   Extend selection",
@@ -207,7 +232,7 @@ func (m *Model) renderHelp(width, height int) string {
 		"  Esc            Cancel",
 		"",
 		"Press ? to return.",
-	}
+	)
 
 	visible := min(height, len(lines))
 	out := make([]string, 0, visible)
@@ -215,6 +240,21 @@ func (m *Model) renderHelp(width, height int) string {
 		out = append(out, truncate(lines[i], width))
 	}
 	return strings.Join(out, "\n")
+}
+
+func (m *Model) inputModeMeta() (string, string, string) {
+	switch m.mode {
+	case modeNewFolder:
+		return "New folder name", "Location: " + m.displayRelative(m.newParent), "Ctrl+S or Enter to save. Esc to cancel."
+	case modeRenameItem:
+		return "Rename selected item", "Current path: " + m.displayRelative(m.actionPath), "Ctrl+S or Enter to save. Esc to cancel."
+	case modeMoveItem:
+		return "Move selected item", "Current path: " + m.displayRelative(m.actionPath), "Enter destination folder path. Esc to cancel."
+	case modeGitCommit:
+		return "Git commit message", "Repository: " + m.notesDir, "Ctrl+S or Enter to commit. Esc to cancel."
+	default:
+		return "New note name", "Location: " + m.displayRelative(m.newParent), "Ctrl+S or Enter to save. Esc to cancel."
+	}
 }
 
 func (m *Model) renderSearchPopupOverlay(width, height int) string {

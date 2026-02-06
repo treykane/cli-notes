@@ -175,6 +175,85 @@ func (m *Model) handleNewFolderKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
+// handleRenameItemKey processes keypresses while renaming an item.
+func (m *Model) handleRenameItemKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.shouldIgnoreInput(msg) {
+		return m, nil
+	}
+	switch msg.String() {
+	case "ctrl+s", "enter":
+		return m.saveRenameItem()
+	case "esc":
+		m.mode = modeBrowse
+		m.status = "Rename cancelled"
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		return m, cmd
+	}
+}
+
+// handleMoveItemKey processes keypresses while moving an item.
+func (m *Model) handleMoveItemKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.shouldIgnoreInput(msg) {
+		return m, nil
+	}
+	switch msg.String() {
+	case "ctrl+s", "enter":
+		return m.saveMoveItem()
+	case "esc":
+		m.mode = modeBrowse
+		m.status = "Move cancelled"
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		return m, cmd
+	}
+}
+
+// handleConfirmDeleteKey processes yes/no confirmation for deletions.
+func (m *Model) handleConfirmDeleteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.shouldIgnoreInput(msg) {
+		return m, nil
+	}
+	switch msg.String() {
+	case "y", "Y":
+		m.mode = modeBrowse
+		item := m.pendingDelete
+		m.pendingDelete = treeItem{}
+		m.performDelete(&item)
+		return m, nil
+	case "esc", "n", "N", "enter":
+		m.mode = modeBrowse
+		m.pendingDelete = treeItem{}
+		m.status = "Delete cancelled"
+		return m, nil
+	default:
+		return m, nil
+	}
+}
+
+// handleGitCommitKey processes keypresses while entering a git commit message.
+func (m *Model) handleGitCommitKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.shouldIgnoreInput(msg) {
+		return m, nil
+	}
+	switch msg.String() {
+	case "ctrl+s", "enter":
+		return m.runGitCommit(m.input.Value())
+	case "esc":
+		m.mode = modeBrowse
+		m.status = "Git commit cancelled"
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		return m, cmd
+	}
+}
+
 // clearRenderingState resets rendering flags after completion or error.
 func (m *Model) clearRenderingState() {
 	m.rendering = false

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -130,5 +132,63 @@ func TestHandleEditNoteKeyTypingClearsSelectionAnchor(t *testing.T) {
 	_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 	if m.editorSelectionActive {
 		t.Fatalf("expected selection anchor cleared after edit, got active anchor %d", m.editorSelectionAnchor)
+	}
+}
+
+func TestHandleConfirmDeleteKeyYDeletesPendingItem(t *testing.T) {
+	root := t.TempDir()
+	notePath := filepath.Join(root, "delete.md")
+	if err := os.WriteFile(notePath, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write note: %v", err)
+	}
+
+	m := &Model{
+		notesDir: root,
+		mode:     modeConfirmDelete,
+		pendingDelete: treeItem{
+			path:  notePath,
+			name:  "delete.md",
+			isDir: false,
+		},
+		expanded: make(map[string]bool),
+	}
+
+	result, _ := m.handleConfirmDeleteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	got := result.(*Model)
+
+	if got.mode != modeBrowse {
+		t.Fatalf("expected browse mode, got %v", got.mode)
+	}
+	if _, err := os.Stat(notePath); !os.IsNotExist(err) {
+		t.Fatalf("expected file to be deleted, stat err: %v", err)
+	}
+}
+
+func TestHandleConfirmDeleteKeyNDoesNotDeletePendingItem(t *testing.T) {
+	root := t.TempDir()
+	notePath := filepath.Join(root, "keep.md")
+	if err := os.WriteFile(notePath, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write note: %v", err)
+	}
+
+	m := &Model{
+		notesDir: root,
+		mode:     modeConfirmDelete,
+		pendingDelete: treeItem{
+			path:  notePath,
+			name:  "keep.md",
+			isDir: false,
+		},
+		expanded: make(map[string]bool),
+	}
+
+	result, _ := m.handleConfirmDeleteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	got := result.(*Model)
+
+	if got.mode != modeBrowse {
+		t.Fatalf("expected browse mode, got %v", got.mode)
+	}
+	if _, err := os.Stat(notePath); err != nil {
+		t.Fatalf("expected file to remain, stat err: %v", err)
 	}
 }

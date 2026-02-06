@@ -25,8 +25,10 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- n: Create a new note\n" +
 	"- f: Create a new folder\n" +
 	"- e: Edit the selected note\n" +
-	"- d: Delete the selected note\n" +
-	"- r: Refresh the directory tree\n" +
+	"- r: Rename the selected item\n" +
+	"- m: Move the selected item\n" +
+	"- d: Delete the selected note/folder (with confirmation)\n" +
+	"- Shift+R or Ctrl+R: Refresh the directory tree\n" +
 	"- ?: Toggle help\n" +
 	"- Enter or Ctrl+S: Save (when naming new note/folder)\n" +
 	"- Ctrl+S: Save (when editing)\n" +
@@ -107,6 +109,60 @@ func (m *Model) startNewFolder() {
 	m.configureInputForMode(modeNewFolder, "Folder name")
 }
 
+// startRenameSelected switches to rename mode with the current item name prefilled.
+func (m *Model) startRenameSelected() {
+	item := m.selectedItem()
+	if item == nil {
+		m.status = "No item selected"
+		return
+	}
+	if item.path == m.notesDir {
+		m.status = "Cannot rename the root notes directory"
+		return
+	}
+	if !isWithinRoot(m.notesDir, item.path) {
+		m.status = "Cannot rename item outside notes directory"
+		return
+	}
+
+	m.mode = modeRenameItem
+	m.showHelp = false
+	m.actionPath = item.path
+	m.input.Reset()
+	m.input.Placeholder = "New name"
+	m.input.SetValue(item.name)
+	m.input.CursorEnd()
+	m.input.Focus()
+	m.status = "Rename: Enter or Ctrl+S to save, Esc to cancel"
+}
+
+// startMoveSelected switches to move mode with the current parent directory prefilled.
+func (m *Model) startMoveSelected() {
+	item := m.selectedItem()
+	if item == nil {
+		m.status = "No item selected"
+		return
+	}
+	if item.path == m.notesDir {
+		m.status = "Cannot move the root notes directory"
+		return
+	}
+	if !isWithinRoot(m.notesDir, item.path) {
+		m.status = "Cannot move item outside notes directory"
+		return
+	}
+
+	m.mode = modeMoveItem
+	m.showHelp = false
+	m.actionPath = item.path
+	m.input.Reset()
+	m.input.Placeholder = "Destination folder (relative to notes root)"
+	m.input.SetValue(m.displayRelative(filepath.Dir(item.path)))
+	m.input.CursorEnd()
+	m.input.Focus()
+	m.status = "Move: Enter or Ctrl+S to save, Esc to cancel"
+}
+
 // startEditNote loads the current file and opens the editor.
 func (m *Model) startEditNote() (tea.Model, tea.Cmd) {
 	if m.currentFile == "" {
@@ -159,6 +215,7 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 	if m.searchIndex != nil {
 		m.searchIndex.upsertPath(path)
 	}
+	m.refreshGitStatus()
 	cmd := m.setCurrentFile(path)
 	return m, cmd
 }
@@ -188,6 +245,123 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 	if m.searchIndex != nil {
 		m.searchIndex.upsertPath(path)
 	}
+	m.refreshGitStatus()
+	return m, nil
+}
+
+func (m *Model) saveRenameItem() (tea.Model, tea.Cmd) {
+	oldPath := m.actionPath
+	name := strings.TrimSpace(m.input.Value())
+	if name == "" {
+		m.status = "Name is required"
+		return m, nil
+	}
+	if filepath.Base(name) != name {
+		m.status = "Name cannot include path separators"
+		return m, nil
+	}
+	if !isWithinRoot(m.notesDir, oldPath) {
+		m.status = "Invalid rename target"
+		m.mode = modeBrowse
+		return m, nil
+	}
+
+	parent := filepath.Dir(oldPath)
+	newPath := filepath.Join(parent, name)
+	if oldPath == newPath {
+		m.mode = modeBrowse
+		m.status = "Name unchanged"
+		return m, nil
+	}
+	if !isWithinRoot(m.notesDir, newPath) {
+		m.status = "Invalid target name"
+		return m, nil
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		m.status = "Target already exists"
+		return m, nil
+	}
+
+	if err := os.Rename(oldPath, newPath); err != nil {
+		m.setStatusError("Error renaming item", err, "from", oldPath, "to", newPath)
+		return m, nil
+	}
+
+	m.mode = modeBrowse
+	m.remapExpandedPaths(oldPath, newPath)
+	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
+	if m.searchIndex != nil {
+		m.searchIndex.removePath(oldPath)
+		m.searchIndex.upsertPath(newPath)
+	}
+	m.refreshGitStatus()
+	m.refreshTree()
+	m.rebuildTreeKeep(newPath)
+	m.status = "Renamed to: " + name
+	if m.currentFile != "" {
+		return m, m.setCurrentFile(m.currentFile)
+	}
+	return m, nil
+}
+
+func (m *Model) saveMoveItem() (tea.Model, tea.Cmd) {
+	oldPath := m.actionPath
+	if !isWithinRoot(m.notesDir, oldPath) {
+		m.status = "Invalid move target"
+		m.mode = modeBrowse
+		return m, nil
+	}
+
+	destDir, err := m.resolveMoveDestination(m.input.Value())
+	if err != nil {
+		m.status = err.Error()
+		return m, nil
+	}
+
+	newPath := filepath.Join(destDir, filepath.Base(oldPath))
+	info, statErr := os.Stat(oldPath)
+	if statErr != nil {
+		m.setStatusError("Error reading source item", statErr, "path", oldPath)
+		m.mode = modeBrowse
+		return m, nil
+	}
+	if info.IsDir() {
+		prefix := oldPath + string(os.PathSeparator)
+		if newPath == oldPath || strings.HasPrefix(newPath, prefix) {
+			m.status = "Cannot move a folder into itself"
+			return m, nil
+		}
+	}
+	if newPath == oldPath {
+		m.mode = modeBrowse
+		m.status = "Item already in that folder"
+		return m, nil
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		m.status = "Destination already exists"
+		return m, nil
+	}
+
+	if err := os.Rename(oldPath, newPath); err != nil {
+		m.setStatusError("Error moving item", err, "from", oldPath, "to", newPath)
+		return m, nil
+	}
+
+	m.mode = modeBrowse
+	m.expanded[destDir] = true
+	m.remapExpandedPaths(oldPath, newPath)
+	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
+	if m.searchIndex != nil {
+		m.searchIndex.removePath(oldPath)
+		m.searchIndex.upsertPath(newPath)
+	}
+	m.refreshGitStatus()
+	m.refreshTree()
+	m.rebuildTreeKeep(newPath)
+	m.status = "Moved to: " + m.displayRelative(destDir)
+	if m.currentFile != "" {
+		return m, m.setCurrentFile(m.currentFile)
+	}
 	return m, nil
 }
 
@@ -209,6 +383,7 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 	if m.searchIndex != nil {
 		m.searchIndex.upsertPath(m.currentFile)
 	}
+	m.refreshGitStatus()
 	cmd := m.setCurrentFile(m.currentFile)
 	return m, cmd
 }
@@ -263,6 +438,7 @@ func (m *Model) performDelete(item *treeItem) {
 	if m.searchIndex != nil {
 		m.searchIndex.removePath(item.path)
 	}
+	m.refreshGitStatus()
 	m.refreshTree()
 }
 
@@ -274,8 +450,13 @@ func (m *Model) deleteSelected() {
 		m.status = errMsg
 		return
 	}
-
-	m.performDelete(item)
+	m.pendingDelete = *item
+	m.mode = modeConfirmDelete
+	targetType := "note"
+	if item.isDir {
+		targetType = "folder"
+	}
+	m.status = fmt.Sprintf("Delete %s \"%s\"? (y/N)", targetType, item.name)
 }
 
 // displayRelative shows paths relative to the notes root for UI display.
@@ -294,4 +475,59 @@ func isDirEmpty(path string) bool {
 		return false
 	}
 	return len(entries) == 0
+}
+
+func (m *Model) resolveMoveDestination(value string) (string, error) {
+	destValue := strings.TrimSpace(value)
+	if destValue == "" {
+		return "", fmt.Errorf("Destination folder is required")
+	}
+
+	var destDir string
+	switch {
+	case strings.HasPrefix(destValue, "/"):
+		destDir = filepath.Join(m.notesDir, strings.TrimPrefix(filepath.Clean(destValue), "/"))
+	case filepath.IsAbs(destValue):
+		destDir = filepath.Clean(destValue)
+	default:
+		destDir = filepath.Join(m.notesDir, destValue)
+	}
+	destDir = filepath.Clean(destDir)
+
+	if !isWithinRoot(m.notesDir, destDir) {
+		return "", fmt.Errorf("Destination must be inside notes directory")
+	}
+	info, err := os.Stat(destDir)
+	if err != nil {
+		return "", fmt.Errorf("Destination folder not found")
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("Destination must be a folder")
+	}
+	return destDir, nil
+}
+
+func (m *Model) remapExpandedPaths(oldPath, newPath string) {
+	if oldPath == "" || newPath == "" || oldPath == newPath {
+		return
+	}
+	remapped := make(map[string]bool, len(m.expanded))
+	for path, expanded := range m.expanded {
+		remapped[replacePathPrefix(path, oldPath, newPath)] = expanded
+	}
+	m.expanded = remapped
+}
+
+func replacePathPrefix(path, oldPrefix, newPrefix string) string {
+	if path == "" || oldPrefix == "" || newPrefix == "" {
+		return path
+	}
+	if path == oldPrefix {
+		return newPrefix
+	}
+	withSep := oldPrefix + string(os.PathSeparator)
+	if !strings.HasPrefix(path, withSep) {
+		return path
+	}
+	return newPrefix + path[len(oldPrefix):]
 }

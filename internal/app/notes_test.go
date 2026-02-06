@@ -541,5 +541,104 @@ func TestDeleteSelectedNonEmptyFolder(t *testing.T) {
 	}
 }
 
+func TestSaveRenameItemUpdatesCurrentFile(t *testing.T) {
+	root := t.TempDir()
+	oldPath := filepath.Join(root, "old.md")
+	newPath := filepath.Join(root, "new.md")
+	if err := os.WriteFile(oldPath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write old file: %v", err)
+	}
+
+	input := textinput.New()
+	input.SetValue("new.md")
+	m := &Model{
+		notesDir:    root,
+		mode:        modeRenameItem,
+		actionPath:  oldPath,
+		currentFile: oldPath,
+		expanded:    map[string]bool{root: true},
+		searchIndex: newSearchIndex(root),
+		input:       input,
+	}
+
+	result, _ := m.saveRenameItem()
+	got := result.(*Model)
+
+	if got.mode != modeBrowse {
+		t.Fatalf("expected browse mode, got %v", got.mode)
+	}
+	if got.currentFile != newPath {
+		t.Fatalf("expected currentFile %q, got %q", newPath, got.currentFile)
+	}
+	if _, err := os.Stat(newPath); err != nil {
+		t.Fatalf("expected renamed file at %q: %v", newPath, err)
+	}
+}
+
+func TestSaveMoveItemUpdatesCurrentFileForFolderMove(t *testing.T) {
+	root := t.TempDir()
+	srcDir := filepath.Join(root, "src")
+	dstDir := filepath.Join(root, "dst")
+	if err := os.MkdirAll(srcDir, 0o755); err != nil {
+		t.Fatalf("mkdir src: %v", err)
+	}
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		t.Fatalf("mkdir dst: %v", err)
+	}
+	notePath := filepath.Join(srcDir, "note.md")
+	if err := os.WriteFile(notePath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write note: %v", err)
+	}
+
+	input := textinput.New()
+	input.SetValue("dst")
+	m := &Model{
+		notesDir:    root,
+		mode:        modeMoveItem,
+		actionPath:  srcDir,
+		currentFile: notePath,
+		expanded:    map[string]bool{root: true, srcDir: true, dstDir: true},
+		searchIndex: newSearchIndex(root),
+		input:       input,
+	}
+
+	result, _ := m.saveMoveItem()
+	got := result.(*Model)
+	newFolder := filepath.Join(dstDir, "src")
+	newNote := filepath.Join(newFolder, "note.md")
+
+	if got.currentFile != newNote {
+		t.Fatalf("expected moved currentFile %q, got %q", newNote, got.currentFile)
+	}
+	if _, err := os.Stat(newFolder); err != nil {
+		t.Fatalf("expected moved folder at %q: %v", newFolder, err)
+	}
+}
+
+func TestDeleteSelectedStartsConfirmationMode(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "a.md")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	m := &Model{
+		notesDir: root,
+		items:    []treeItem{{path: path, name: "a.md", isDir: false}},
+		cursor:   0,
+	}
+
+	m.deleteSelected()
+
+	if m.mode != modeConfirmDelete {
+		t.Fatalf("expected modeConfirmDelete, got %v", m.mode)
+	}
+	if m.pendingDelete.path != path {
+		t.Fatalf("expected pending delete path %q, got %q", path, m.pendingDelete.path)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("file should not be deleted until confirmation: %v", err)
+	}
+}
+
 // Verify Model has required fields for testing
 var _ = tea.Model(&Model{})
