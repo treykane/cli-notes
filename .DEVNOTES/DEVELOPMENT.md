@@ -74,6 +74,12 @@ Search index benchmark suite:
 go test ./internal/app -run '^$' -bench '^BenchmarkSearchIndex$' -benchmem
 ```
 
+CI benchmark tracking:
+- Workflow: `.github/workflows/search-index-benchmarks.yml`
+- PRs run the suite against both the PR branch and the base branch, then compare the four `BenchmarkSearchIndex/*` cases.
+- The PR check fails if any case regresses by more than 20% (`MAX_REGRESSION_PCT`).
+- Benchmark outputs are uploaded as CI artifacts on PR, push-to-main, and weekly scheduled runs.
+
 ## Troubleshooting
 
 - If the UI looks misaligned, ensure your terminal supports ANSI colors and has enough width.

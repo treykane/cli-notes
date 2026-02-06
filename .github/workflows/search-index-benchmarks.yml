@@ -1,0 +1,77 @@
+name: Search Index Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - 'internal/app/**'
+      - 'scripts/ci/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/search-index-benchmarks.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'internal/app/**'
+      - 'scripts/ci/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/search-index-benchmarks.yml'
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  search-index-benchmark:
+    name: Search Index Benchmark Suite
+    runs-on: ubuntu-latest
+    env:
+      BENCH_REGEX: '^BenchmarkSearchIndex$'
+      BENCH_PKG: './internal/app'
+      BENCH_COUNT: '5'
+      MAX_REGRESSION_PCT: '20'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run current benchmark suite
+        run: |
+          mkdir -p benchmark-results
+          go test "$BENCH_PKG" -run '^$' -bench "$BENCH_REGEX" -benchmem -count "$BENCH_COUNT" | tee benchmark-results/current.txt
+
+      - name: Capture baseline benchmark suite
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          git worktree add /tmp/base-bench "origin/${{ github.base_ref }}"
+          (
+            cd /tmp/base-bench
+            go test "$BENCH_PKG" -run '^$' -bench "$BENCH_REGEX" -benchmem -count "$BENCH_COUNT"
+          ) | tee benchmark-results/baseline.txt
+
+      - name: Compare baseline vs current
+        if: github.event_name == 'pull_request'
+        run: |
+          go run ./scripts/ci/compare_search_bench.go \
+            -baseline benchmark-results/baseline.txt \
+            -current benchmark-results/current.txt \
+            -max-regression-pct "$MAX_REGRESSION_PCT"
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: search-index-benchmarks-${{ github.run_number }}
+          path: benchmark-results/*.txt
+          if-no-files-found: error

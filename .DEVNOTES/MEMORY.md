@@ -42,6 +42,7 @@
 - 2026-02-06: Added unit tests in `internal/app` for tree building behavior (sorting, depth, and expansion) and markdown render cache behavior (cache hit vs async render path).
 - 2026-02-06: Improved error handling/logging with a shared `internal/logging` package, contextual error wrapping in config/search/setup paths, and centralized app error logs for note operations, rendering, and search indexing.
 - 2026-02-06: Added `internal/app/search_index_benchmark_test.go` with benchmark coverage for search-index cold builds and warm queries across small and large datasets to guard search performance regressions.
+- 2026-02-06: Added CI benchmark tracking via `.github/workflows/search-index-benchmarks.yml`, including PR baseline-vs-current regression checks (20% threshold) and artifact uploads on PR/push/scheduled runs.
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`
