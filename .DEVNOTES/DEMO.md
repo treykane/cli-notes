@@ -61,6 +61,10 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
   - `Ctrl+B` for `**bold**`
   - `Alt+I` for `*italic*`
   - `Ctrl+U` for `<u>underline</u>`
+  - `Alt+X` for `~~strikethrough~~`
+- `Ctrl+K` inserts/wraps `[text](url)` links
+- `Ctrl+1`/`Ctrl+2`/`Ctrl+3` toggle heading markers on the current line
+- `Ctrl+V` pastes from clipboard in edit mode
 - Cancel with Esc
 
 ### 5. Organize with Folders
@@ -98,6 +102,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | r | Rename selected item |
 | m | Move selected item |
 | d | Delete selected item (with confirmation) |
+| s | Cycle tree sort mode |
+| y / Y | Copy note content / path to clipboard |
 | Shift+R or Ctrl+R | Refresh |
 | c* | Git add + commit |
 | p* | Git pull --ff-only |
@@ -108,6 +114,10 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | Ctrl+B (edit mode) | Toggle `**bold**` on selection/current word |
 | Alt+I (edit mode) | Toggle `*italic*` on selection/current word |
 | Ctrl+U (edit mode) | Toggle `<u>underline</u>` on selection/current word |
+| Alt+X (edit mode) | Toggle `~~strikethrough~~` on selection/current word |
+| Ctrl+K (edit mode) | Insert/wrap markdown link template |
+| Ctrl+1/2/3 (edit mode) | Toggle `#`/`##`/`###` heading on current line |
+| Ctrl+V (edit mode) | Paste clipboard text |
 | ? | Toggle help |
 | q or Ctrl+C | Quit |
 
@@ -119,6 +129,14 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 - Use `↑/↓` or `j`/`k` to choose a match
 - Press `Enter` to jump to the selected item
 - Press `Esc` to close the popup
+
+### 11. Draft Recovery
+- Edit mode auto-saves drafts under `<notes_dir>/.cli-notes/.drafts/`
+- On next launch, unresolved drafts are offered for recovery (`y`) or discard (`n`)
+
+### 12. Note Templates
+- Add template files under `~/.cli-notes/templates/` (or configured `templates_dir`)
+- Press `n` to open a template picker before entering the new note name
 
 ## File Storage
 

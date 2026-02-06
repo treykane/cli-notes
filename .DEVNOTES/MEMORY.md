@@ -10,6 +10,13 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-06: Added editor productivity shortcuts: `Alt+X` strikethrough toggle, `Ctrl+K` markdown link insertion/wrapping, and `Ctrl+1..3` heading toggles for the current line.
+- 2026-02-06: Added footer note metrics (`W/C/L`) derived from raw note content in both preview and edit modes.
+- 2026-02-06: Added browse-mode `s` sort cycling (name/modified/size/created) with persisted config in `tree_sort`.
+- 2026-02-06: Added edit-mode draft auto-save to `<notes_dir>/.cli-notes/.drafts/` plus startup recovery prompt mode (`y` recover / `n` discard).
+- 2026-02-06: Added clipboard actions: browse-mode `y` copies current note content, browse-mode `Y` copies current note path, and edit-mode `Ctrl+V` pastes clipboard text.
+- 2026-02-06: Added note template picker flow for new notes using files from `templates_dir` (default `~/.cli-notes/templates`) with fallback to the default built-in template.
+- 2026-02-06: Tree and search traversal now skip the internal managed directory `<notes_dir>/.cli-notes` so drafts are not shown or indexed.
 - 2026-02-06: Added browse-mode rename (`r`) and move (`m`) workflows using the existing text input widget, including tree rebuild + search-index updates + `currentFile` path remapping after path changes.
 - 2026-02-06: Added delete confirmation mode so `d` now prompts for `y/n` before deleting notes/folders, preventing immediate accidental removal.
 - 2026-02-06: Added git-aware browse actions when `notes_dir` is in a git repo: `c` prompts for commit message then runs `git add -A && git commit -m`, `p` runs `git pull --ff-only`, `P` runs `git push`; footer now shows branch/sync/dirty status.

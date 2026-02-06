@@ -63,6 +63,9 @@ func (i *searchIndex) walk(dir string, depth int) error {
 	})
 
 	for _, entry := range entries {
+		if shouldSkipManagedPath(entry.Name()) {
+			continue
+		}
 		path := filepath.Join(dir, entry.Name())
 		i.indexPath(path, entry.Name(), depth, entry.IsDir())
 		if entry.IsDir() {
@@ -114,6 +117,9 @@ func (i *searchIndex) upsertPath(path string) {
 		return
 	}
 	if !isWithinRoot(i.root, path) {
+		return
+	}
+	if shouldSkipManagedPath(filepath.Base(path)) {
 		return
 	}
 

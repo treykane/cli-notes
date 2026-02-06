@@ -15,14 +15,14 @@
 
 ## Medium Priority — Editor & Productivity
 
-- [ ] **Strikethrough formatting toggle**: Add `~~strikethrough~~` toggle shortcut (e.g. `Alt+D` or `Alt+X`) following the same pattern as bold/italic/underline in `editor_selection.go`.
-- [ ] **Markdown link insertion**: Add a shortcut (e.g. `Ctrl+K`) to insert a `[text](url)` link template, placing the cursor between the parentheses. When text is selected, wrap it as the link text.
-- [ ] **Heading insertion shortcuts**: Add shortcuts (e.g. `Ctrl+1` through `Ctrl+3`) to insert or toggle `#`, `##`, `###` heading markers on the current line.
-- [ ] **Word and character count in status bar**: Display word count, character count, and line count for the current note in the footer/status bar during both preview and edit modes.
-- [ ] **Note sorting options**: Allow sorting the tree view by name (current default), last modified date, file size, or creation date. Add a keybinding to cycle through sort modes and persist the preference in config.
-- [ ] **Auto-save / crash recovery**: Periodically save a draft of the editor buffer to a temp file (e.g. `.cli-notes/.drafts/`) during edit mode. On next launch, detect unsaved drafts and offer recovery. Clear draft on successful save or cancel.
-- [ ] **Clipboard integration**: Add a keybinding to copy the current note's content or file path to the system clipboard using `atotto/clipboard` (already a dependency). Could also support paste-from-clipboard in edit mode.
-- [ ] **Note templates**: Allow users to define custom note templates in `~/.cli-notes/templates/` (or via config). When creating a new note, offer a template picker if templates exist. Fall back to the current default template.
+- [x] **Strikethrough formatting toggle**: Add `~~strikethrough~~` toggle shortcut (e.g. `Alt+D` or `Alt+X`) following the same pattern as bold/italic/underline in `editor_selection.go`.
+- [x] **Markdown link insertion**: Add a shortcut (e.g. `Ctrl+K`) to insert a `[text](url)` link template, placing the cursor between the parentheses. When text is selected, wrap it as the link text.
+- [x] **Heading insertion shortcuts**: Add shortcuts (e.g. `Ctrl+1` through `Ctrl+3`) to insert or toggle `#`, `##`, `###` heading markers on the current line.
+- [x] **Word and character count in status bar**: Display word count, character count, and line count for the current note in the footer/status bar during both preview and edit modes.
+- [x] **Note sorting options**: Allow sorting the tree view by name (current default), last modified date, file size, or creation date. Add a keybinding to cycle through sort modes and persist the preference in config.
+- [x] **Auto-save / crash recovery**: Periodically save a draft of the editor buffer to a temp file (e.g. `.cli-notes/.drafts/`) during edit mode. On next launch, detect unsaved drafts and offer recovery. Clear draft on successful save or cancel.
+- [x] **Clipboard integration**: Add a keybinding to copy the current note's content or file path to the system clipboard using `atotto/clipboard` (already a dependency). Could also support paste-from-clipboard in edit mode.
+- [x] **Note templates**: Allow users to define custom note templates in `~/.cli-notes/templates/` (or via config). When creating a new note, offer a template picker if templates exist. Fall back to the current default template.
 
 ## Medium Priority — Navigation & UX
 
@@ -49,3 +49,4 @@
 - [ ] **Editor formatting round-trip tests**: Add tests for bold/italic/underline toggle behavior covering edge cases: nested formatting, partial overlap, cursor-at-boundary, and empty selection.
 - [ ] **Cross-platform CI**: Add CI matrix testing on Linux and Windows (WSL) in addition to the existing macOS development environment to catch platform-specific path handling or terminal issues.
 - [ ] **Cross-filesystem move fallback**: Moving with `os.Rename` fails across filesystems (`EXDEV`); add a copy-then-delete fallback for notes/folders when source and destination are on different devices.
+- [ ] **True creation-time sort on Linux**: Current `created` sorting uses stat `ctime` on non-macOS Unix, which is metadata-change time rather than true file birth time. Add a platform-aware birth-time implementation (or explicit label/fallback behavior) to avoid misleading ordering.

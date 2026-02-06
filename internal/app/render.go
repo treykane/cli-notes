@@ -18,6 +18,7 @@ type renderCacheEntry struct {
 	mtime   time.Time
 	width   int
 	content string
+	raw     string
 }
 
 // renderRequestMsg triggers the debounced renderer.
@@ -33,6 +34,7 @@ type renderResultMsg struct {
 	width   int
 	seq     int
 	content string
+	raw     string
 	mtime   time.Time
 	err     error
 }
@@ -58,6 +60,9 @@ func (m *Model) maybeShowSelectedFile() tea.Cmd {
 // setCurrentFile tracks the file and triggers a render.
 func (m *Model) setCurrentFile(path string) tea.Cmd {
 	m.currentFile = path
+	if content, err := os.ReadFile(path); err == nil {
+		m.currentNoteContent = string(content)
+	}
 	return m.requestRender(path)
 }
 
@@ -78,6 +83,7 @@ func (m *Model) requestRender(path string) tea.Cmd {
 	if info, err := os.Stat(path); err == nil {
 		if entry, ok := m.renderCache[path]; ok && entry.width == width && entry.mtime.Equal(info.ModTime()) {
 			m.viewport.SetContent(entry.content)
+			m.currentNoteContent = entry.raw
 			m.rendering = false
 			m.renderingPath = ""
 			m.renderingSeq = 0
@@ -114,6 +120,7 @@ func renderMarkdownCmd(path string, width int, seq int) tea.Cmd {
 			width:   width,
 			seq:     seq,
 			content: rendered,
+			raw:     string(content),
 			mtime:   info.ModTime(),
 		}
 	}

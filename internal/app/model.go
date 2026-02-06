@@ -55,6 +55,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -76,6 +77,8 @@ const (
 	modeMoveItem
 	modeConfirmDelete
 	modeGitCommit
+	modeTemplatePicker
+	modeDraftRecovery
 )
 
 // treeItem represents a single row in the left-hand tree pane.
@@ -99,6 +102,8 @@ type Model struct {
 	currentFile string
 	// Full-text search index for quick lookup
 	searchIndex *searchIndex
+	// Current tree sorting mode
+	sortMode sortMode
 
 	// Tree Navigation
 	// Index of the currently selected item in items slice
@@ -137,6 +142,8 @@ type Model struct {
 	showHelp bool
 	// Debug mode for input sequence logging
 	debugInput bool
+	// Last loaded raw note content for counts and clipboard copy
+	currentNoteContent string
 
 	// Layout Dimensions
 	// Terminal width and height
@@ -154,6 +161,20 @@ type Model struct {
 	editorSelectionAnchor int
 	// Whether the editor selection anchor is currently active
 	editorSelectionActive bool
+	// User-configured templates directory.
+	templatesDir string
+	// Loaded templates for picker mode.
+	templates []noteTemplate
+	// Cursor in template picker mode.
+	templateCursor int
+	// Template chosen for current new-note flow.
+	selectedTemplate *noteTemplate
+	// Pending draft recoveries discovered at startup.
+	pendingDrafts []draftRecord
+	// Current startup recovery candidate.
+	activeDraft *draftRecord
+	// Last successful auto-save timestamp for edit-mode drafts.
+	lastDraftAutosaveAt time.Time
 
 	// Git State
 	git gitRepoStatus
@@ -182,12 +203,13 @@ func New() (*Model, error) {
 		return nil, err
 	}
 	notesDir := cfg.NotesDir
+	sortMode := parseSortMode(cfg.TreeSort)
 	if err := ensureNotesDir(notesDir); err != nil {
 		return nil, err
 	}
 
 	expanded := map[string]bool{notesDir: true}
-	items := buildTree(notesDir, expanded)
+	items := buildTree(notesDir, expanded, sortMode)
 
 	vp := viewport.New(0, 0)
 	vp.SetContent("Select a note to view")
@@ -213,6 +235,7 @@ func New() (*Model, error) {
 		notesDir:              notesDir,
 		items:                 items,
 		expanded:              expanded,
+		sortMode:              sortMode,
 		searchIndex:           newSearchIndex(notesDir),
 		viewport:              vp,
 		input:                 input,
@@ -226,14 +249,16 @@ func New() (*Model, error) {
 		editorSelectionAnchor: noEditorSelectionAnchor,
 		editorSelectionActive: false,
 		debugInput:            os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
+		templatesDir:          cfg.TemplatesDir,
 	}
 	m.refreshGitStatus()
+	m.loadPendingDrafts()
 	return m, nil
 }
 
 // Init starts the spinner so we can show async rendering progress.
 func (m *Model) Init() tea.Cmd {
-	return m.spinner.Tick
+	return tea.Batch(m.spinner.Tick, m.scheduleDraftAutosave())
 }
 
 // Update is the Bubble Tea update loop: handle events and emit commands.
@@ -277,9 +302,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleConfirmDeleteKey(msg)
 		case modeGitCommit:
 			return m.handleGitCommitKey(msg)
+		case modeTemplatePicker:
+			return m.handleTemplatePickerKey(msg)
+		case modeDraftRecovery:
+			return m.handleDraftRecoveryKey(msg)
 		default:
 			return m.handleKey(msg)
 		}
+	case draftAutoSaveTickMsg:
+		return m.handleDraftAutoSaveTick(msg)
 	}
 	return m, nil
 }

@@ -21,7 +21,9 @@ var log = logging.New("config")
 
 // Config stores user-defined CLI Notes settings.
 type Config struct {
-	NotesDir string `json:"notes_dir"`
+	NotesDir     string `json:"notes_dir"`
+	TreeSort     string `json:"tree_sort,omitempty"`
+	TemplatesDir string `json:"templates_dir,omitempty"`
 }
 
 // DefaultNotesDir returns the default notes directory used by the configurator.
@@ -31,6 +33,15 @@ func DefaultNotesDir() (string, error) {
 		return "", fmt.Errorf("resolve home dir: %w", err)
 	}
 	return filepath.Join(home, "notes"), nil
+}
+
+// DefaultTemplatesDir returns the default templates directory.
+func DefaultTemplatesDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home dir: %w", err)
+	}
+	return filepath.Join(home, configDirName, "templates"), nil
 }
 
 // ConfigPath returns the configuration file path.
@@ -83,6 +94,23 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid notes_dir: %w", err)
 	}
 	cfg.NotesDir = notesDir
+	cfg.TreeSort = strings.TrimSpace(strings.ToLower(cfg.TreeSort))
+	if cfg.TreeSort == "" {
+		cfg.TreeSort = "name"
+	}
+
+	templatesDir := strings.TrimSpace(cfg.TemplatesDir)
+	if templatesDir == "" {
+		templatesDir, err = DefaultTemplatesDir()
+		if err != nil {
+			return Config{}, err
+		}
+	}
+	templatesDir, err = NormalizeNotesDir(templatesDir)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid templates_dir: %w", err)
+	}
+	cfg.TemplatesDir = templatesDir
 
 	return cfg, nil
 }
@@ -94,6 +122,23 @@ func Save(cfg Config) error {
 		return fmt.Errorf("invalid notes_dir: %w", err)
 	}
 	cfg.NotesDir = notesDir
+	cfg.TreeSort = strings.TrimSpace(strings.ToLower(cfg.TreeSort))
+	if cfg.TreeSort == "" {
+		cfg.TreeSort = "name"
+	}
+
+	templatesDir := strings.TrimSpace(cfg.TemplatesDir)
+	if templatesDir == "" {
+		templatesDir, err = DefaultTemplatesDir()
+		if err != nil {
+			return err
+		}
+	}
+	templatesDir, err = NormalizeNotesDir(templatesDir)
+	if err != nil {
+		return fmt.Errorf("invalid templates_dir: %w", err)
+	}
+	cfg.TemplatesDir = templatesDir
 
 	path, err := ConfigPath()
 	if err != nil {

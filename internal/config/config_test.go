@@ -43,6 +43,13 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	if loaded.NotesDir != expected {
 		t.Fatalf("expected notes dir %q, got %q", expected, loaded.NotesDir)
 	}
+	if loaded.TreeSort != "name" {
+		t.Fatalf("expected default tree sort %q, got %q", "name", loaded.TreeSort)
+	}
+	expectedTemplates := filepath.Join(home, ".cli-notes", "templates")
+	if loaded.TemplatesDir != expectedTemplates {
+		t.Fatalf("expected templates dir %q, got %q", expectedTemplates, loaded.TemplatesDir)
+	}
 
 	path, err := ConfigPath()
 	if err != nil {
@@ -50,6 +57,33 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("stat config path: %v", err)
+	}
+}
+
+func TestSaveAndLoadWithCustomSortAndTemplatesDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg := Config{
+		NotesDir:     "~/my-notes",
+		TreeSort:     "size",
+		TemplatesDir: "~/my-templates",
+	}
+	if err := Save(cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if loaded.TreeSort != "size" {
+		t.Fatalf("expected tree sort %q, got %q", "size", loaded.TreeSort)
+	}
+	expectedTemplates := filepath.Join(home, "my-templates")
+	if loaded.TemplatesDir != expectedTemplates {
+		t.Fatalf("expected templates dir %q, got %q", expectedTemplates, loaded.TemplatesDir)
 	}
 }
 

@@ -66,6 +66,28 @@ func TestHandleEditNoteKeyCtrlUWrapsSelection(t *testing.T) {
 	}
 }
 
+func TestHandleEditNoteKeyAltXWrapsCurrentWord(t *testing.T) {
+	m := newFocusedEditModel("hello world")
+
+	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}, Alt: true})
+	got := result.(*Model)
+
+	if got.editor.Value() != "hello ~~world~~" {
+		t.Fatalf("expected value %q, got %q", "hello ~~world~~", got.editor.Value())
+	}
+}
+
+func TestHandleEditNoteKeyCtrlKWrapsCurrentWordWithMarkdownLink(t *testing.T) {
+	m := newFocusedEditModel("hello world")
+
+	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlK})
+	got := result.(*Model)
+
+	if got.editor.Value() != "hello [world](url)" {
+		t.Fatalf("expected value %q, got %q", "hello [world](url)", got.editor.Value())
+	}
+}
+
 func TestHandleEditNoteKeyShiftSelectThenBoldWrapsSelection(t *testing.T) {
 	m := newFocusedEditModel("hello world")
 
@@ -118,6 +140,21 @@ func TestHandleEditNoteKeyCtrlBTogglesOnlyBoldInNestedFormatting(t *testing.T) {
 
 	if got.editor.Value() != "*word*" {
 		t.Fatalf("expected value %q, got %q", "*word*", got.editor.Value())
+	}
+}
+
+func TestToggleHeadingAppliesAndRemovesHeading(t *testing.T) {
+	m := newFocusedEditModel("hello world")
+	m.setEditorValueAndCursorOffset("hello world", 5)
+
+	m.toggleHeading(2)
+	if got := m.editor.Value(); got != "## hello world" {
+		t.Fatalf("expected heading applied, got %q", got)
+	}
+
+	m.toggleHeading(2)
+	if got := m.editor.Value(); got != "hello world" {
+		t.Fatalf("expected heading removed, got %q", got)
 	}
 }
 

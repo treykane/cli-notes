@@ -1,11 +1,15 @@
 package app
 
 import (
+	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
+
+const managedNotesDirName = ".cli-notes"
 
 // truncate fits a string to the given terminal width.
 func truncate(s string, width int) string {
@@ -85,4 +89,15 @@ func roundWidthToNearestBucket(width int) int {
 
 func hasSuffixCaseInsensitive(value, suffix string) bool {
 	return strings.HasSuffix(strings.ToLower(value), strings.ToLower(suffix))
+}
+
+func shouldSkipManagedPath(name string) bool {
+	return strings.EqualFold(name, managedNotesDirName)
+}
+
+func resolveCreatedAt(info os.FileInfo) time.Time {
+	if t, ok := fileCreationTime(info); ok {
+		return t
+	}
+	return info.ModTime()
 }

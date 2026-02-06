@@ -37,8 +37,17 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "e":
 		return m.startEditNote()
+	case "s":
+		m.cycleSortMode()
+		return m, nil
 	case "d":
 		m.deleteSelected()
+		return m, nil
+	case "y":
+		m.copyCurrentNoteContentToClipboard()
+		return m, nil
+	case "Y", "shift+y":
+		m.copyCurrentNotePathToClipboard()
 		return m, nil
 	case "r":
 		m.startRenameSelected()

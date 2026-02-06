@@ -12,6 +12,12 @@ This application is a work in progress, it currently works, but I'm working on f
 - Directory organization (folders instead of notebooks)
 - Search popup (`Ctrl+P`) for filtering folders by name and notes by name/content
 - Cached search index keeps `Ctrl+P` responsive on larger note collections
+- Edit-mode markdown helpers: bold/italic/underline/strikethrough, links, and heading toggles
+- Status-bar note metrics (words/chars/lines) in preview and edit modes
+- Tree sorting modes (name/modified/size/created) with persisted preference
+- Auto-saved edit drafts with startup recovery prompts
+- Clipboard integration for copy/paste workflows
+- Optional note templates from `~/.cli-notes/templates`
 - Keyboard-driven workflow
 - Plain text storage as `.md` files on your filesystem
 
@@ -71,6 +77,9 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `r` | Rename the selected note/folder |
 | `m` | Move the selected note/folder |
 | `d` | Delete the selected note/folder (with confirmation) |
+| `s` | Cycle tree sort mode (`name` → `modified` → `size` → `created`) |
+| `y` | Copy current note content to clipboard |
+| `Y` | Copy current note path to clipboard |
 | `Shift+R` or `Ctrl+R` | Refresh the directory tree |
 | `c`* | Git add + commit (prompts for message) |
 | `p`* | Git pull (`--ff-only`) |
@@ -98,9 +107,27 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `Ctrl+B` | Toggle `**bold**` on selection/current word |
 | `Alt+I` | Toggle `*italic*` on selection/current word |
 | `Ctrl+U` | Toggle `<u>underline</u>` on selection/current word |
+| `Alt+X` | Toggle `~~strikethrough~~` on selection/current word |
+| `Ctrl+K` | Insert/wrap markdown link as `[text](url)` |
+| `Ctrl+1` / `Ctrl+2` / `Ctrl+3` | Toggle `#` / `##` / `###` on current line |
+| `Ctrl+V` | Paste from system clipboard |
 | `Esc` | Cancel |
 
 Edit mode highlights selected text with a light background and dark text.
+
+### Template Picker
+
+When templates exist in `~/.cli-notes/templates` (or your configured `templates_dir`), pressing `n` opens a template picker before note naming.
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` or `j`/`k` | Move template selection |
+| `Enter` | Choose template and continue |
+| `Esc` | Cancel new-note flow |
+
+### Draft Recovery
+
+Edit-mode drafts are auto-saved every few seconds in `<notes_dir>/.cli-notes/.drafts/`. On launch, unresolved drafts can be recovered or discarded.
 
 ### Search Popup
 

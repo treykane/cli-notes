@@ -5,7 +5,60 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
+
+type sortMode string
+
+const (
+	sortModeName     sortMode = "name"
+	sortModeModified sortMode = "modified"
+	sortModeSize     sortMode = "size"
+	sortModeCreated  sortMode = "created"
+)
+
+func parseSortMode(value string) sortMode {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case string(sortModeModified):
+		return sortModeModified
+	case string(sortModeSize):
+		return sortModeSize
+	case string(sortModeCreated):
+		return sortModeCreated
+	default:
+		return sortModeName
+	}
+}
+
+func (s sortMode) String() string {
+	return string(s)
+}
+
+func (s sortMode) Label() string {
+	switch s {
+	case sortModeModified:
+		return "modified"
+	case sortModeSize:
+		return "size"
+	case sortModeCreated:
+		return "created"
+	default:
+		return "name"
+	}
+}
+
+func nextSortMode(current sortMode) sortMode {
+	switch current {
+	case sortModeName:
+		return sortModeModified
+	case sortModeModified:
+		return sortModeSize
+	case sortModeSize:
+		return sortModeCreated
+	default:
+		return sortModeName
+	}
+}
 
 // moveCursor changes the selection and keeps it within bounds.
 func (m *Model) moveCursor(delta int) {
@@ -61,7 +114,7 @@ func (m *Model) refreshTree() {
 
 // rebuildTreeKeep rebuilds the tree and keeps the cursor near the given path.
 func (m *Model) rebuildTreeKeep(path string) {
-	m.items = buildTree(m.notesDir, m.expanded)
+	m.items = buildTree(m.notesDir, m.expanded, m.sortMode)
 	if len(m.items) == 0 {
 		m.cursor = 0
 		m.treeOffset = 0
@@ -91,9 +144,9 @@ func (m *Model) rebuildTreeKeep(path string) {
 //  3. Sort each level: directories first, then alphabetically within each group
 //
 // This produces a depth-first traversal that matches typical file browser UIs.
-func buildTree(root string, expanded map[string]bool) []treeItem {
+func buildTree(root string, expanded map[string]bool, mode sortMode) []treeItem {
 	items := []treeItem{}
-	walkTree(root, 0, expanded, &items)
+	walkTree(root, 0, expanded, mode, &items)
 	return items
 }
 
@@ -101,31 +154,80 @@ func buildTree(root string, expanded map[string]bool) []treeItem {
 //
 // Each directory is sorted with folders first, then alphabetically (case-insensitive).
 // Only expanded folders have their children added to the tree.
-func walkTree(dir string, depth int, expanded map[string]bool, items *[]treeItem) {
+func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, items *[]treeItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		appLog.Warn("read tree directory", "path", dir, "error", err)
 		return
 	}
 
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].IsDir() != entries[j].IsDir() {
-			return entries[i].IsDir()
+	type sortableEntry struct {
+		entry   os.DirEntry
+		path    string
+		info    os.FileInfo
+		modTime time.Time
+		size    int64
+		created time.Time
+	}
+
+	sortable := make([]sortableEntry, 0, len(entries))
+	for _, entry := range entries {
+		if shouldSkipManagedPath(entry.Name()) {
+			continue
 		}
-		return strings.ToLower(entries[i].Name()) < strings.ToLower(entries[j].Name())
+		path := filepath.Join(dir, entry.Name())
+		info, statErr := entry.Info()
+		if statErr != nil {
+			appLog.Warn("stat tree entry", "path", path, "error", statErr)
+			continue
+		}
+		created := resolveCreatedAt(info)
+		sortable = append(sortable, sortableEntry{
+			entry:   entry,
+			path:    path,
+			info:    info,
+			modTime: info.ModTime(),
+			size:    info.Size(),
+			created: created,
+		})
+	}
+
+	sort.Slice(sortable, func(i, j int) bool {
+		left := sortable[i]
+		right := sortable[j]
+		if left.entry.IsDir() != right.entry.IsDir() {
+			return left.entry.IsDir()
+		}
+
+		switch mode {
+		case sortModeModified:
+			if !left.modTime.Equal(right.modTime) {
+				return left.modTime.After(right.modTime)
+			}
+		case sortModeSize:
+			if left.size != right.size {
+				return left.size > right.size
+			}
+		case sortModeCreated:
+			if !left.created.Equal(right.created) {
+				return left.created.After(right.created)
+			}
+		}
+
+		return strings.ToLower(left.entry.Name()) < strings.ToLower(right.entry.Name())
 	})
 
-	for _, entry := range entries {
-		path := filepath.Join(dir, entry.Name())
+	for _, entry := range sortable {
+		path := entry.path
 		item := treeItem{
 			path:  path,
-			name:  entry.Name(),
+			name:  entry.entry.Name(),
 			depth: depth,
-			isDir: entry.IsDir(),
+			isDir: entry.entry.IsDir(),
 		}
 		*items = append(*items, item)
-		if entry.IsDir() && expanded[path] {
-			walkTree(path, depth+1, expanded, items)
+		if entry.entry.IsDir() && expanded[path] {
+			walkTree(path, depth+1, expanded, mode, items)
 		}
 	}
 }

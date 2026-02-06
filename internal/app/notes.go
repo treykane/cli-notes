@@ -34,7 +34,12 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- Ctrl+S: Save (when editing)\n" +
 	"- Shift+Arrows or Shift+Home/End: Extend selection (when editing)\n" +
 	"- Alt+S: Set/clear selection anchor (when editing)\n" +
-	"- Ctrl+B / Alt+I / Ctrl+U: Toggle bold/italic/underline on selection/word (when editing)\n" +
+	"- Ctrl+B / Alt+I / Ctrl+U / Alt+X: Toggle bold/italic/underline/strikethrough on selection/word (when editing)\n" +
+	"- Ctrl+K: Insert [text](url) link template (when editing)\n" +
+	"- Ctrl+1/2/3: Toggle heading level on current line (when editing)\n" +
+	"- Ctrl+V: Paste from clipboard (when editing)\n" +
+	"- y / Y: Copy current note content / path to clipboard\n" +
+	"- s: Cycle tree sort mode (name/modified/size/created)\n" +
 	"- Esc: Cancel (when naming or editing)\n" +
 	"- q or Ctrl+C: Quit the application\n\n" +
 	"## Getting Started\n\n" +
@@ -101,6 +106,14 @@ func (m *Model) configureInputForMode(mode mode, placeholder string) {
 
 // startNewNote switches to new-note mode and configures the input.
 func (m *Model) startNewNote() {
+	m.selectedTemplate = nil
+	m.templates = m.loadTemplates()
+	m.templateCursor = 0
+	if len(m.templates) > 0 {
+		m.mode = modeTemplatePicker
+		m.status = "Choose a template for the new note"
+		return
+	}
 	m.configureInputForMode(modeNewNote, "Note name (without .md extension)")
 }
 
@@ -180,6 +193,7 @@ func (m *Model) startEditNote() (tea.Model, tea.Cmd) {
 	m.showHelp = false
 	m.clearEditorSelection()
 	m.editor.SetValue(string(content))
+	m.currentNoteContent = string(content)
 	m.editor.CursorEnd()
 	m.editor.Focus()
 	m.status = "Editing " + filepath.Base(m.currentFile)
@@ -202,7 +216,10 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 		m.status = "Invalid note name"
 		return m, nil
 	}
-	content := fmt.Sprintf("# %s\n\nYour note content here...\n", strings.TrimSuffix(name, ".md"))
+	content := m.defaultNewNoteContent(name)
+	if m.selectedTemplate != nil {
+		content = m.selectedTemplate.content
+	}
 	if err := os.WriteFile(path, []byte(normalizeNoteContent(content)), FilePermission); err != nil {
 		m.setStatusError("Error creating note", err, "path", path)
 		return m, nil
@@ -211,6 +228,7 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 	m.mode = modeBrowse
 	m.status = "Created note: " + name
 	m.expanded[m.newParent] = true
+	m.selectedTemplate = nil
 	m.refreshTree()
 	if m.searchIndex != nil {
 		m.searchIndex.upsertPath(path)
@@ -379,6 +397,8 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 
 	m.mode = modeBrowse
 	m.clearEditorSelection()
+	m.currentNoteContent = content
+	m.clearDraftForPath(m.currentFile)
 	m.status = "Saved: " + filepath.Base(m.currentFile)
 	if m.searchIndex != nil {
 		m.searchIndex.upsertPath(m.currentFile)
@@ -391,6 +411,10 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 // normalizeNoteContent ensures notes always end with exactly one newline.
 func normalizeNoteContent(content string) string {
 	return strings.TrimRight(content, "\r\n") + "\n"
+}
+
+func (m *Model) defaultNewNoteContent(name string) string {
+	return fmt.Sprintf("# %s\n\nYour note content here...\n", strings.TrimSuffix(name, ".md"))
 }
 
 // validateDeleteTarget checks if the item can be deleted and returns an error message if not.

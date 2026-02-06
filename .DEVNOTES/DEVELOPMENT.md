@@ -26,8 +26,10 @@ Optional logging:
 
 Notes storage:
 - On first run (or with `--configure`), a configurator prompts for the notes directory and saves it in `~/.cli-notes/config.json` as `notes_dir`.
+- Config also stores `tree_sort` (name/modified/size/created) and `templates_dir`.
 - Notes are stored as Markdown files in the configured `notes_dir`.
 - The configured directory is created on startup and seeded with `Welcome.md` if empty.
+- Internal app state (draft autosave files) lives under `<notes_dir>/.cli-notes/` and is excluded from tree/search views.
 
 ## Project Layout
 
@@ -50,6 +52,7 @@ Notes storage:
 4. Opening `Ctrl+P` search uses a cached content index; normal create/edit/delete operations update that index incrementally.
 5. Selecting a Markdown file triggers a debounced render pipeline.
 6. The right pane shows either rendered Markdown, edit mode, or help text.
+7. Edit mode auto-saves drafts every few seconds; startup checks unresolved drafts and prompts for recovery.
 
 ## Rendering Pipeline
 

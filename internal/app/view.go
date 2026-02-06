@@ -79,6 +79,10 @@ func (m *Model) renderRight(width, height int) string {
 		m.editor.SetWidth(innerWidth)
 		m.editor.SetHeight(contentHeight)
 		content = m.editorViewWithSelectionHighlight(m.editor.View())
+	case modeTemplatePicker:
+		content = m.renderTemplatePicker(innerWidth, contentHeight)
+	case modeDraftRecovery:
+		content = m.renderDraftRecovery(innerWidth, contentHeight)
 	case modeNewNote, modeNewFolder, modeRenameItem, modeMoveItem, modeGitCommit:
 		m.input.Width = innerWidth
 		prompt, location, helper := m.inputModeMeta()
@@ -135,6 +139,11 @@ func (m *Model) editorViewWithSelectionHighlight(view string) string {
 func (m *Model) renderStatus(width int) string {
 	help := m.statusHelp()
 	parts := []string{help}
+	if (m.mode == modeBrowse || m.mode == modeEditNote) && m.currentFile != "" {
+		if metrics := m.noteMetricsSummary(); metrics != "" {
+			parts = append(parts, metrics)
+		}
+	}
 	if git := m.gitFooterSummary(); git != "" {
 		parts = append(parts, git)
 	}
@@ -153,9 +162,13 @@ func (m *Model) renderStatus(width int) string {
 func (m *Model) statusHelp() string {
 	switch m.mode {
 	case modeEditNote:
-		return "Ctrl+S save  Shift+Arrows select  Alt+S anchor  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Esc cancel"
+		return "Ctrl+S save  Shift+Arrows select  Alt+S anchor  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Alt+X strike  Ctrl+K link  Ctrl+1..3 heading  Ctrl+V paste  Esc cancel"
 	case modeNewNote, modeNewFolder, modeRenameItem, modeMoveItem, modeGitCommit:
 		return "Enter/Ctrl+S save  Esc cancel"
+	case modeTemplatePicker:
+		return "Template picker: ↑/↓ move  Enter choose  Esc cancel"
+	case modeDraftRecovery:
+		return "Draft recovery: y recover  n discard  Esc skip all"
 	case modeConfirmDelete:
 		return "y confirm delete  n/Esc cancel"
 	default:
@@ -163,6 +176,8 @@ func (m *Model) statusHelp() string {
 			return "Search popup: type  ↑/↓ move  Enter jump  Esc cancel"
 		}
 		help := "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  r rename  m move  d delete  Shift+R refresh"
+		help += "  s sort"
+		help += "  y copy content  Y copy path"
 		if m.git.isRepo {
 			help += "  c commit  p pull  P push"
 		}
@@ -188,6 +203,8 @@ func (m *Model) renderHelp(width, height int) string {
 		"  m                         Move selected item",
 		"  d                         Delete (with confirmation)",
 		"  Shift+R / Ctrl+R          Refresh",
+		"  s                         Cycle tree sort mode",
+		"  y / Y                     Copy note content / path",
 		"  ?                         Toggle help",
 		"  q or Ctrl+C               Quit",
 	}
@@ -217,6 +234,16 @@ func (m *Model) renderHelp(width, height int) string {
 		"  Enter or Ctrl+S  Save",
 		"  Esc              Cancel",
 		"",
+		"Template Picker",
+		"  ↑/↓, j/k         Move template selection",
+		"  Enter            Choose template",
+		"  Esc              Cancel new-note flow",
+		"",
+		"Draft Recovery",
+		"  y                Recover draft",
+		"  n                Discard draft",
+		"  Esc              Skip remaining drafts",
+		"",
 		"Delete Confirmation",
 		"  y                Confirm delete",
 		"  n or Esc         Cancel delete",
@@ -229,6 +256,10 @@ func (m *Model) renderHelp(width, height int) string {
 		"  Ctrl+B         Toggle **bold** on selection/word",
 		"  Alt+I          Toggle *italic* on selection/word",
 		"  Ctrl+U         Toggle <u>underline</u> on selection/word",
+		"  Alt+X          Toggle ~~strikethrough~~ on selection/word",
+		"  Ctrl+K         Insert [text](url) link template",
+		"  Ctrl+1..3      Toggle # / ## / ### heading on current line",
+		"  Ctrl+V         Paste clipboard text",
 		"  Esc            Cancel",
 		"",
 		"Press ? to return.",
@@ -296,6 +327,45 @@ func (m *Model) renderSearchPopup(width, height int) string {
 
 	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
 	return popupStyle.Width(width).Height(height).Render(content)
+}
+
+func (m *Model) renderTemplatePicker(width, height int) string {
+	lines := []string{
+		titleStyle.Render("Choose Note Template"),
+		"",
+	}
+	for i, tpl := range m.templates {
+		line := tpl.name
+		if i == m.templateCursor {
+			line = selectedStyle.Render(line)
+		}
+		lines = append(lines, truncate(line, width))
+	}
+	lines = append(lines, "")
+	lines = append(lines, mutedStyle.Render("Enter: choose template  Esc: cancel"))
+
+	visible := min(height, len(lines))
+	return strings.Join(lines[:visible], "\n")
+}
+
+func (m *Model) renderDraftRecovery(width, height int) string {
+	lines := []string{
+		titleStyle.Render("Unsaved Draft Recovery"),
+		"",
+	}
+	if m.activeDraft == nil {
+		lines = append(lines, "No draft selected.")
+	} else {
+		lines = append(lines, "Recover draft for:")
+		lines = append(lines, truncate(m.displayRelative(m.activeDraft.SourcePath), width))
+		lines = append(lines, "")
+		lines = append(lines, mutedStyle.Render("y: recover and overwrite note"))
+		lines = append(lines, mutedStyle.Render("n: discard this draft"))
+		lines = append(lines, mutedStyle.Render("Esc: skip remaining drafts"))
+	}
+
+	visible := min(height, len(lines))
+	return strings.Join(lines[:visible], "\n")
 }
 
 func (m *Model) rightHeaderPath() string {

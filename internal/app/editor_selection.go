@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -154,6 +155,90 @@ func (m *Model) applyEditorFormat(open, close, label string) {
 	m.status = "Inserted " + label + " markers"
 }
 
+func (m *Model) insertMarkdownLinkTemplate() {
+	if start, end, ok := m.editorSelectionRange(); ok {
+		m.wrapEditorRange(start, end, "[", "](url)")
+		m.clearEditorSelection()
+		m.setEditorCursorInsideURLPlaceholder()
+		m.status = "Wrapped selection in markdown link"
+		return
+	}
+
+	cursor := m.currentEditorCursorOffset()
+	if start, end, ok := wordBoundsAtCursor(m.editor.Value(), cursor); ok {
+		m.wrapEditorRange(start, end, "[", "](url)")
+		m.clearEditorSelection()
+		m.setEditorCursorInsideURLPlaceholder()
+		m.status = "Wrapped word in markdown link"
+		return
+	}
+
+	m.editor.InsertString("[text](url)")
+	m.setEditorCursorInsideURLPlaceholder()
+	m.status = "Inserted markdown link template"
+}
+
+func (m *Model) setEditorCursorInsideURLPlaceholder() {
+	const placeholder = "url)"
+	for i := 0; i < len(placeholder); i++ {
+		var cmd tea.Cmd
+		m.editor, cmd = m.editor.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		_ = cmd
+	}
+}
+
+func (m *Model) toggleHeading(level int) {
+	if level < 1 || level > 6 {
+		return
+	}
+	value := m.editor.Value()
+	runes := []rune(value)
+	cursor := m.currentEditorCursorOffset()
+	start, end := lineBoundsAtOffset(runes, cursor)
+	line := string(runes[start:end])
+
+	indentLen := 0
+	for _, r := range []rune(line) {
+		if r == ' ' || r == '\t' {
+			indentLen++
+			continue
+		}
+		break
+	}
+	rest := []rune(line)[indentLen:]
+	existingLen := existingHeadingPrefixLen(rest)
+	marker := strings.Repeat("#", level) + " "
+	markerRunes := []rune(marker)
+
+	var updatedLine []rune
+	if existingLen > 0 && string(rest[:existingLen]) == marker {
+		updatedLine = append(updatedLine, []rune(line)[:indentLen]...)
+		updatedLine = append(updatedLine, rest[existingLen:]...)
+		m.status = fmt.Sprintf("Removed H%d heading", level)
+	} else {
+		updatedLine = append(updatedLine, []rune(line)[:indentLen]...)
+		updatedLine = append(updatedLine, markerRunes...)
+		if existingLen > 0 {
+			updatedLine = append(updatedLine, rest[existingLen:]...)
+		} else {
+			updatedLine = append(updatedLine, rest...)
+		}
+		m.status = fmt.Sprintf("Applied H%d heading", level)
+	}
+
+	updated := make([]rune, 0, len(runes)-len([]rune(line))+len(updatedLine))
+	updated = append(updated, runes[:start]...)
+	updated = append(updated, updatedLine...)
+	updated = append(updated, runes[end:]...)
+
+	delta := len(updatedLine) - len([]rune(line))
+	if cursor > start {
+		cursor += delta
+	}
+	m.setEditorValueAndCursorOffset(string(updated), cursor)
+	m.clearEditorSelection()
+}
+
 // toggleEditorFormatRange unwraps when exact wrappers surround the range, else wraps.
 func (m *Model) toggleEditorFormatRange(start, end int, open, close string) bool {
 	value := m.editor.Value()
@@ -265,6 +350,33 @@ func wordBoundsAtCursor(value string, cursor int) (start, end int, ok bool) {
 		end++
 	}
 	return start, end, start < end
+}
+
+func lineBoundsAtOffset(runes []rune, offset int) (start, end int) {
+	offset = clamp(offset, 0, len(runes))
+	start = offset
+	for start > 0 && runes[start-1] != '\n' {
+		start--
+	}
+	end = offset
+	for end < len(runes) && runes[end] != '\n' {
+		end++
+	}
+	return start, end
+}
+
+func existingHeadingPrefixLen(line []rune) int {
+	if len(line) == 0 {
+		return 0
+	}
+	i := 0
+	for i < len(line) && i < 6 && line[i] == '#' {
+		i++
+	}
+	if i == 0 || i >= len(line) || line[i] != ' ' {
+		return 0
+	}
+	return i + 1
 }
 
 func isWordRune(r rune) bool {

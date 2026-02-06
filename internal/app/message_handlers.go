@@ -68,6 +68,7 @@ func (m *Model) handleRenderResult(msg renderResultMsg) (tea.Model, tea.Cmd) {
 			mtime:   msg.mtime,
 			width:   msg.width,
 			content: msg.content,
+			raw:     msg.raw,
 		}
 	}
 
@@ -79,6 +80,7 @@ func (m *Model) handleRenderResult(msg renderResultMsg) (tea.Model, tea.Cmd) {
 	// Only update viewport if the width still matches
 	if msg.width == roundWidthToNearestBucket(m.viewport.Width) {
 		m.viewport.SetContent(msg.content)
+		m.currentNoteContent = msg.raw
 		m.clearRenderingState()
 	}
 	return m, nil
@@ -99,6 +101,9 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "alt+s":
 		m.toggleEditorSelectionAnchor()
 		return m, nil
+	case "alt+x":
+		m.applyEditorFormat("~~", "~~", "strikethrough")
+		return m, nil
 	case "ctrl+b":
 		m.applyEditorFormat("**", "**", "bold")
 		return m, nil
@@ -108,9 +113,25 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+u":
 		m.applyEditorFormat("<u>", "</u>", "underline")
 		return m, nil
+	case "ctrl+k":
+		m.insertMarkdownLinkTemplate()
+		return m, nil
+	case "ctrl+1":
+		m.toggleHeading(1)
+		return m, nil
+	case "ctrl+2":
+		m.toggleHeading(2)
+		return m, nil
+	case "ctrl+3":
+		m.toggleHeading(3)
+		return m, nil
+	case "ctrl+v":
+		m.pasteFromClipboardIntoEditor()
+		return m, nil
 	case "esc":
 		m.mode = modeBrowse
 		m.clearEditorSelection()
+		m.clearDraftForPath(m.currentFile)
 		m.status = "Edit cancelled"
 		return m, nil
 	default:

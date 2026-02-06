@@ -21,7 +21,7 @@ func TestWalkTreeReadDirError(t *testing.T) {
 
 	logs := captureLogOutput(t, func() {
 		var items []treeItem
-		walkTree(noReadDir, 0, make(map[string]bool), &items)
+		walkTree(noReadDir, 0, make(map[string]bool), sortModeName, &items)
 
 		// Should not crash, but should log a warning
 		if len(items) != 0 {
@@ -62,13 +62,13 @@ func TestBuildTreeWithInaccessibleSubdirectory(t *testing.T) {
 	defer os.Chmod(inaccessibleDir, 0o755) // cleanup
 
 	expanded := map[string]bool{
-		root:              true,
-		accessibleDir:     true,
-		inaccessibleDir:   true,
+		root:            true,
+		accessibleDir:   true,
+		inaccessibleDir: true,
 	}
 
 	logs := captureLogOutput(t, func() {
-		items := buildTree(root, expanded)
+		items := buildTree(root, expanded, sortModeName)
 
 		// Should still build tree for accessible parts
 		found := false
@@ -124,7 +124,7 @@ func TestBuildTreeHandlesSymlinkErrors(t *testing.T) {
 	}
 
 	// buildTree should not crash on broken symlinks
-	items := buildTree(root, map[string]bool{root: true})
+	items := buildTree(root, map[string]bool{root: true}, sortModeName)
 
 	// The broken symlink should be included in the tree
 	// (ReadDir returns DirEntry which doesn't follow symlinks by default)
