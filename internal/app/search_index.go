@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const maxSearchFileBytes int64 = 1 << 20
+const maxSearchFileBytes int64 = MaxSearchFileBytes
 
 type searchDoc struct {
 	item         treeItem
@@ -74,6 +74,18 @@ func (i *searchIndex) walk(dir string, depth int) error {
 	return nil
 }
 
+// search returns all items matching the query string.
+//
+// Search algorithm:
+//  1. Convert query to lowercase for case-insensitive matching
+//  2. For each indexed document:
+//     - Match against filename (always)
+//     - Match against content (only for files, not directories)
+//  3. Sort results: directories first, then alphabetically
+//
+// This provides a simple but effective full-text search across all notes.
+// Files larger than MaxSearchFileBytes are excluded from content search
+// (but their names are still searchable).
 func (i *searchIndex) search(query string) []treeItem {
 	query = strings.TrimSpace(strings.ToLower(query))
 	if query == "" {

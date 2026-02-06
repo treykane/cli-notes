@@ -39,13 +39,13 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"Happy note-taking!\n"
 
 func ensureNotesDir(notesDir string) error {
-	if err := os.MkdirAll(notesDir, 0o755); err != nil {
+	if err := os.MkdirAll(notesDir, DirPermission); err != nil {
 		return fmt.Errorf("create notes directory %q: %w", notesDir, err)
 	}
 
 	if isDirEmpty(notesDir) {
 		welcomePath := filepath.Join(notesDir, "Welcome.md")
-		if err := os.WriteFile(welcomePath, []byte(normalizeNoteContent(welcomeNote)), 0o644); err != nil {
+		if err := os.WriteFile(welcomePath, []byte(normalizeNoteContent(welcomeNote)), FilePermission); err != nil {
 			return fmt.Errorf("seed welcome note %q: %w", welcomePath, err)
 		}
 	}
@@ -83,26 +83,25 @@ func (m *Model) selectedParentDir() string {
 	return filepath.Dir(path)
 }
 
-// startNewNote switches to new-note mode and configures the input.
-func (m *Model) startNewNote() {
-	m.mode = modeNewNote
+// configureInputForMode prepares the input widget for new note/folder creation.
+func (m *Model) configureInputForMode(mode mode, placeholder string) {
+	m.mode = mode
 	m.showHelp = false
 	m.newParent = m.selectedParentDir()
 	m.input.Reset()
-	m.input.Placeholder = "Note name (without .md extension)"
+	m.input.Placeholder = placeholder
 	m.input.Focus()
 	m.status = ""
 }
 
+// startNewNote switches to new-note mode and configures the input.
+func (m *Model) startNewNote() {
+	m.configureInputForMode(modeNewNote, "Note name (without .md extension)")
+}
+
 // startNewFolder switches to new-folder mode and configures the input.
 func (m *Model) startNewFolder() {
-	m.mode = modeNewFolder
-	m.showHelp = false
-	m.newParent = m.selectedParentDir()
-	m.input.Reset()
-	m.input.Placeholder = "Folder name"
-	m.input.Focus()
-	m.status = ""
+	m.configureInputForMode(modeNewFolder, "Folder name")
 }
 
 // startEditNote loads the current file and opens the editor.
@@ -144,7 +143,7 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	content := fmt.Sprintf("# %s\n\nYour note content here...\n", strings.TrimSuffix(name, ".md"))
-	if err := os.WriteFile(path, []byte(normalizeNoteContent(content)), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(normalizeNoteContent(content)), FilePermission); err != nil {
 		m.setStatusError("Error creating note", err, "path", path)
 		return m, nil
 	}
@@ -153,8 +152,8 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 	m.status = "Created note: " + name
 	m.expanded[m.newParent] = true
 	m.refreshTree()
-	if m.searchIdx != nil {
-		m.searchIdx.upsertPath(path)
+	if m.searchIndex != nil {
+		m.searchIndex.upsertPath(path)
 	}
 	cmd := m.setCurrentFile(path)
 	return m, cmd
@@ -173,7 +172,7 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 		m.status = "Invalid folder name"
 		return m, nil
 	}
-	if err := os.MkdirAll(path, 0o755); err != nil {
+	if err := os.MkdirAll(path, DirPermission); err != nil {
 		m.setStatusError("Error creating folder", err, "path", path)
 		return m, nil
 	}
@@ -182,8 +181,8 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 	m.status = "Created folder: " + name
 	m.expanded[m.newParent] = true
 	m.refreshTree()
-	if m.searchIdx != nil {
-		m.searchIdx.upsertPath(path)
+	if m.searchIndex != nil {
+		m.searchIndex.upsertPath(path)
 	}
 	return m, nil
 }
@@ -195,15 +194,15 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	content := normalizeNoteContent(m.editor.Value())
-	if err := os.WriteFile(m.currentFile, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(m.currentFile, []byte(content), FilePermission); err != nil {
 		m.setStatusError("Error saving note", err, "path", m.currentFile)
 		return m, nil
 	}
 
 	m.mode = modeBrowse
 	m.status = "Saved: " + filepath.Base(m.currentFile)
-	if m.searchIdx != nil {
-		m.searchIdx.upsertPath(m.currentFile)
+	if m.searchIndex != nil {
+		m.searchIndex.upsertPath(m.currentFile)
 	}
 	cmd := m.setCurrentFile(m.currentFile)
 	return m, cmd
@@ -214,50 +213,64 @@ func normalizeNoteContent(content string) string {
 	return strings.TrimRight(content, "\r\n") + "\n"
 }
 
-// deleteSelected removes the selected file or empty folder.
-func (m *Model) deleteSelected() {
-	item := m.selectedItem()
+// validateDeleteTarget checks if the item can be deleted and returns an error message if not.
+func (m *Model) validateDeleteTarget(item *treeItem) string {
 	if item == nil {
-		m.status = "No item selected"
-		return
+		return "No item selected"
 	}
-
 	if item.path == m.notesDir {
-		m.status = "Cannot delete the root notes directory"
-		return
+		return "Cannot delete the root notes directory"
 	}
-
 	if !isWithinRoot(m.notesDir, item.path) {
-		m.status = "Cannot delete item outside notes directory"
+		return "Cannot delete item outside notes directory"
+	}
+	if item.isDir && !isDirEmpty(item.path) {
+		return "Folder is not empty. Delete contents first."
+	}
+	return ""
+}
+
+// performDelete executes the deletion and updates state.
+func (m *Model) performDelete(item *treeItem) {
+	if err := os.Remove(item.path); err != nil {
+		itemType := "file"
+		if item.isDir {
+			itemType = "folder"
+		}
+		m.setStatusError("Error deleting "+itemType, err, "path", item.path)
 		return
 	}
 
+	// Update status message
 	if item.isDir {
-		if !isDirEmpty(item.path) {
-			m.status = "Folder is not empty. Delete contents first."
-			return
-		}
-		if err := os.Remove(item.path); err != nil {
-			m.setStatusError("Error deleting folder", err, "path", item.path)
-			return
-		}
 		m.status = "Deleted folder: " + item.name
 	} else {
-		if err := os.Remove(item.path); err != nil {
-			m.setStatusError("Error deleting file", err, "path", item.path)
-			return
-		}
 		m.status = "Deleted: " + item.name
 	}
 
+	// Clear viewport if we deleted the current file
 	if item.path == m.currentFile {
 		m.currentFile = ""
 		m.viewport.SetContent("Select a note to view")
 	}
-	if m.searchIdx != nil {
-		m.searchIdx.removePath(item.path)
+
+	// Update search index and refresh tree
+	if m.searchIndex != nil {
+		m.searchIndex.removePath(item.path)
 	}
 	m.refreshTree()
+}
+
+// deleteSelected removes the selected file or empty folder.
+func (m *Model) deleteSelected() {
+	item := m.selectedItem()
+
+	if errMsg := m.validateDeleteTarget(item); errMsg != "" {
+		m.status = errMsg
+		return
+	}
+
+	m.performDelete(item)
 }
 
 // displayRelative shows paths relative to the notes root for UI display.

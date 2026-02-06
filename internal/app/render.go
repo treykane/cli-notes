@@ -11,7 +11,7 @@ import (
 )
 
 // renderDebounce prevents excessive markdown re-rendering during fast navigation.
-const renderDebounce = 500 * time.Millisecond
+const renderDebounce = RenderDebounce
 
 // renderCacheEntry stores rendered markdown and the inputs that created it.
 type renderCacheEntry struct {
@@ -49,7 +49,7 @@ func (m *Model) maybeShowSelectedFile() tea.Cmd {
 	if item == nil || item.isDir {
 		return nil
 	}
-	if stringsHasSuffixFold(item.path, ".md") {
+	if hasSuffixCaseInsensitive(item.path, ".md") {
 		return m.setCurrentFile(item.path)
 	}
 	return nil
@@ -74,7 +74,7 @@ func (m *Model) requestRender(path string) tea.Cmd {
 	if path == "" {
 		return nil
 	}
-	width := renderWidthBucket(m.viewport.Width)
+	width := roundWidthToNearestBucket(m.viewport.Width)
 	if info, err := os.Stat(path); err == nil {
 		if entry, ok := m.renderCache[path]; ok && entry.width == width && entry.mtime.Equal(info.ModTime()) {
 			m.viewport.SetContent(entry.content)

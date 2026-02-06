@@ -72,17 +72,17 @@ func max(a, b int) int {
 	return b
 }
 
-// renderWidthBucket buckets widths so the cache is more reusable.
-func renderWidthBucket(width int) int {
+// roundWidthToNearestBucket buckets widths so the cache is more reusable.
+func roundWidthToNearestBucket(width int) int {
 	if width <= 0 {
 		return 80
 	}
-	if width < 20 {
+	if width < RenderWidthBucket {
 		return width
 	}
-	return (width / 20) * 20
+	return (width / RenderWidthBucket) * RenderWidthBucket
 }
 
-func stringsHasSuffixFold(value, suffix string) bool {
+func hasSuffixCaseInsensitive(value, suffix string) bool {
 	return strings.HasSuffix(strings.ToLower(value), strings.ToLower(suffix))
 }

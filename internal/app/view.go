@@ -13,18 +13,15 @@ func (m *Model) View() string {
 		return "Loading..."
 	}
 
-	leftWidth := min(40, m.width/3)
-	rightWidth := max(0, m.width-leftWidth)
-	contentHeight := max(0, m.height-1)
-
-	leftPane := m.renderTree(leftWidth, contentHeight)
-	rightPane := m.renderRight(rightWidth, contentHeight)
+	layout := m.calculateLayout()
+	leftPane := m.renderTree(layout.LeftWidth, layout.ContentHeight)
+	rightPane := m.renderRight(layout.RightWidth, layout.ContentHeight)
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
 	if m.searching {
-		row = m.renderSearchPopupOverlay(m.width, contentHeight)
+		row = m.renderSearchPopupOverlay(m.width, layout.ContentHeight)
 	}
 	// Clamp the pane row so the last terminal line is always reserved for footer status.
-	row = padBlock(row, m.width, contentHeight)
+	row = padBlock(row, m.width, layout.ContentHeight)
 
 	view := row + "\n" + m.renderStatus(m.width)
 	return padBlock(view, m.width, m.height)
@@ -189,8 +186,8 @@ func (m *Model) renderHelp(width, height int) string {
 }
 
 func (m *Model) renderSearchPopupOverlay(width, height int) string {
-	popupWidth := min(70, max(44, width-8))
-	popupHeight := min(16, max(10, height-4))
+	popupWidth := min(70, max(44, width-SearchPopupPadding))
+	popupHeight := min(16, max(SearchPopupHeight, height-4))
 	popup := m.renderSearchPopup(popupWidth, popupHeight)
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
@@ -207,20 +204,20 @@ func (m *Model) renderSearchPopup(width, height int) string {
 	}
 
 	limit := max(0, innerHeight-len(lines)-1)
-	for i := 0; i < min(limit, len(m.searchRows)); i++ {
-		item := m.searchRows[i]
+	for i := 0; i < min(limit, len(m.searchResults)); i++ {
+		item := m.searchResults[i]
 		label := m.displayRelative(item.path)
 		if item.isDir {
 			label += "/"
 		}
 		line := truncate(label, innerWidth)
-		if i == m.searchPos {
+		if i == m.searchResultCursor {
 			line = selectedStyle.Render(line)
 		}
 		lines = append(lines, line)
 	}
 
-	if len(m.searchRows) == 0 {
+	if len(m.searchResults) == 0 {
 		lines = append(lines, mutedStyle.Render("No matches yet"))
 	}
 	lines = append(lines, mutedStyle.Render("Enter: jump  Esc: close"))
@@ -271,13 +268,6 @@ func (m *Model) formatTreeItemSelected(item treeItem) string {
 
 // updateLayout recomputes viewport sizing after a window resize.
 func (m *Model) updateLayout() {
-	leftWidth := min(40, m.width/3)
-	rightWidth := max(0, m.width-leftWidth)
-	contentHeight := max(0, m.height-1)
-	rightPaneStyle := previewPane
-	if m.mode == modeEditNote {
-		rightPaneStyle = editPane
-	}
-	m.viewport.Width = max(0, rightWidth-rightPaneStyle.GetHorizontalFrameSize())
-	m.viewport.Height = max(0, contentHeight-rightPaneStyle.GetVerticalFrameSize()-1)
+	layout := m.calculateLayout()
+	m.applyLayout(layout)
 }

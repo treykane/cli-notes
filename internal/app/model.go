@@ -1,3 +1,49 @@
+// Package app implements the terminal UI for cli-notes using the Bubble Tea framework.
+//
+// # Architecture Overview
+//
+// This package follows the Elm Architecture (Model-Update-View) pattern via Bubble Tea:
+//
+//   - Model: Holds all application state (see Model struct)
+//   - Update: Processes messages and updates state (see Update function)
+//   - View: Renders the current state to a string (see View function)
+//
+// # File Organization
+//
+// The app package is organized into focused modules:
+//
+//   - model.go: Core Model struct and Update loop
+//   - view.go: UI rendering (View function and helpers)
+//   - key_handlers.go: Keyboard event routing
+//   - message_handlers.go: Message type handlers (resize, render, etc.)
+//   - notes.go: Note and folder CRUD operations
+//   - tree.go: Directory tree building and navigation
+//   - render.go: Markdown rendering with caching
+//   - search_index.go: Full-text search index
+//   - layout.go: Layout dimension calculations
+//   - constants.go: All magic numbers and configuration
+//   - styles.go: Lipgloss styling
+//   - util.go: Helper functions
+//   - logging.go: Structured logging
+//
+// # Key Concepts
+//
+// Tree Navigation: The left pane shows a tree of folders and markdown files.
+// Users navigate with vim-style keys (j/k, h/l) or arrows.
+//
+// Modes: The app has four modes that determine which widget is active:
+//   - modeBrowse: Default mode, navigate tree and view notes
+//   - modeEditNote: Textarea widget is active for editing
+//   - modeNewNote: Input widget is active for naming a new note
+//   - modeNewFolder: Input widget is active for naming a new folder
+//
+// Rendering: Markdown rendering is debounced and cached to prevent lag.
+// When a file is selected, we wait 500ms before rendering to avoid
+// excessive work during rapid navigation. Renders are cached by file
+// path, modification time, and terminal width bucket.
+//
+// Search: Ctrl+P opens a popup that searches both filenames and content.
+// The search index is built on-demand and kept in sync with file changes.
 package app
 
 import (
@@ -34,45 +80,80 @@ type treeItem struct {
 
 // Model holds the Bubble Tea state for the entire UI.
 type Model struct {
-	// Filesystem state
-	notesDir    string
-	items       []treeItem
-	expanded    map[string]bool
-	cursor      int
-	treeOffset  int
+	// File System State
+	// The root directory containing all notes
+	notesDir string
+	// All visible tree items (files and folders) in the current view
+	items []treeItem
+	// Tracks which folders are expanded (path -> true if expanded)
+	expanded map[string]bool
+	// The file currently displayed in the viewport
 	currentFile string
-	searchIdx   *searchIndex
+	// Full-text search index for quick lookup
+	searchIndex *searchIndex
 
-	// UI widgets
-	viewport   viewport.Model
-	input      textinput.Model
-	search     textinput.Model
-	editor     textarea.Model
-	mode       mode
-	status     string
-	showHelp   bool
-	debugInput bool
-	searching  bool
-	searchRows []treeItem
-	searchPos  int
-
-	// Layout sizing
-	width      int
-	height     int
+	// Tree Navigation
+	// Index of the currently selected item in items slice
+	cursor int
+	// Scroll offset for the tree view
+	treeOffset int
+	// Height available for tree content (cached for scroll calculations)
 	leftHeight int
-	newParent  string
 
-	// Rendering indicator
-	spinner   spinner.Model
+	// Search State
+	// Whether the search popup is currently visible
+	searching bool
+	// Items matching the current search query
+	searchResults []treeItem
+	// Index of the selected result in searchResults slice
+	searchResultCursor int
+
+	// UI Widgets
+	// Markdown viewport for displaying notes
+	viewport viewport.Model
+	// Text input for new note/folder names
+	input textinput.Model
+	// Text input for search queries
+	search textinput.Model
+	// Textarea for editing note content
+	editor textarea.Model
+	// Loading spinner for async operations
+	spinner spinner.Model
+
+	// UI State
+	// Current mode (browse, edit, new note, new folder)
+	mode mode
+	// Message shown in the status bar
+	status string
+	// Whether the help screen is displayed
+	showHelp bool
+	// Debug mode for input sequence logging
+	debugInput bool
+
+	// Layout Dimensions
+	// Terminal width and height
+	width  int
+	height int
+
+	// Mode-specific State
+	// Parent directory for new note/folder creation
+	newParent string
+
+	// Rendering State
+	// Whether a markdown render is in progress
 	rendering bool
-
-	// Debounced render bookkeeping
-	renderSeq     int
-	pendingPath   string
-	pendingWidth  int
-	renderCache   map[string]renderCacheEntry
+	// Sequence number for the current render request (prevents stale renders)
+	renderSeq int
+	// Path that is pending render
+	pendingPath string
+	// Width for which we're rendering (bucketed for caching)
+	pendingWidth int
+	// Cache of rendered markdown (path -> renderCacheEntry)
+	renderCache map[string]renderCacheEntry
+	// Path currently being rendered (for error handling)
 	renderingPath string
-	renderingSeq  int
+	// Sequence number of the in-flight render
+	renderingSeq int
 }
 
 // New prepares the initial UI model and ensures the configured notes directory exists.
@@ -94,12 +175,12 @@ func New() (*Model, error) {
 
 	input := textinput.New()
 	input.Placeholder = "Name"
-	input.CharLimit = 120
+	input.CharLimit = InputCharLimit
 
 	search := textinput.New()
 	search.Prompt = ""
 	search.Placeholder = "Type to search notes"
-	search.CharLimit = 120
+	search.CharLimit = InputCharLimit
 
 	editor := textarea.New()
 	editor.Placeholder = "Your note content here..."
@@ -113,7 +194,7 @@ func New() (*Model, error) {
 		notesDir:    notesDir,
 		items:       items,
 		expanded:    expanded,
-		searchIdx:   newSearchIndex(notesDir),
+		searchIndex: newSearchIndex(notesDir),
 		viewport:    vp,
 		input:       input,
 		search:      search,
@@ -133,241 +214,62 @@ func (m *Model) Init() tea.Cmd {
 }
 
 // Update is the Bubble Tea update loop: handle events and emit commands.
+//
+// This is the heart of the application. It receives messages from Bubble Tea
+// (key presses, window resizes, async results) and routes them to specialized
+// handlers based on message type and current mode.
+//
+// Message flow:
+//   - spinner.TickMsg: Updates spinner animation (runs continuously)
+//   - tea.WindowSizeMsg: Recalculates layout when terminal is resized
+//   - renderRequestMsg: Dispatches markdown rendering after debounce delay
+//   - renderResultMsg: Receives completed render and updates viewport
+//   - tea.KeyMsg: Routes to mode-specific key handler
+//
+// The function is kept small by delegating to handlers in message_handlers.go
+// and key_handlers.go.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		cmds = append(cmds, cmd)
-		if m.rendering {
-			m.viewport.SetContent(m.spinner.View() + " Rendering...")
-		}
-		return m, tea.Batch(cmds...)
+		return m.handleSpinnerTick(msg)
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.leftHeight = max(0, m.height-2)
-		m.updateLayout()
-		cmd := m.refreshViewport()
-		m.adjustTreeOffset()
-		return m, cmd
+		return m.handleWindowResize(msg)
 	case renderRequestMsg:
-		if msg.seq != m.renderSeq || msg.path != m.pendingPath || msg.width != m.pendingWidth {
-			return m, nil
-		}
-		return m, renderMarkdownCmd(msg.path, msg.width, msg.seq)
+		return m.handleRenderRequest(msg)
 	case renderResultMsg:
-		if msg.err != nil {
-			appLog.Error("render markdown", "path", msg.path, "seq", msg.seq, "error", msg.err)
-			if msg.seq == m.renderSeq && msg.path == m.currentFile {
-				m.viewport.SetContent("Error reading note")
-				m.status = "Error reading note"
-				m.rendering = false
-				m.renderingPath = ""
-				m.renderingSeq = 0
-			}
-			return m, nil
-		}
-		if entry, ok := m.renderCache[msg.path]; !ok || !entry.mtime.After(msg.mtime) {
-			m.renderCache[msg.path] = renderCacheEntry{
-				mtime:   msg.mtime,
-				width:   msg.width,
-				content: msg.content,
-			}
-		}
-		if msg.seq != m.renderSeq || msg.path != m.currentFile {
-			return m, nil
-		}
-		if msg.width == renderWidthBucket(m.viewport.Width) {
-			m.viewport.SetContent(msg.content)
-			m.rendering = false
-			m.renderingPath = ""
-			m.renderingSeq = 0
-		}
-		return m, nil
+		return m.handleRenderResult(msg)
 	case tea.KeyMsg:
 		switch m.mode {
 		case modeEditNote:
-			if m.shouldIgnoreInput(msg) {
-				return m, nil
-			}
-			switch msg.String() {
-			case "ctrl+s":
-				return m.saveEdit()
-			case "esc":
-				m.mode = modeBrowse
-				m.status = "Edit cancelled"
-				return m, nil
-			default:
-				var cmd tea.Cmd
-				m.editor, cmd = m.editor.Update(msg)
-				return m, cmd
-			}
+			return m.handleEditNoteKey(msg)
 		case modeNewNote:
-			if m.shouldIgnoreInput(msg) {
-				return m, nil
-			}
-			switch msg.String() {
-			case "ctrl+s", "enter":
-				return m.saveNewNote()
-			case "esc":
-				m.mode = modeBrowse
-				m.status = "New note cancelled"
-				return m, nil
-			default:
-				var cmd tea.Cmd
-				m.input, cmd = m.input.Update(msg)
-				return m, cmd
-			}
+			return m.handleNewNoteKey(msg)
 		case modeNewFolder:
-			if m.shouldIgnoreInput(msg) {
-				return m, nil
-			}
-			switch msg.String() {
-			case "ctrl+s", "enter":
-				return m.saveNewFolder()
-			case "esc":
-				m.mode = modeBrowse
-				m.status = "New folder cancelled"
-				return m, nil
-			default:
-				var cmd tea.Cmd
-				m.input, cmd = m.input.Update(msg)
-				return m, cmd
-			}
+			return m.handleNewFolderKey(msg)
 		default:
 			return m.handleKey(msg)
 		}
 	}
-
 	return m, nil
 }
 
 // handleKey routes key presses in browse mode.
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := msg.String()
-
-	switch m.mode {
-	case modeBrowse:
-		if m.searching {
-			if m.shouldIgnoreInput(msg) {
-				return m, nil
-			}
-			switch key {
-			case "esc":
-				m.closeSearchPopup()
-				m.status = "Search cancelled"
-				return m, nil
-			case "up", "k":
-				if len(m.searchRows) > 0 {
-					m.searchPos = clamp(m.searchPos-1, 0, len(m.searchRows)-1)
-				}
-				return m, nil
-			case "down", "j":
-				if len(m.searchRows) > 0 {
-					m.searchPos = clamp(m.searchPos+1, 0, len(m.searchRows)-1)
-				}
-				return m, nil
-			case "ctrl+n":
-				if len(m.searchRows) > 0 {
-					m.searchPos = clamp(m.searchPos+1, 0, len(m.searchRows)-1)
-				}
-				return m, nil
-			case "ctrl+p":
-				if len(m.searchRows) > 0 {
-					m.searchPos = clamp(m.searchPos-1, 0, len(m.searchRows)-1)
-				}
-				return m, nil
-			case "enter":
-				return m.selectSearchResult()
-			}
-
-			before := m.search.Value()
-			var cmd tea.Cmd
-			m.search, cmd = m.search.Update(msg)
-			if before != m.search.Value() {
-				m.updateSearchRows()
-			}
-			return m, cmd
-		}
-
-		switch key {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "?":
-			m.showHelp = !m.showHelp
-			if m.showHelp {
-				m.status = ""
-			}
-			return m, nil
-		case "up", "k":
-			m.moveCursor(-1)
-			cmd := m.maybeShowSelectedFile()
-			return m, cmd
-		case "down", "j", "ctrl+n":
-			m.moveCursor(1)
-			cmd := m.maybeShowSelectedFile()
-			return m, cmd
-		case "g":
-			if len(m.items) > 0 {
-				m.cursor = 0
-				m.adjustTreeOffset()
-			}
-			cmd := m.maybeShowSelectedFile()
-			return m, cmd
-		case "G":
-			if len(m.items) > 0 {
-				m.cursor = len(m.items) - 1
-				m.adjustTreeOffset()
-			}
-			cmd := m.maybeShowSelectedFile()
-			return m, cmd
-		case "enter", "right", "l":
-			m.toggleExpand(true)
-			return m, nil
-		case "left", "h":
-			m.toggleExpand(false)
-			return m, nil
-		case "/":
-			m.status = "Use Ctrl+P for search popup"
-			return m, nil
-		case "ctrl+p":
-			m.openSearchPopup()
-			return m, nil
-		case "n":
-			m.startNewNote()
-			return m, nil
-		case "f":
-			m.startNewFolder()
-			return m, nil
-		case "e":
-			return m.startEditNote()
-		case "d":
-			m.deleteSelected()
-			return m, nil
-		case "r":
-			m.refreshTree()
-			if m.searchIdx != nil {
-				m.searchIdx.invalidate()
-			}
-			m.status = "Refreshed"
-			return m, nil
-		}
+	if m.searching {
+		return m.handleSearchKey(msg)
 	}
-
-	return m, nil
+	return m.handleBrowseKey(msg.String())
 }
 
 func (m *Model) openSearchPopup() {
 	m.searching = true
 	m.search.SetValue("")
 	m.search.Focus()
-	m.searchRows = nil
-	m.searchPos = 0
+	m.searchResults = nil
+	m.searchResultCursor = 0
 	m.showHelp = false
-	if m.searchIdx != nil {
-		if err := m.searchIdx.ensureBuilt(); err != nil {
+	if m.searchIndex != nil {
+		if err := m.searchIndex.ensureBuilt(); err != nil {
 			appLog.Error("build search index", "root", m.notesDir, "error", err)
 		}
 	}
@@ -378,39 +280,39 @@ func (m *Model) closeSearchPopup() {
 	m.searching = false
 	m.search.Blur()
 	m.search.SetValue("")
-	m.searchRows = nil
-	m.searchPos = 0
+	m.searchResults = nil
+	m.searchResultCursor = 0
 }
 
 func (m *Model) updateSearchRows() {
 	query := strings.TrimSpace(m.search.Value())
-	if m.searchIdx == nil {
-		m.searchIdx = newSearchIndex(m.notesDir)
+	if m.searchIndex == nil {
+		m.searchIndex = newSearchIndex(m.notesDir)
 	}
-	if err := m.searchIdx.ensureBuilt(); err != nil {
-		m.searchRows = nil
-		m.searchPos = 0
+	if err := m.searchIndex.ensureBuilt(); err != nil {
+		m.searchResults = nil
+		m.searchResultCursor = 0
 		m.status = "Search index error"
 		appLog.Error("build search index", "root", m.notesDir, "error", err)
 		return
 	}
-	m.searchRows = m.searchIdx.search(query)
-	if len(m.searchRows) == 0 {
-		m.searchPos = 0
+	m.searchResults = m.searchIndex.search(query)
+	if len(m.searchResults) == 0 {
+		m.searchResultCursor = 0
 		m.status = fmt.Sprintf("Search \"%s\" (0 matches)", query)
 		return
 	}
-	m.searchPos = clamp(m.searchPos, 0, len(m.searchRows)-1)
-	m.status = fmt.Sprintf("Search \"%s\" (%d matches)", query, len(m.searchRows))
+	m.searchResultCursor = clamp(m.searchResultCursor, 0, len(m.searchResults)-1)
+	m.status = fmt.Sprintf("Search \"%s\" (%d matches)", query, len(m.searchResults))
 }
 
 func (m *Model) selectSearchResult() (tea.Model, tea.Cmd) {
-	if len(m.searchRows) == 0 {
+	if len(m.searchResults) == 0 {
 		m.status = "No search matches"
 		return m, nil
 	}
 
-	item := m.searchRows[m.searchPos]
+	item := m.searchResults[m.searchResultCursor]
 	m.closeSearchPopup()
 	m.expandParentDirs(item.path)
 	if item.isDir {

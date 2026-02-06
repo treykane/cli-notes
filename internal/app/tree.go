@@ -78,6 +78,19 @@ func (m *Model) rebuildTreeKeep(path string) {
 }
 
 // buildTree builds a flat list of items for rendering the tree view.
+//
+// The tree is built by recursively walking the directory structure, respecting
+// the expanded map to determine which folders to traverse. The result is a flat
+// slice of treeItems that can be rendered with proper indentation.
+//
+// Algorithm:
+//  1. Start at root with depth 0
+//  2. For each directory entry:
+//     - Add it to the items list
+//     - If it's a directory AND expanded, recursively walk its children
+//  3. Sort each level: directories first, then alphabetically within each group
+//
+// This produces a depth-first traversal that matches typical file browser UIs.
 func buildTree(root string, expanded map[string]bool) []treeItem {
 	items := []treeItem{}
 	walkTree(root, 0, expanded, &items)
@@ -85,6 +98,9 @@ func buildTree(root string, expanded map[string]bool) []treeItem {
 }
 
 // walkTree recursively appends directory contents in sorted order.
+//
+// Each directory is sorted with folders first, then alphabetically (case-insensitive).
+// Only expanded folders have their children added to the tree.
 func walkTree(dir string, depth int, expanded map[string]bool, items *[]treeItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
