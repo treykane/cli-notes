@@ -55,7 +55,7 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 - Press `e` to edit the selected note
 - Save with Ctrl+S
 - Set a selection anchor with `Alt+S` (move cursor to define range)
-- Formatting wraps the active selection (or current word if no selection):
+- Formatting toggles on the active selection (or current word if no selection):
   - `Ctrl+B` for `**bold**`
   - `Alt+I` for `*italic*`
   - `Ctrl+U` for `<u>underline</u>`
@@ -85,9 +85,9 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | d | Delete |
 | r | Refresh |
 | Alt+S (edit mode) | Set/clear selection anchor |
-| Ctrl+B (edit mode) | Wrap selection/current word with `**bold**` |
-| Alt+I (edit mode) | Wrap selection/current word with `*italic*` |
-| Ctrl+U (edit mode) | Wrap selection/current word with `<u>underline</u>` |
+| Ctrl+B (edit mode) | Toggle `**bold**` on selection/current word |
+| Alt+I (edit mode) | Toggle `*italic*` on selection/current word |
+| Ctrl+U (edit mode) | Toggle `<u>underline</u>` on selection/current word |
 | ? | Toggle help |
 | q or Ctrl+C | Quit |
 

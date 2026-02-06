@@ -75,6 +75,32 @@ func TestHandleEditNoteKeyCtrlBFallsBackToMarkerInsertion(t *testing.T) {
 	}
 }
 
+func TestHandleEditNoteKeyCtrlBTogglesFormattedWordOff(t *testing.T) {
+	m := newFocusedEditModel("hello **world**")
+	m.setEditorValueAndCursorOffset("hello **world**", 10)
+
+	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlB})
+	got := result.(*Model)
+
+	if got.editor.Value() != "hello world" {
+		t.Fatalf("expected value %q, got %q", "hello world", got.editor.Value())
+	}
+}
+
+func TestHandleEditNoteKeyCtrlBTogglesOnlyBoldInNestedFormatting(t *testing.T) {
+	m := newFocusedEditModel("***word***")
+	m.editorSelectionAnchor = 3
+	m.editorSelectionActive = true
+	m.setEditorValueAndCursorOffset("***word***", 7)
+
+	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlB})
+	got := result.(*Model)
+
+	if got.editor.Value() != "*word*" {
+		t.Fatalf("expected value %q, got %q", "*word*", got.editor.Value())
+	}
+}
+
 func TestHandleEditNoteKeyTypingClearsSelectionAnchor(t *testing.T) {
 	m := newFocusedEditModel("hello")
 

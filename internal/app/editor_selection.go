@@ -61,23 +61,65 @@ func (m *Model) toggleEditorSelectionAnchor() {
 
 func (m *Model) applyEditorFormat(open, close, label string) {
 	if start, end, ok := m.editorSelectionRange(); ok {
-		m.wrapEditorRange(start, end, open, close)
+		removed := m.toggleEditorFormatRange(start, end, open, close)
 		m.clearEditorSelection()
-		m.status = "Applied " + label + " formatting to selection"
+		if removed {
+			m.status = "Removed " + label + " formatting from selection"
+		} else {
+			m.status = "Applied " + label + " formatting to selection"
+		}
 		return
 	}
 
 	cursor := m.currentEditorCursorOffset()
 	if start, end, ok := wordBoundsAtCursor(m.editor.Value(), cursor); ok {
-		m.wrapEditorRange(start, end, open, close)
+		removed := m.toggleEditorFormatRange(start, end, open, close)
 		m.clearEditorSelection()
-		m.status = "Applied " + label + " formatting to word"
+		if removed {
+			m.status = "Removed " + label + " formatting from word"
+		} else {
+			m.status = "Applied " + label + " formatting to word"
+		}
 		return
 	}
 
 	m.insertEditorWrapper(open, close)
 	m.clearEditorSelection()
 	m.status = "Inserted " + label + " markers"
+}
+
+// toggleEditorFormatRange unwraps when exact wrappers surround the range, else wraps.
+func (m *Model) toggleEditorFormatRange(start, end int, open, close string) bool {
+	value := m.editor.Value()
+	runes := []rune(value)
+	start = clamp(start, 0, len(runes))
+	end = clamp(end, 0, len(runes))
+	if start > end {
+		start, end = end, start
+	}
+
+	openRunes := []rune(open)
+	closeRunes := []rune(close)
+	openLen := len(openRunes)
+	closeLen := len(closeRunes)
+
+	openStart := start - openLen
+	closeEnd := end + closeLen
+
+	if openStart >= 0 &&
+		closeEnd <= len(runes) &&
+		runesEqual(runes[openStart:start], openRunes) &&
+		runesEqual(runes[end:closeEnd], closeRunes) {
+		updated := make([]rune, 0, len(runes)-openLen-closeLen)
+		updated = append(updated, runes[:openStart]...)
+		updated = append(updated, runes[start:end]...)
+		updated = append(updated, runes[closeEnd:]...)
+		m.setEditorValueAndCursorOffset(string(updated), end-openLen)
+		return true
+	}
+
+	m.wrapEditorRange(start, end, open, close)
+	return false
 }
 
 func (m *Model) wrapEditorRange(start, end int, open, close string) {
@@ -161,4 +203,16 @@ func wordBoundsAtCursor(value string, cursor int) (start, end int, ok bool) {
 
 func isWordRune(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+}
+
+func runesEqual(a, b []rune) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

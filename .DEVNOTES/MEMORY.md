@@ -10,6 +10,7 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-06: Formatting shortcuts in edit mode now toggle: if the exact selection/word is already wrapped by that formatter, the surrounding markers are removed; otherwise markers are added. This preserves nested formatting by only affecting the formatter immediately surrounding the target range.
 - 2026-02-06: Added an app-level editor selection API (anchor + range) used by formatting shortcuts: `Alt+S` sets/clears the anchor, and `Ctrl+B`/`Alt+I`/`Ctrl+U` now wrap selection, or current word when no selection, with marker-insertion fallback.
 - 2026-02-06: Added edit-mode formatting shortcuts: `Ctrl+B` inserts `** **`, `Alt+I` inserts `* *` (avoids `Ctrl+I`/Tab collision), and `Ctrl+U` inserts `<u></u>` with the cursor placed between markers.
 - 2026-02-04: Added debounced + async Markdown preview rendering with caching (path + mtime + width) to keep the UI responsive while navigating notes.
