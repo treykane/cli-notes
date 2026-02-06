@@ -28,7 +28,7 @@
 [x] Consider adding an incremental/cached content index for search to keep `Ctrl+P` fast with large note collections.
 [x] Add a search-index benchmark suite (cold build vs warm query; small vs large note sets) to guard future regressions.
 [x] Add CI benchmark tracking for the search index suite to detect performance drifts over time.
-[ ] Add benchmark trend visualization/reporting for uploaded CI artifacts to make long-term drift easier to review.
+[x] Add benchmark trend visualization/reporting for uploaded CI artifacts to make long-term drift easier to review.
 
 ## Developer Experiqence
 [x] Improve developer experience by adding more detailed documentation.
