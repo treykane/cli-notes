@@ -137,6 +137,10 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 	}
 
 	path := filepath.Join(m.newParent, name)
+	if !isWithinRoot(m.notesDir, path) {
+		m.status = "Invalid note name"
+		return m, nil
+	}
 	content := fmt.Sprintf("# %s\n\nYour note content here...\n", strings.TrimSuffix(name, ".md"))
 	if err := os.WriteFile(path, []byte(normalizeNoteContent(content)), 0o644); err != nil {
 		m.status = "Error creating note"
@@ -163,6 +167,10 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 	}
 
 	path := filepath.Join(m.newParent, name)
+	if !isWithinRoot(m.notesDir, path) {
+		m.status = "Invalid folder name"
+		return m, nil
+	}
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		m.status = "Error creating folder"
 		return m, nil
@@ -214,6 +222,11 @@ func (m *Model) deleteSelected() {
 
 	if item.path == m.notesDir {
 		m.status = "Cannot delete the root notes directory"
+		return
+	}
+
+	if !isWithinRoot(m.notesDir, item.path) {
+		m.status = "Cannot delete item outside notes directory"
 		return
 	}
 

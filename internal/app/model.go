@@ -243,38 +243,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleKey routes key presses based on the current mode.
+// handleKey routes key presses in browse mode.
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
 	switch m.mode {
-	case modeEditNote:
-		switch key {
-		case "ctrl+s":
-			return m.saveEdit()
-		case "esc":
-			m.mode = modeBrowse
-			m.status = "Edit cancelled"
-			return m, nil
-		}
-	case modeNewNote:
-		switch key {
-		case "ctrl+s", "enter":
-			return m.saveNewNote()
-		case "esc":
-			m.mode = modeBrowse
-			m.status = "New note cancelled"
-			return m, nil
-		}
-	case modeNewFolder:
-		switch key {
-		case "ctrl+s", "enter":
-			return m.saveNewFolder()
-		case "esc":
-			m.mode = modeBrowse
-			m.status = "New folder cancelled"
-			return m, nil
-		}
 	case modeBrowse:
 		if m.searching {
 			if m.shouldIgnoreInput(msg) {
