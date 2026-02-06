@@ -38,6 +38,6 @@
 [x] Add CONTRIBUTING.md with PR and code style guidelines.
 
 ## Testing
-[ ] Implement testing framework
-[ ] Add unit tests for tree building and render cache behavior in `internal/app`.
+[x] Implement testing framework
+[x] Add unit tests for tree building and render cache behavior in `internal/app`.
 [x] Add unit tests for config load/save and first-run configurator behavior.

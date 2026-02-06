@@ -39,6 +39,7 @@
 - 2026-02-05: Added first-run configurator and `--configure` flag; notes directory is now stored in `~/.cli-notes/config.json` and surfaced in in-app help.
 - 2026-02-06: Increased bottom status/footer contrast (solid mode-aware background + bold text) and added left-padding so the line reads as a persistent info bar even in split panes.
 - 2026-02-05: Clamped the main pane row to `height-1` before rendering footer status so border/padding growth cannot clip the bottom info line.
+- 2026-02-06: Added unit tests in `internal/app` for tree building behavior (sorting, depth, and expansion) and markdown render cache behavior (cache hit vs async render path).
 
 ## Useful Commands
 - `go build -o notes ./cmd/notes`
