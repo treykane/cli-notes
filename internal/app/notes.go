@@ -30,7 +30,8 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- ?: Toggle help\n" +
 	"- Enter or Ctrl+S: Save (when naming new note/folder)\n" +
 	"- Ctrl+S: Save (when editing)\n" +
-	"- Ctrl+B / Alt+I / Ctrl+U: Insert bold/italic/underline markers (when editing)\n" +
+	"- Alt+S: Set/clear selection anchor (when editing)\n" +
+	"- Ctrl+B / Alt+I / Ctrl+U: Wrap selection/word with bold/italic/underline (when editing)\n" +
 	"- Esc: Cancel (when naming or editing)\n" +
 	"- q or Ctrl+C: Quit the application\n\n" +
 	"## Getting Started\n\n" +
@@ -120,6 +121,7 @@ func (m *Model) startEditNote() (tea.Model, tea.Cmd) {
 
 	m.mode = modeEditNote
 	m.showHelp = false
+	m.clearEditorSelection()
 	m.editor.SetValue(string(content))
 	m.editor.CursorEnd()
 	m.editor.Focus()
@@ -201,6 +203,7 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 	}
 
 	m.mode = modeBrowse
+	m.clearEditorSelection()
 	m.status = "Saved: " + filepath.Base(m.currentFile)
 	if m.searchIndex != nil {
 		m.searchIndex.upsertPath(m.currentFile)

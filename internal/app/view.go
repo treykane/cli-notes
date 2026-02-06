@@ -128,7 +128,7 @@ func (m *Model) renderStatus(width int) string {
 func (m *Model) statusHelp() string {
 	switch m.mode {
 	case modeEditNote:
-		return "Ctrl+S save  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Esc cancel"
+		return "Ctrl+S save  Alt+S anchor  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Esc cancel"
 	case modeNewNote, modeNewFolder:
 		return "Enter/Ctrl+S save  Esc cancel"
 	default:
@@ -172,9 +172,10 @@ func (m *Model) renderHelp(width, height int) string {
 		"",
 		"Edit Note",
 		"  Ctrl+S         Save",
-		"  Ctrl+B         Insert **bold** markers",
-		"  Alt+I          Insert *italic* markers",
-		"  Ctrl+U         Insert <u>underline</u> markers",
+		"  Alt+S          Set/clear selection anchor",
+		"  Ctrl+B         Wrap selection/word with **bold**",
+		"  Alt+I          Wrap selection/word with *italic*",
+		"  Ctrl+U         Wrap selection/word with <u>underline</u>",
 		"  Esc            Cancel",
 		"",
 		"Press ? to return.",

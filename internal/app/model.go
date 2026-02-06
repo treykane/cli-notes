@@ -138,6 +138,10 @@ type Model struct {
 	// Mode-specific State
 	// Parent directory for new note/folder creation
 	newParent string
+	// Anchor offset (in runes) for editor range selection
+	editorSelectionAnchor int
+	// Whether the editor selection anchor is currently active
+	editorSelectionActive bool
 
 	// Rendering State
 	// Whether a markdown render is in progress
@@ -191,20 +195,22 @@ func New() (*Model, error) {
 	spin.Spinner = spinner.Line
 
 	return &Model{
-		notesDir:    notesDir,
-		items:       items,
-		expanded:    expanded,
-		searchIndex: newSearchIndex(notesDir),
-		viewport:    vp,
-		input:       input,
-		search:      search,
-		editor:      editor,
-		mode:        modeBrowse,
-		status:      "Ready",
-		spinner:     spin,
-		leftHeight:  0,
-		renderCache: map[string]renderCacheEntry{},
-		debugInput:  os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
+		notesDir:              notesDir,
+		items:                 items,
+		expanded:              expanded,
+		searchIndex:           newSearchIndex(notesDir),
+		viewport:              vp,
+		input:                 input,
+		search:                search,
+		editor:                editor,
+		mode:                  modeBrowse,
+		status:                "Ready",
+		spinner:               spin,
+		leftHeight:            0,
+		renderCache:           map[string]renderCacheEntry{},
+		editorSelectionAnchor: noEditorSelectionAnchor,
+		editorSelectionActive: false,
+		debugInput:            os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
 	}, nil
 }
 

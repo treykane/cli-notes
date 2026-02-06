@@ -7,50 +7,84 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestHandleEditNoteKeyCtrlBInsertsBoldMarkers(t *testing.T) {
-	m := &Model{mode: modeEditNote, editor: textarea.New()}
-	m.editor.SetValue("hello")
+func newFocusedEditModel(value string) *Model {
+	m := &Model{
+		mode:                  modeEditNote,
+		editor:                textarea.New(),
+		editorSelectionAnchor: noEditorSelectionAnchor,
+		editorSelectionActive: false,
+	}
+	m.editor.SetValue(value)
+	m.editor.Focus()
 	m.editor.CursorEnd()
+	return m
+}
+
+func TestHandleEditNoteKeyCtrlBWrapsCurrentWord(t *testing.T) {
+	m := newFocusedEditModel("hello world")
 
 	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlB})
 	got := result.(*Model)
 
-	if got.editor.Value() != "hello****" {
-		t.Fatalf("expected value %q, got %q", "hello****", got.editor.Value())
+	if got.editor.Value() != "hello **world**" {
+		t.Fatalf("expected value %q, got %q", "hello **world**", got.editor.Value())
 	}
-	if got.editor.LineInfo().CharOffset != 7 {
-		t.Fatalf("expected cursor at 7, got %d", got.editor.LineInfo().CharOffset)
+	if got.editorSelectionActive {
+		t.Fatalf("expected selection to be cleared, got active anchor %d", got.editorSelectionAnchor)
 	}
 }
 
-func TestHandleEditNoteKeyAltIInsertsItalicMarkers(t *testing.T) {
-	m := &Model{mode: modeEditNote, editor: textarea.New()}
-	m.editor.SetValue("hello")
-	m.editor.CursorEnd()
+func TestHandleEditNoteKeyAltIWrapsCurrentWord(t *testing.T) {
+	m := newFocusedEditModel("hello world")
 
 	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}, Alt: true})
 	got := result.(*Model)
 
-	if got.editor.Value() != "hello**" {
-		t.Fatalf("expected value %q, got %q", "hello**", got.editor.Value())
-	}
-	if got.editor.LineInfo().CharOffset != 6 {
-		t.Fatalf("expected cursor at 6, got %d", got.editor.LineInfo().CharOffset)
+	if got.editor.Value() != "hello *world*" {
+		t.Fatalf("expected value %q, got %q", "hello *world*", got.editor.Value())
 	}
 }
 
-func TestHandleEditNoteKeyCtrlUInsertsUnderlineMarkers(t *testing.T) {
-	m := &Model{mode: modeEditNote, editor: textarea.New()}
-	m.editor.SetValue("hello")
-	m.editor.CursorEnd()
+func TestHandleEditNoteKeyCtrlUWrapsSelection(t *testing.T) {
+	m := newFocusedEditModel("hello world")
+
+	_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}, Alt: true})
+	for i := 0; i < 5; i++ {
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyLeft})
+	}
 
 	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlU})
 	got := result.(*Model)
 
-	if got.editor.Value() != "hello<u></u>" {
-		t.Fatalf("expected value %q, got %q", "hello<u></u>", got.editor.Value())
+	if got.editor.Value() != "hello <u>world</u>" {
+		t.Fatalf("expected value %q, got %q", "hello <u>world</u>", got.editor.Value())
 	}
-	if got.editor.LineInfo().CharOffset != 8 {
-		t.Fatalf("expected cursor at 8, got %d", got.editor.LineInfo().CharOffset)
+	if got.editorSelectionActive {
+		t.Fatalf("expected selection to be cleared, got active anchor %d", got.editorSelectionAnchor)
+	}
+}
+
+func TestHandleEditNoteKeyCtrlBFallsBackToMarkerInsertion(t *testing.T) {
+	m := newFocusedEditModel("hello ")
+
+	result, _ := m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlB})
+	got := result.(*Model)
+
+	if got.editor.Value() != "hello ****" {
+		t.Fatalf("expected value %q, got %q", "hello ****", got.editor.Value())
+	}
+}
+
+func TestHandleEditNoteKeyTypingClearsSelectionAnchor(t *testing.T) {
+	m := newFocusedEditModel("hello")
+
+	_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}, Alt: true})
+	if !m.editorSelectionActive {
+		t.Fatal("expected selection anchor to be set")
+	}
+
+	_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
+	if m.editorSelectionActive {
+		t.Fatalf("expected selection anchor cleared after edit, got active anchor %d", m.editorSelectionAnchor)
 	}
 }

@@ -1,8 +1,6 @@
 package app
 
 import (
-	"unicode/utf8"
-
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -94,31 +92,43 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+s":
 		return m.saveEdit()
+	case "alt+s":
+		m.toggleEditorSelectionAnchor()
+		return m, nil
 	case "ctrl+b":
-		m.insertEditorWrapper("**", "**")
+		m.applyEditorFormat("**", "**", "bold")
 		return m, nil
 	case "alt+i":
-		m.insertEditorWrapper("*", "*")
+		m.applyEditorFormat("*", "*", "italic")
 		return m, nil
 	case "ctrl+u":
-		m.insertEditorWrapper("<u>", "</u>")
+		m.applyEditorFormat("<u>", "</u>", "underline")
 		return m, nil
 	case "esc":
 		m.mode = modeBrowse
+		m.clearEditorSelection()
 		m.status = "Edit cancelled"
 		return m, nil
 	default:
+		before := m.editor.Value()
 		var cmd tea.Cmd
 		m.editor, cmd = m.editor.Update(msg)
+		if before != m.editor.Value() {
+			m.clearEditorSelection()
+		}
 		return m, cmd
 	}
 }
 
 // insertEditorWrapper inserts open+close markers and positions the cursor between them.
 func (m *Model) insertEditorWrapper(open, close string) {
-	cursor := m.editor.LineInfo().CharOffset
 	m.editor.InsertString(open + close)
-	m.editor.SetCursor(cursor + utf8.RuneCountInString(open))
+	m.editor.Focus()
+	for i := 0; i < len([]rune(close)); i++ {
+		var cmd tea.Cmd
+		m.editor, cmd = m.editor.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		_ = cmd
+	}
 }
 
 // handleNewNoteKey processes keypresses while creating a new note.

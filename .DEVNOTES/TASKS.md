@@ -1,3 +1,3 @@
 # Tasks
 
-- [ ] Add selection-aware formatting in edit mode (wrap current selection/word for bold/italic/underline instead of marker insertion only at cursor).
+- [ ] Add mouse-driven editor selection using Bubble Tea mouse events and map drag gestures to the shared selection API.

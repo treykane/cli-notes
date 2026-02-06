@@ -54,7 +54,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 ### 4. Edit Notes
 - Press `e` to edit the selected note
 - Save with Ctrl+S
-- Insert Markdown markers while editing:
+- Set a selection anchor with `Alt+S` (move cursor to define range)
+- Formatting wraps the active selection (or current word if no selection):
   - `Ctrl+B` for `**bold**`
   - `Alt+I` for `*italic*`
   - `Ctrl+U` for `<u>underline</u>`
@@ -83,9 +84,10 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | e | Edit note |
 | d | Delete |
 | r | Refresh |
-| Ctrl+B (edit mode) | Insert `**bold**` markers |
-| Alt+I (edit mode) | Insert `*italic*` markers |
-| Ctrl+U (edit mode) | Insert `<u>underline</u>` markers |
+| Alt+S (edit mode) | Set/clear selection anchor |
+| Ctrl+B (edit mode) | Wrap selection/current word with `**bold**` |
+| Alt+I (edit mode) | Wrap selection/current word with `*italic*` |
+| Ctrl+U (edit mode) | Wrap selection/current word with `<u>underline</u>` |
 | ? | Toggle help |
 | q or Ctrl+C | Quit |
 
