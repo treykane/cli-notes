@@ -1,6 +1,8 @@
-# cli-notes - BETA VERSION
+# cli-notes - BETA
 
-A beautiful TUI (Text User Interface) notes application that lives in your CLI. Manage your notes with Markdown formatting, organized in a directory structure.
+A TUI (Text User Interface) notes application that lives in your CLI. Manage your notes with Markdown formatting, organized in a directory structure. This tool was born out of my desire to have a simple notes repository that I could sync via git, and quickly and easily manage notes in any environment.
+
+This application is a work in progress, it currently works, but I'm working on further developing the useful features that make it a notes app and not just a text editor with a file tree. Please open issues with feature requests.
 
 ## Features
 
