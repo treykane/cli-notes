@@ -19,6 +19,8 @@
 [x] Turn the right-pane filename row into a solid status bar and add more visual distinction in the file tree.
 [x] Swap tree colors to blue MD files + green folders and make tree selection highlight full-width.
 [x] Ensure selected tree rows highlight both the full row and row text clearly.
+[x] Make the bottom info/status footer more visible in split panes (high-contrast sticky-style bar).
+[x] Prevent footer clipping by reserving the bottom line explicitly after pane rendering.
 [x] Search currently matches note and folder names only (no note body/content search).
 
 ## Performance

@@ -23,6 +23,8 @@ func (m *Model) View() string {
 	if m.searching {
 		row = m.renderSearchPopupOverlay(m.width, contentHeight)
 	}
+	// Clamp the pane row so the last terminal line is always reserved for footer status.
+	row = padBlock(row, m.width, contentHeight)
 
 	view := row + "\n" + m.renderStatus(m.width)
 	return padBlock(view, m.width, m.height)
@@ -118,11 +120,12 @@ func (m *Model) renderStatus(width int) string {
 	if m.status != "" {
 		line = help + " | " + m.status
 	}
+	line = " " + truncate(line, max(0, width-1))
 	style := statusStyle
 	if m.mode == modeEditNote {
 		style = editStatus
 	}
-	return style.Width(width).Render(truncate(line, width))
+	return style.Width(width).Render(line)
 }
 
 func (m *Model) statusHelp() string {
