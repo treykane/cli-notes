@@ -126,6 +126,10 @@ func (m *Model) selectWorkspaceEntry() (tea.Model, tea.Cmd) {
 	m.currentFile = ""
 	m.secondaryFile = ""
 	m.currentNoteContent = ""
+	cfg, cfgErr := config.Load()
+	if cfgErr == nil {
+		m.sortMode = loadWorkspaceSortMode(cfg, m.notesDir)
+	}
 	m.items = buildTree(m.notesDir, m.expanded, m.sortMode, nil)
 	m.cursor = 0
 	m.treeOffset = 0
@@ -136,6 +140,7 @@ func (m *Model) selectWorkspaceEntry() (tea.Model, tea.Cmd) {
 	m.pinnedPaths = state.PinnedPaths
 	m.recentFiles = state.RecentFiles
 	m.notePositions = state.Positions
+	m.noteOpenCounts = state.OpenCounts
 	m.rebuildTreeKeep(m.notesDir)
 	m.rebuildRecentEntries()
 	m.refreshGitStatus()
@@ -330,7 +335,11 @@ func (m *Model) setFocusedFile(path string) tea.Cmd {
 	if !m.splitMode || !m.splitFocusSecondary {
 		return m.setCurrentFile(path)
 	}
+	if m.secondaryFile != "" && m.secondaryFile != path {
+		m.rememberPanePosition(m.secondaryFile, true)
+	}
 	m.secondaryFile = path
+	m.trackFileOpen(path)
 	m.trackRecentFile(path)
 	m.status = "Opened in secondary pane: " + m.displayRelative(path)
 	return nil

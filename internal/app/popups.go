@@ -190,7 +190,17 @@ func (m *Model) handleOutlinePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // to the raw source line number if no rendered match is found. The viewport
 // offset is saved to per-note position memory so the scroll position persists.
 func (m *Model) jumpToOutlineHeading(heading noteHeading) {
-	lines := strings.Split(m.viewport.View(), "\n")
+	path := m.currentFile
+	secondary := false
+	rendered := m.viewport.View()
+	if m.splitMode && m.splitFocusSecondary && m.secondaryFile != "" {
+		path = m.secondaryFile
+		secondary = true
+		if renderedSecondary, ok := m.renderedForPath(path, m.viewport.Width); ok {
+			rendered = renderedSecondary
+		}
+	}
+	lines := strings.Split(rendered, "\n")
 	target := heading.Title
 	index := -1
 	for i, line := range lines {
@@ -202,8 +212,10 @@ func (m *Model) jumpToOutlineHeading(heading noteHeading) {
 	if index < 0 {
 		index = max(0, heading.Line-1)
 	}
-	m.viewport.YOffset = max(0, index)
-	m.rememberCurrentNotePosition()
+	m.setPaneOffset(path, secondary, max(0, index))
+	if !secondary {
+		m.viewport.YOffset = max(0, index)
+	}
 	m.saveAppState()
 	m.status = fmt.Sprintf("Jumped to heading: %s", heading.Title)
 }

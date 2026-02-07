@@ -32,8 +32,10 @@ import (
 // for a single note so the app can restore the user's reading/editing position
 // when they return to a previously viewed file.
 type notePosition struct {
-	PreviewOffset int `json:"preview_offset,omitempty"`
-	EditorCursor  int `json:"editor_cursor,omitempty"`
+	PreviewOffset          int `json:"preview_offset,omitempty"` // legacy fallback
+	PrimaryPreviewOffset   int `json:"primary_preview_offset,omitempty"`
+	SecondaryPreviewOffset int `json:"secondary_preview_offset,omitempty"`
+	EditorCursor           int `json:"editor_cursor,omitempty"`
 }
 
 // persistedState is the on-disk JSON representation of per-workspace app state.
@@ -46,6 +48,7 @@ type persistedState struct {
 	RecentFiles []string                `json:"recent_files,omitempty"`
 	PinnedPaths []string                `json:"pinned_paths,omitempty"`
 	Positions   map[string]notePosition `json:"positions,omitempty"`
+	OpenCounts  map[string]int          `json:"open_counts,omitempty"`
 }
 
 // appPersistentState is the in-memory representation of workspace state.
@@ -56,6 +59,7 @@ type appPersistentState struct {
 	RecentFiles []string
 	PinnedPaths map[string]bool
 	Positions   map[string]notePosition
+	OpenCounts  map[string]int
 }
 
 // appStatePath returns the filesystem path to the per-workspace state file.
@@ -75,6 +79,7 @@ func loadAppState(notesDir string) (appPersistentState, error) {
 	state := appPersistentState{
 		PinnedPaths: map[string]bool{},
 		Positions:   map[string]notePosition{},
+		OpenCounts:  map[string]int{},
 	}
 
 	path := appStatePath(notesDir)
@@ -116,10 +121,26 @@ func loadAppState(notesDir string) (appPersistentState, error) {
 		if pos.PreviewOffset < 0 {
 			pos.PreviewOffset = 0
 		}
+		if pos.PrimaryPreviewOffset < 0 {
+			pos.PrimaryPreviewOffset = 0
+		}
+		if pos.SecondaryPreviewOffset < 0 {
+			pos.SecondaryPreviewOffset = 0
+		}
 		if pos.EditorCursor < 0 {
 			pos.EditorCursor = 0
 		}
+		if pos.PrimaryPreviewOffset <= 0 && pos.PreviewOffset > 0 {
+			pos.PrimaryPreviewOffset = pos.PreviewOffset
+		}
 		state.Positions[abs] = pos
+	}
+	for rel, count := range persisted.OpenCounts {
+		abs, ok := statePathToAbs(notesDir, rel)
+		if !ok || count <= 0 {
+			continue
+		}
+		state.OpenCounts[abs] = count
 	}
 
 	state.RecentFiles = dedupePaths(state.RecentFiles)
@@ -143,6 +164,7 @@ func (m *Model) saveAppState() {
 		RecentFiles: make([]string, 0, len(m.recentFiles)),
 		PinnedPaths: make([]string, 0, len(m.pinnedPaths)),
 		Positions:   make(map[string]notePosition, len(m.notePositions)),
+		OpenCounts:  make(map[string]int, len(m.noteOpenCounts)),
 	}
 
 	for _, path := range m.recentFiles {
@@ -162,7 +184,7 @@ func (m *Model) saveAppState() {
 	sort.Strings(state.PinnedPaths)
 
 	for path, pos := range m.notePositions {
-		if pos.PreviewOffset <= 0 && pos.EditorCursor <= 0 {
+		if pos.PrimaryPreviewOffset <= 0 && pos.SecondaryPreviewOffset <= 0 && pos.EditorCursor <= 0 {
 			continue
 		}
 		rel, ok := absToStatePath(m.notesDir, path)
@@ -170,9 +192,21 @@ func (m *Model) saveAppState() {
 			continue
 		}
 		state.Positions[rel] = notePosition{
-			PreviewOffset: max(0, pos.PreviewOffset),
-			EditorCursor:  max(0, pos.EditorCursor),
+			PreviewOffset:          max(0, pos.PrimaryPreviewOffset),
+			PrimaryPreviewOffset:   max(0, pos.PrimaryPreviewOffset),
+			SecondaryPreviewOffset: max(0, pos.SecondaryPreviewOffset),
+			EditorCursor:           max(0, pos.EditorCursor),
 		}
+	}
+	for path, count := range m.noteOpenCounts {
+		if count <= 0 {
+			continue
+		}
+		rel, ok := absToStatePath(m.notesDir, path)
+		if !ok {
+			continue
+		}
+		state.OpenCounts[rel] = count
 	}
 
 	data, err := json.MarshalIndent(state, "", "  ")
@@ -230,16 +264,46 @@ func statePathToAbs(root, rel string) (string, bool) {
 // cursor for the active note so the position can be restored later. This is
 // called before switching files, saving state, or exiting edit mode.
 func (m *Model) rememberCurrentNotePosition() {
-	if m.currentFile == "" {
-		return
+	if m.splitMode && m.secondaryFile != "" {
+		m.rememberPanePosition(m.secondaryFile, true)
 	}
-	m.rememberNotePosition(m.currentFile)
+	if m.currentFile != "" {
+		m.rememberPanePosition(m.currentFile, false)
+	}
 }
 
 // rememberNotePosition saves the viewport offset and (if in edit mode) editor
 // cursor position for the given note path. The position is stored in the
 // notePositions map and persisted to disk on the next saveAppState call.
 func (m *Model) rememberNotePosition(path string) {
+	m.rememberPanePosition(path, false)
+}
+
+func (m *Model) rememberPanePosition(path string, secondary bool) {
+	if path == "" {
+		return
+	}
+	if m.notePositions == nil {
+		m.notePositions = map[string]notePosition{}
+	}
+	offset := m.restorePaneOffset(path, secondary)
+	if !secondary {
+		offset = max(0, m.viewport.YOffset)
+	}
+	pos := m.notePositions[path]
+	if secondary {
+		pos.SecondaryPreviewOffset = offset
+	} else {
+		pos.PrimaryPreviewOffset = offset
+		pos.PreviewOffset = offset
+	}
+	if m.mode == modeEditNote && path == m.currentFile {
+		pos.EditorCursor = max(0, m.currentEditorCursorOffset())
+	}
+	m.notePositions[path] = pos
+}
+
+func (m *Model) setPaneOffset(path string, secondary bool, offset int) {
 	if path == "" {
 		return
 	}
@@ -247,9 +311,11 @@ func (m *Model) rememberNotePosition(path string) {
 		m.notePositions = map[string]notePosition{}
 	}
 	pos := m.notePositions[path]
-	pos.PreviewOffset = max(0, m.viewport.YOffset)
-	if m.mode == modeEditNote && path == m.currentFile {
-		pos.EditorCursor = max(0, m.currentEditorCursorOffset())
+	if secondary {
+		pos.SecondaryPreviewOffset = max(0, offset)
+	} else {
+		pos.PrimaryPreviewOffset = max(0, offset)
+		pos.PreviewOffset = max(0, offset)
 	}
 	m.notePositions[path] = pos
 }
@@ -261,12 +327,24 @@ func (m *Model) restorePreviewOffset(path string) {
 	if path == "" {
 		return
 	}
+	m.viewport.YOffset = m.restorePaneOffset(path, false)
+}
+
+func (m *Model) restorePaneOffset(path string, secondary bool) int {
+	if path == "" {
+		return 0
+	}
 	pos, ok := m.notePositions[path]
 	if !ok {
-		m.viewport.YOffset = 0
-		return
+		return 0
 	}
-	m.viewport.YOffset = max(0, pos.PreviewOffset)
+	if secondary {
+		return max(0, pos.SecondaryPreviewOffset)
+	}
+	if pos.PrimaryPreviewOffset > 0 {
+		return max(0, pos.PrimaryPreviewOffset)
+	}
+	return max(0, pos.PreviewOffset)
 }
 
 // restoreEditorCursor restores the editor cursor to the previously saved
@@ -297,6 +375,16 @@ func (m *Model) trackRecentFile(path string) {
 	trimRecentFiles(&m.recentFiles)
 	m.rebuildRecentEntries()
 	m.saveAppState()
+}
+
+func (m *Model) trackFileOpen(path string) {
+	if path == "" || !hasSuffixCaseInsensitive(path, ".md") {
+		return
+	}
+	if m.noteOpenCounts == nil {
+		m.noteOpenCounts = map[string]int{}
+	}
+	m.noteOpenCounts[path]++
 }
 
 // rebuildRecentEntries filters the recent files list to only include paths
@@ -347,6 +435,7 @@ func (m *Model) clearStateForPath(path string) {
 	}
 	delete(m.pinnedPaths, path)
 	delete(m.notePositions, path)
+	delete(m.noteOpenCounts, path)
 	m.recentFiles = removePathFromList(m.recentFiles, path)
 	prefix := path + string(os.PathSeparator)
 	for p := range m.pinnedPaths {
@@ -357,6 +446,11 @@ func (m *Model) clearStateForPath(path string) {
 	for p := range m.notePositions {
 		if p == path || hasPathPrefix(p, prefix) {
 			delete(m.notePositions, p)
+		}
+	}
+	for p := range m.noteOpenCounts {
+		if p == path || hasPathPrefix(p, prefix) {
+			delete(m.noteOpenCounts, p)
 		}
 	}
 	m.recentFiles = removePathsWithPrefix(m.recentFiles, prefix)
@@ -374,6 +468,7 @@ func (m *Model) remapStatePaths(oldPath, newPath string) {
 	}
 	m.remapPinnedPaths(oldPath, newPath)
 	m.remapPositionPaths(oldPath, newPath)
+	m.remapOpenCountPaths(oldPath, newPath)
 	m.remapRecentPaths(oldPath, newPath)
 	m.rebuildRecentEntries()
 	m.saveAppState()
@@ -418,6 +513,17 @@ func (m *Model) remapRecentPaths(oldPath, newPath string) {
 	}
 	m.recentFiles = dedupePaths(updated)
 	trimRecentFiles(&m.recentFiles)
+}
+
+func (m *Model) remapOpenCountPaths(oldPath, newPath string) {
+	if len(m.noteOpenCounts) == 0 {
+		return
+	}
+	remapped := make(map[string]int, len(m.noteOpenCounts))
+	for path, count := range m.noteOpenCounts {
+		remapped[replacePathPrefix(path, oldPath, newPath)] += count
+	}
+	m.noteOpenCounts = remapped
 }
 
 // removePathFromList returns a new slice with all occurrences of target removed.

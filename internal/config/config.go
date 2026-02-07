@@ -67,6 +67,8 @@ type Config struct {
 
 	// TreeSort is the persisted tree sort mode (name, modified, size, created).
 	TreeSort string `json:"tree_sort,omitempty"`
+	// TreeSortByWorkspace stores per-workspace sort mode keyed by workspace notes_dir.
+	TreeSortByWorkspace map[string]string `json:"tree_sort_by_workspace,omitempty"`
 
 	// TemplatesDir is the directory scanned for note templates when creating
 	// new notes. Defaults to ~/.cli-notes/templates if unset.
@@ -196,6 +198,7 @@ func Load() (Config, error) {
 	if cfg.TreeSort == "" {
 		cfg.TreeSort = "name"
 	}
+	cfg.TreeSortByWorkspace = normalizeTreeSortByWorkspace(cfg.TreeSortByWorkspace)
 
 	templatesDir := strings.TrimSpace(cfg.TemplatesDir)
 	if templatesDir == "" {
@@ -265,6 +268,7 @@ func Save(cfg Config) error {
 	if cfg.TreeSort == "" {
 		cfg.TreeSort = "name"
 	}
+	cfg.TreeSortByWorkspace = normalizeTreeSortByWorkspace(cfg.TreeSortByWorkspace)
 
 	templatesDir := strings.TrimSpace(cfg.TemplatesDir)
 	if templatesDir == "" {
@@ -450,4 +454,22 @@ func normalizeWorkspaces(workspaces []WorkspaceConfig, activeWorkspace string, f
 		active = normalized[0].Name
 	}
 	return normalized, active, nil
+}
+
+func normalizeTreeSortByWorkspace(raw map[string]string) map[string]string {
+	if len(raw) == 0 {
+		return map[string]string{}
+	}
+	normalized := make(map[string]string, len(raw))
+	for notesDir, mode := range raw {
+		dir, err := NormalizeNotesDir(notesDir)
+		if err != nil {
+			continue
+		}
+		switch value := strings.TrimSpace(strings.ToLower(mode)); value {
+		case "name", "modified", "size", "created":
+			normalized[dir] = value
+		}
+	}
+	return normalized
 }

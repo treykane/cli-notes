@@ -107,7 +107,7 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | r | Rename selected item |
 | m | Move selected item |
 | d | Delete selected item (with confirmation) |
-| s | Cycle tree sort mode |
+| s | Cycle tree sort mode (per workspace) |
 | t | Pin/unpin selected item |
 | y / Y | Copy note content / path to clipboard |
 | Shift+R or Ctrl+R | Refresh |
@@ -169,11 +169,12 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 - Configure multiple named workspaces in config (`workspaces` + `active_workspace`)
 - Press `Ctrl+W` to open workspace picker and switch roots quickly
 - Workspace switching rebinds tree/search/render/app state to the selected workspace
+- Tree sort mode is restored per workspace when switching
 
 ### 18. Wiki Links + Autocomplete
 - Add `[[Note Name]]` links inside notes
 - Press `Shift+L` in browse mode to open a wiki-links popup for the current note
-- In edit mode, typing `[[` opens autocomplete sourced from workspace note names/titles
+- In edit mode, typing `[[` opens autocomplete sourced from workspace notes and ranked by exact prefix + open frequency
 
 ### 19. Export
 - Press `x` to export current note
@@ -183,6 +184,7 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 ### 20. Split Mode
 - Press `z` to toggle side-by-side split mode for two notes
 - Press `Tab` to switch which pane receives open/jump actions
+- Primary and secondary panes persist independent preview offsets
 
 ## File Storage
 

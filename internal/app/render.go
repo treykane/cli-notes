@@ -119,6 +119,7 @@ func (m *Model) setCurrentFile(path string) tea.Cmd {
 		m.saveAppState()
 	}
 	m.currentFile = path
+	m.trackFileOpen(path)
 	m.trackRecentFile(path)
 	if content, err := os.ReadFile(path); err == nil {
 		m.currentNoteContent = string(content)

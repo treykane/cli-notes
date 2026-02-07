@@ -17,16 +17,16 @@ This application is a work in progress, it currently works, but I'm working on f
 - Recent-files popup (`Ctrl+O`) for quick jumps to previously viewed notes
 - Heading outline popup (`o`) for jump-to-section in long notes
 - Wiki links popup (`Shift+L`) for navigating `[[Note Name]]` references
-- Edit-mode wiki autocomplete when typing `[[`
+- Edit-mode wiki autocomplete when typing `[[` (prefix + usage-ranked)
 - Export popup (`x`) for HTML and PDF (Pandoc-backed) export
-- Split mode (`z`) for side-by-side two-note viewing with focus toggle (`Tab`)
+- Split mode (`z`) for side-by-side two-note viewing with focus toggle (`Tab`) and per-pane scroll memory
 - Pinning (`t`) keeps favorite notes/folders sorted to the top of their folder
 - Poll-based file watcher auto-refreshes tree/search/render state on external edits
 - Persistent per-note positions restore preview and edit locations when revisiting files
 - Cached search index keeps `Ctrl+P` responsive on larger note collections
 - Edit-mode markdown helpers: bold/italic/underline/strikethrough, links, and heading toggles
 - Status-bar note metrics (words/chars/lines) in preview and edit modes
-- Tree sorting modes (name/modified/size/created) with persisted preference
+- Tree sorting modes (name/modified/size/created) with per-workspace persistence
 - Auto-saved edit drafts with startup recovery prompts
 - Clipboard integration for copy/paste workflows
 - Optional note templates from `~/.cli-notes/templates`
@@ -179,7 +179,7 @@ Search also supports `tag:<name>` tokens (for example `tag:go`) to filter by fro
 
 ### Persistent UI State
 
-- Recent files, pinned paths, and note positions are stored in `<notes_dir>/.cli-notes/state.json`.
+- Recent files, pinned paths, note positions, and note open-frequency counts are stored in `<notes_dir>/.cli-notes/state.json`.
 - Returning to a note restores its preview scroll offset and last edit cursor location.
 
 ## How It Works
@@ -205,6 +205,7 @@ All notes are stored as plain Markdown files in your configured `notes_dir` (set
 `~/.cli-notes/config.json` now supports:
 - `workspaces`: named list of notes roots (`name` + `notes_dir`)
 - `active_workspace`: active workspace name
+- `tree_sort_by_workspace`: sort mode per workspace (`notes_dir` -> `name|modified|size|created`)
 - `keybindings`: inline action-to-key overrides
 - `keymap_file`: optional external keymap JSON path (default `~/.cli-notes/keymap.json`)
 

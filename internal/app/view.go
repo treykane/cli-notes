@@ -228,7 +228,7 @@ func (m *Model) renderSingleRightPane(width, height int, path string, secondary 
 			m.editor.SetHeight(contentHeight)
 			content = m.editorViewWithSelectionHighlight(m.editor.View())
 		} else if rendered, ok := m.renderedForPath(path, innerWidth); ok {
-			content = rendered
+			content = m.renderPreviewWithOffset(path, rendered, secondary)
 		}
 	}
 
@@ -264,6 +264,19 @@ func (m *Model) renderedForPath(path string, width int) (string, bool) {
 		raw:     string(content),
 	}
 	return rendered, true
+}
+
+func (m *Model) renderPreviewWithOffset(path, rendered string, secondary bool) string {
+	offset := m.restorePaneOffset(path, secondary)
+	if offset <= 0 {
+		return rendered
+	}
+	lines := strings.Split(rendered, "\n")
+	if len(lines) == 0 {
+		return rendered
+	}
+	offset = clamp(offset, 0, len(lines)-1)
+	return strings.Join(lines[offset:], "\n")
 }
 
 // editorViewWithSelectionHighlight post-processes the editor's rendered view

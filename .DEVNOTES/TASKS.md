@@ -50,9 +50,9 @@
 
 ## Follow-up Improvements
 
-- [ ] **Workspace-aware sort persistence**: Persist tree sort mode per workspace instead of globally so switching workspaces restores each workspace’s previous sort preference.
-- [ ] **Secondary-pane independent scroll memory**: In split mode, persist and restore independent viewport offsets for primary and secondary panes so the second note keeps context while navigating.
-- [ ] **Advanced wiki autocomplete ranking**: Rank suggestions by recent-file frequency and exact-prefix score to improve insertion speed in large note collections.
+- [x] **Workspace-aware sort persistence**: Persist tree sort mode per workspace instead of globally so switching workspaces restores each workspace’s previous sort preference.
+- [x] **Secondary-pane independent scroll memory**: In split mode, persist and restore independent viewport offsets for primary and secondary panes so the second note keeps context while navigating.
+- [x] **Advanced wiki autocomplete ranking**: Rank suggestions by recent-file frequency and exact-prefix score to improve insertion speed in large note collections.
 
 ## Testing & Quality
 

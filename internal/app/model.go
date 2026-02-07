@@ -112,6 +112,8 @@ type Model struct {
 	recentFiles []string
 	// Remembered per-note preview/editor positions.
 	notePositions map[string]notePosition
+	// Per-note open frequency used by autocomplete ranking.
+	noteOpenCounts map[string]int
 
 	// Tree Navigation
 	// Index of the currently selected item in items slice
@@ -258,7 +260,7 @@ func New() (*Model, error) {
 		return nil, err
 	}
 	notesDir := cfg.NotesDir
-	sortMode := parseSortMode(cfg.TreeSort)
+	sortMode := loadWorkspaceSortMode(cfg, notesDir)
 	if err := ensureNotesDir(notesDir); err != nil {
 		return nil, err
 	}
@@ -298,6 +300,7 @@ func New() (*Model, error) {
 		pinnedPaths:           state.PinnedPaths,
 		recentFiles:           state.RecentFiles,
 		notePositions:         state.Positions,
+		noteOpenCounts:        state.OpenCounts,
 		searchIndex:           newSearchIndex(notesDir),
 		viewport:              vp,
 		input:                 input,

@@ -17,6 +17,7 @@ package app
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -273,15 +274,7 @@ func (m *Model) maybeTriggerWikiAutocomplete() {
 		return
 	}
 	targets := m.searchIndex.noteTargets()
-	filtered := make([]noteTarget, 0, len(targets))
-	prefixLower := strings.ToLower(strings.TrimSpace(prefix))
-	for _, target := range targets {
-		title := strings.ToLower(strings.TrimSpace(target.Title))
-		name := strings.ToLower(strings.TrimSpace(target.Name))
-		if prefixLower == "" || strings.HasPrefix(title, prefixLower) || strings.HasPrefix(name, prefixLower) {
-			filtered = append(filtered, target)
-		}
-	}
+	filtered := rankWikiTargets(targets, prefix, m.noteOpenCounts)
 	if len(filtered) == 0 {
 		m.showWikiAutocomplete = false
 		m.wikiAutocomplete = nil
@@ -291,6 +284,72 @@ func (m *Model) maybeTriggerWikiAutocomplete() {
 	m.showWikiAutocomplete = true
 	m.wikiAutocomplete = filtered
 	m.wikiAutocompleteCursor = clamp(m.wikiAutocompleteCursor, 0, len(filtered)-1)
+}
+
+func rankWikiTargets(targets []noteTarget, prefix string, openCounts map[string]int) []noteTarget {
+	prefixLower := strings.ToLower(strings.TrimSpace(prefix))
+	type candidate struct {
+		target noteTarget
+		score  int
+		opens  int
+		title  string
+		name   string
+	}
+	candidates := make([]candidate, 0, len(targets))
+	for _, target := range targets {
+		title := strings.ToLower(strings.TrimSpace(target.Title))
+		name := strings.ToLower(strings.TrimSpace(target.Name))
+		score := 0
+		if prefixLower != "" {
+			if strings.HasPrefix(title, prefixLower) {
+				score += 300
+			}
+			if strings.HasPrefix(name, prefixLower) {
+				score += 220
+			}
+			if strings.Contains(title, prefixLower) {
+				score += 120
+			}
+			if strings.Contains(name, prefixLower) {
+				score += 80
+			}
+			if score == 0 {
+				continue
+			}
+		}
+		opens := 0
+		if openCounts != nil {
+			opens = max(0, openCounts[target.Path])
+		}
+		score += min(100, opens)
+		candidates = append(candidates, candidate{
+			target: target,
+			score:  score,
+			opens:  opens,
+			title:  title,
+			name:   name,
+		})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].score != candidates[j].score {
+			return candidates[i].score > candidates[j].score
+		}
+		if candidates[i].opens != candidates[j].opens {
+			return candidates[i].opens > candidates[j].opens
+		}
+		if candidates[i].title != candidates[j].title {
+			return candidates[i].title < candidates[j].title
+		}
+		if candidates[i].name != candidates[j].name {
+			return candidates[i].name < candidates[j].name
+		}
+		return strings.ToLower(candidates[i].target.Path) < strings.ToLower(candidates[j].target.Path)
+	})
+	out := make([]noteTarget, 0, len(candidates))
+	for _, c := range candidates {
+		out = append(out, c.target)
+	}
+	return out
 }
 
 // currentWikiPrefix scans backward from the cursor position in the editor

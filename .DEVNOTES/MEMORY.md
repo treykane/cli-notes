@@ -10,6 +10,9 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-08: Added workspace-scoped tree sort persistence via config `tree_sort_by_workspace` (`notes_dir` key -> sort mode), with legacy `tree_sort` retained as fallback/default.
+- 2026-02-08: Extended per-workspace state to persist pane-specific preview offsets (`primary_preview_offset` + `secondary_preview_offset`) while keeping legacy `preview_offset` migration compatibility.
+- 2026-02-08: Upgraded edit-mode wiki autocomplete ordering to rank by exact-prefix match strength plus persisted per-note open-frequency counts in workspace state.
 - 2026-02-08: Completed comprehensive inline documentation pass across all source files. Added godoc-style package comments, function/type/field comments, algorithm rationale, and edge-case notes. Fixed `gofmt` formatting across 14 files that had drifted. Documented the three platform-specific `file_time_*.go` files (darwin/unix/other) and added a file-level doc comment to `state.go`. All changes are documentation-only; no functional code was modified. Build, vet, and all tests pass cleanly.
 - 2026-02-07: Added YAML frontmatter parsing for `title`/`date`/`category`/`tags`; tags now render in tree rows and `Ctrl+P` search supports `tag:<name>` filtering plus metadata-aware matches.
 - 2026-02-07: Added named multi-workspace config (`workspaces` + `active_workspace`) with migration from legacy `notes_dir`; browse-mode workspace popup (`Ctrl+W`) switches roots and rebinds state/search/render caches.
