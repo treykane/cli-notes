@@ -154,6 +154,8 @@ type Model struct {
 	search textinput.Model
 	// Textarea for editing note content
 	editor textarea.Model
+	// Scrollable viewport for help content.
+	helpViewport viewport.Model
 	// Loading spinner for async operations
 	spinner spinner.Model
 
@@ -168,6 +170,8 @@ type Model struct {
 	debugInput bool
 	// Last loaded raw note content for counts and clipboard copy
 	currentNoteContent string
+	// Poll interval for external filesystem watcher ticks.
+	fileWatchInterval time.Duration
 
 	// Layout Dimensions
 	// Terminal width and height
@@ -324,6 +328,7 @@ func New() (*Model, error) {
 		input:                      input,
 		search:                     search,
 		editor:                     editor,
+		helpViewport:               viewport.New(0, 0),
 		mode:                       modeBrowse,
 		status:                     "Ready",
 		spinner:                    spin,
@@ -337,6 +342,7 @@ func New() (*Model, error) {
 		templatesDir:               cfg.TemplatesDir,
 		workspaces:                 cfg.Workspaces,
 		activeWorkspace:            cfg.ActiveWorkspace,
+		fileWatchInterval:          time.Duration(cfg.FileWatchIntervalSeconds) * time.Second,
 	}
 	m.loadKeybindings(cfg)
 	m.items = buildTreeWithMetadataCache(m.notesDir, m.expanded, m.sortMode, m.pinnedPaths, m.cachedTagsForPath)

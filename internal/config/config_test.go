@@ -268,3 +268,53 @@ func TestLoadFallsBackToDefaultThemePresetOnInvalidValue(t *testing.T) {
 		t.Fatalf("expected fallback theme %q, got %q", ThemePresetOceanCitrus, cfg.ThemePreset)
 	}
 }
+
+func TestFileWatchIntervalDefaultsWhenUnset(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := Save(Config{NotesDir: "~/notes"}); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.FileWatchIntervalSeconds != DefaultFileWatchIntervalSeconds {
+		t.Fatalf("expected default file watch interval %d, got %d", DefaultFileWatchIntervalSeconds, cfg.FileWatchIntervalSeconds)
+	}
+}
+
+func TestFileWatchIntervalClampsToBounds(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := Save(Config{
+		NotesDir:                 "~/notes",
+		FileWatchIntervalSeconds: 500,
+	}); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.FileWatchIntervalSeconds != MaxFileWatchIntervalSeconds {
+		t.Fatalf("expected clamped max interval %d, got %d", MaxFileWatchIntervalSeconds, cfg.FileWatchIntervalSeconds)
+	}
+
+	if err := Save(Config{
+		NotesDir:                 "~/notes",
+		FileWatchIntervalSeconds: -5,
+	}); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.FileWatchIntervalSeconds != DefaultFileWatchIntervalSeconds {
+		t.Fatalf("expected default interval %d for invalid value, got %d", DefaultFileWatchIntervalSeconds, cfg.FileWatchIntervalSeconds)
+	}
+}

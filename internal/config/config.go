@@ -14,6 +14,7 @@
 //   - keybindings:       Inline action→key overrides (merged with keymap_file).
 //   - keymap_file:       Path to an external keymap JSON file (default: ~/.cli-notes/keymap.json).
 //   - theme_preset:      UI color preset (ocean_citrus, sunset, neon_slate).
+//   - file_watch_interval_seconds: Poll interval for external filesystem refreshes.
 //
 // # Workspace Migration
 //
@@ -53,6 +54,13 @@ const (
 	ThemePresetSunset = "sunset"
 	// ThemePresetNeonSlate is the cool cyan/lime UI palette.
 	ThemePresetNeonSlate = "neon_slate"
+
+	// DefaultFileWatchIntervalSeconds is the default filesystem watcher poll interval.
+	DefaultFileWatchIntervalSeconds = 2
+	// MinFileWatchIntervalSeconds is the lower bound for filesystem watcher poll interval.
+	MinFileWatchIntervalSeconds = 1
+	// MaxFileWatchIntervalSeconds is the upper bound for filesystem watcher poll interval.
+	MaxFileWatchIntervalSeconds = 300
 )
 
 // ErrNotConfigured is returned by Load when no config file exists, signaling
@@ -101,6 +109,10 @@ type Config struct {
 	// ThemePreset selects the app UI color palette. Supported values:
 	// ocean_citrus, sunset, neon_slate.
 	ThemePreset string `json:"theme_preset,omitempty"`
+
+	// FileWatchIntervalSeconds controls how often the app polls for external
+	// filesystem changes. Value is clamped to [1,300] and defaults to 2.
+	FileWatchIntervalSeconds int `json:"file_watch_interval_seconds,omitempty"`
 }
 
 // WorkspaceConfig pairs a human-readable workspace name with the absolute path
@@ -238,6 +250,7 @@ func Load() (Config, error) {
 	}
 	cfg.KeymapFile = keymapPath
 	cfg.ThemePreset = NormalizeThemePreset(cfg.ThemePreset)
+	cfg.FileWatchIntervalSeconds = normalizeFileWatchIntervalSeconds(cfg.FileWatchIntervalSeconds)
 	if cfg.Keybindings == nil {
 		cfg.Keybindings = map[string]string{}
 	}
@@ -309,6 +322,7 @@ func Save(cfg Config) error {
 	}
 	cfg.KeymapFile = keymapPath
 	cfg.ThemePreset = NormalizeThemePreset(cfg.ThemePreset)
+	cfg.FileWatchIntervalSeconds = normalizeFileWatchIntervalSeconds(cfg.FileWatchIntervalSeconds)
 	if len(cfg.Workspaces) == 0 && strings.TrimSpace(cfg.NotesDir) == "" {
 		return fmt.Errorf("invalid notes_dir: %w", errors.New("path is required"))
 	}
@@ -504,4 +518,17 @@ func NormalizeThemePreset(raw string) string {
 	default:
 		return ThemePresetOceanCitrus
 	}
+}
+
+func normalizeFileWatchIntervalSeconds(value int) int {
+	if value <= 0 {
+		return DefaultFileWatchIntervalSeconds
+	}
+	if value < MinFileWatchIntervalSeconds {
+		return MinFileWatchIntervalSeconds
+	}
+	if value > MaxFileWatchIntervalSeconds {
+		return MaxFileWatchIntervalSeconds
+	}
+	return value
 }

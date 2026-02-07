@@ -82,6 +82,7 @@ const (
 
 // Watcher constants
 const (
-	// FileWatchInterval is the poll interval for external filesystem changes.
-	FileWatchInterval = 2 * time.Second
+	// DefaultFileWatchInterval is the poll interval used when no valid config
+	// override is available.
+	DefaultFileWatchInterval = 2 * time.Second
 )

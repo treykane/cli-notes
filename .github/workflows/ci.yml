@@ -30,3 +30,6 @@ jobs:
 
       - name: Run tests
         run: go test ./...
+
+      - name: Build with ldflags
+        run: go build -ldflags "-X main.buildVersion=${{ github.ref_name }} -X main.buildCommit=${{ github.sha }}" -o notes ./cmd/notes

@@ -275,3 +275,34 @@ func TestHandleSearchKeyCtrlBindingsMatchArrowBehavior(t *testing.T) {
 		t.Fatalf("expected ctrl+n to move cursor down to 1, got %d", got)
 	}
 }
+
+func TestHelpPanelScrollKeysDoNotMoveTreeCursor(t *testing.T) {
+	m := &Model{
+		showHelp: true,
+		cursor:   4,
+		items: []treeItem{
+			{name: "a"},
+			{name: "b"},
+			{name: "c"},
+			{name: "d"},
+			{name: "e"},
+		},
+		helpViewport: viewport.New(40, 3),
+	}
+	m.helpViewport.SetContent(strings.Join([]string{
+		"line1", "line2", "line3", "line4", "line5", "line6",
+	}, "\n"))
+
+	_, _ = m.handleBrowseKey("j")
+	if got := m.helpViewport.YOffset; got != 1 {
+		t.Fatalf("expected help viewport scroll offset 1, got %d", got)
+	}
+	if got := m.cursor; got != 4 {
+		t.Fatalf("expected tree cursor unchanged while help is open, got %d", got)
+	}
+
+	_, _ = m.handleBrowseKey("?")
+	if m.showHelp {
+		t.Fatal("expected help to close with '?'")
+	}
+}

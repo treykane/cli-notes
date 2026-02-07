@@ -13,6 +13,7 @@ Build and run:
 ```bash
 go build -o notes ./cmd/notes
 ./notes
+./notes --version
 ```
 
 Run without building a binary:
@@ -26,7 +27,7 @@ Optional logging:
 
 Notes storage:
 - On first run (or with `--configure`), a configurator prompts for the notes directory and saves it in `~/.cli-notes/config.json` as `notes_dir`.
-- Config also stores `tree_sort` (name/modified/size/created), `templates_dir`, named `workspaces`, `active_workspace`, keybinding overrides (`keybindings`/`keymap_file`), and UI `theme_preset`.
+- Config also stores `tree_sort` (name/modified/size/created), `templates_dir`, named `workspaces`, `active_workspace`, keybinding overrides (`keybindings`/`keymap_file`), UI `theme_preset`, and `file_watch_interval_seconds` (default `2`, clamped to `1..300`).
 - Notes are stored as Markdown files in the configured `notes_dir`.
 - The configured directory is created on startup and seeded with `Welcome.md` if empty.
 - Internal app state (draft autosave files) lives under `<notes_dir>/.cli-notes/` and is excluded from tree/search views.
@@ -49,11 +50,11 @@ Notes storage:
 1. `main()` ensures config exists (runs configurator when needed), then starts the app.
 2. `New()` loads config and ensures the configured notes directory exists.
 3. `Update()` handles key input, window resize, and render results.
-4. Browse-mode key input is routed through action dispatch (`actionForKey`) so all browse actions (including movement/jumps/expand/collapse/search hint) are keybinding-configurable.
+4. Browse-mode key input is routed through action dispatch (`actionForKey`) so all browse actions (including movement/jumps/expand-collapse/search hint) are keybinding-configurable; browse legends in footer/help render from active action mappings.
 5. Opening `Ctrl+P` search uses a cached content index; normal create/edit/delete operations update that index incrementally.
 6. Search index path removals use a sorted path index + binary prefix range removal for descendant deletes.
 7. Selecting a Markdown file triggers a debounced render pipeline.
-8. The right pane shows either rendered Markdown, edit mode, or help text.
+8. The right pane shows either rendered Markdown, edit mode, or a scrollable help viewport.
 9. Edit mode auto-saves drafts every few seconds; startup checks unresolved drafts and prompts for recovery.
 
 ## Rendering Pipeline

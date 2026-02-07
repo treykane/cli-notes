@@ -4,7 +4,7 @@
 // all platforms (and because the notes directory may live on a network mount),
 // we use a simple polling strategy:
 //
-//  1. Every FileWatchInterval (2 s), walk the notes directory and capture a
+//  1. Every configured poll interval (default: 2 s), walk the notes directory and capture a
 //     snapshot of every file/directory: path, modification time (nanoseconds),
 //     size, and whether it is a directory.
 //  2. Compare the new snapshot to the previous one. If anything differs
@@ -47,12 +47,19 @@ type fileWatchEntry struct {
 // Two snapshots are compared entry-by-entry to detect external changes.
 type fileWatchSnapshot map[string]fileWatchEntry
 
-// scheduleFileWatchTick queues the next poll after FileWatchInterval elapses.
+// scheduleFileWatchTick queues the next poll after the configured interval.
 // The returned Cmd emits a fileWatchTickMsg when the timer fires.
 func (m *Model) scheduleFileWatchTick() tea.Cmd {
-	return tea.Tick(FileWatchInterval, func(time.Time) tea.Msg {
+	return tea.Tick(m.effectiveFileWatchInterval(), func(time.Time) tea.Msg {
 		return fileWatchTickMsg{}
 	})
+}
+
+func (m *Model) effectiveFileWatchInterval() time.Duration {
+	if m.fileWatchInterval <= 0 {
+		return DefaultFileWatchInterval
+	}
+	return m.fileWatchInterval
 }
 
 // handleFileWatchTick runs on every poll tick. It captures a fresh filesystem

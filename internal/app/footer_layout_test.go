@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/treykane/cli-notes/internal/config"
 )
 
 func TestFooterHeightForWidthPrefersTwoRowsWhenFit(t *testing.T) {
@@ -53,10 +54,10 @@ func TestStatusHelpSegmentsByMode(t *testing.T) {
 		if !strings.Contains(joined, "Ctrl+P search") {
 			t.Fatalf("expected browse help to include search, got %q", joined)
 		}
-		if !strings.Contains(joined, "PgUp/PgDn preview") {
+		if !strings.Contains(joined, "PgUp page-up") {
 			t.Fatalf("expected browse help to include preview page scroll, got %q", joined)
 		}
-		if !strings.Contains(joined, "q quit") {
+		if !strings.Contains(joined, "Q quit") {
 			t.Fatalf("expected browse help to include quit, got %q", joined)
 		}
 	})
@@ -119,5 +120,22 @@ func TestViewPadsToTerminalSizeWithAdaptiveFooter(t *testing.T) {
 		if w := lipgloss.Width(line); w != m.width {
 			t.Fatalf("line %d width mismatch: expected %d, got %d", i+1, m.width, w)
 		}
+	}
+}
+
+func TestStatusHelpSegmentsUsesConfiguredKeybindingLegends(t *testing.T) {
+	m := &Model{mode: modeBrowse}
+	m.loadKeybindings(config.Config{
+		Keybindings: map[string]string{
+			actionSearch: "alt+s",
+		},
+	})
+
+	joined := strings.Join(m.statusHelpSegments(), " | ")
+	if !strings.Contains(joined, "Alt+S search") {
+		t.Fatalf("expected remapped search key in footer help, got %q", joined)
+	}
+	if strings.Contains(joined, "Ctrl+P search") {
+		t.Fatalf("expected default search key to be replaced, got %q", joined)
 	}
 }

@@ -11,6 +11,7 @@ See `DEVELOPMENT.md` for setup requirements and build commands.
 See `DEVELOPMENT.md` for run commands.
 
 Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
+Tip: run `./notes --version` to print the current build version and commit.
 
 ## Application Layout
 
@@ -148,6 +149,7 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 - Press `Ctrl+P` to open the search popup
 - Type to filter folders by name and notes by name/content
 - Use `↑/↓` or `j`/`k` to choose a match
+- Popup shows `N matches` and current position (`M of N`) while searching
 - Press `Enter` to jump to the selected item
 - Press `Esc` to close the popup
 
@@ -202,6 +204,11 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 ### 21. Theme Presets
 - Set `theme_preset` in `~/.cli-notes/config.json` to `ocean_citrus`, `sunset`, or `neon_slate`
 - Restart the app to apply the selected UI palette
+
+### 22. Scrollable Help
+- Press `?` to open help
+- Scroll with `↑/↓` or `j/k`, `PgUp/PgDn`, and jump with `Home/End` (`g/G`)
+- Press `?` again to close help
 
 ## File Storage
 

@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/treykane/cli-notes/internal/config"
@@ -366,4 +367,84 @@ func (m *Model) actionForKey(key string) string {
 		return ""
 	}
 	return m.keyToAction[normalizeKeyString(key)]
+}
+
+func (m *Model) actionKeyLabels(action string) []string {
+	keys, ok := m.keyForAction[action]
+	if !ok || len(keys) == 0 {
+		return nil
+	}
+	labels := make([]string, 0, len(keys))
+	for _, key := range keys {
+		label := humanizeKeyLabel(key)
+		if label == "" {
+			continue
+		}
+		if slices.Contains(labels, label) {
+			continue
+		}
+		labels = append(labels, label)
+	}
+	return labels
+}
+
+func (m *Model) primaryActionKey(action, fallback string) string {
+	keys := m.actionKeyLabels(action)
+	if len(keys) == 0 {
+		return fallback
+	}
+	return keys[0]
+}
+
+func (m *Model) allActionKeys(action, fallback string) string {
+	keys := m.actionKeyLabels(action)
+	if len(keys) == 0 {
+		return fallback
+	}
+	return strings.Join(keys, ", ")
+}
+
+func humanizeKeyLabel(key string) string {
+	normalized := normalizeKeyString(key)
+	if normalized == "" {
+		return ""
+	}
+	special := map[string]string{
+		"up":        "↑",
+		"down":      "↓",
+		"left":      "←",
+		"right":     "→",
+		"enter":     "Enter",
+		"esc":       "Esc",
+		"tab":       "Tab",
+		"home":      "Home",
+		"end":       "End",
+		"pgup":      "PgUp",
+		"pgdown":    "PgDn",
+		"space":     "Space",
+		"backspace": "Backspace",
+	}
+	parts := strings.Split(normalized, "+")
+	for i, part := range parts {
+		switch part {
+		case "ctrl":
+			parts[i] = "Ctrl"
+		case "alt":
+			parts[i] = "Alt"
+		case "shift":
+			parts[i] = "Shift"
+		default:
+			if label, ok := special[part]; ok {
+				parts[i] = label
+				continue
+			}
+			runes := []rune(part)
+			if len(runes) == 1 && runes[0] >= 'a' && runes[0] <= 'z' {
+				parts[i] = strings.ToUpper(part)
+			} else {
+				parts[i] = strings.ToUpper(part[:1]) + part[1:]
+			}
+		}
+	}
+	return strings.Join(parts, "+")
 }

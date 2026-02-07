@@ -72,7 +72,7 @@ func (m *Model) renderSearchPopup(width, height int) string {
 	m.search.Width = innerWidth
 
 	lines := []string{
-		titleStyle.Render("Search Notes (Ctrl+P)"),
+		titleStyle.Render("Search Notes (" + m.primaryActionKey(actionSearch, "Ctrl+P") + ")"),
 		m.search.View(),
 		"",
 	}
@@ -91,8 +91,15 @@ func (m *Model) renderSearchPopup(width, height int) string {
 		lines = append(lines, line)
 	}
 
+	query := strings.TrimSpace(m.search.Value())
 	if len(m.searchResults) == 0 {
 		lines = append(lines, mutedStyle.Render("No matches yet"))
+	}
+	if query != "" {
+		lines = append(lines, mutedStyle.Render(fmt.Sprintf("%d matches", len(m.searchResults))))
+		if len(m.searchResults) > 0 {
+			lines = append(lines, mutedStyle.Render(fmt.Sprintf("%d of %d", m.searchResultCursor+1, len(m.searchResults))))
+		}
 	}
 	lines = append(lines, mutedStyle.Render("Enter: jump  Esc: close"))
 

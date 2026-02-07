@@ -45,7 +45,10 @@ func (m *Model) renderRight(width, height int) string {
 		}, "\n")
 	default:
 		if m.showHelp {
-			content = m.renderHelp(innerWidth, contentHeight)
+			m.helpViewport.Width = innerWidth
+			m.helpViewport.Height = contentHeight
+			m.helpViewport.SetContent(m.helpContent())
+			content = m.helpViewport.View()
 		} else {
 			m.viewport.Width = innerWidth
 			m.viewport.Height = contentHeight

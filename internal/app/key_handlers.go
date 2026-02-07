@@ -8,6 +8,10 @@ import (
 
 // handleBrowseKey routes key presses in browse mode (not searching).
 func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
+	if m.showHelp {
+		return m.handleHelpKey(key)
+	}
+
 	action := m.actionForKey(key)
 	switch action {
 	case actionSearchHint:
@@ -104,6 +108,40 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) handleHelpKey(key string) (tea.Model, tea.Cmd) {
+	if m.actionForKey(key) == actionHelp || normalizeKeyString(key) == "?" {
+		m.showHelp = false
+		m.status = "Help closed"
+		return m, nil
+	}
+
+	switch normalizeKeyString(key) {
+	case "up", "k":
+		m.scrollHelpBy(-1)
+	case "down", "j":
+		m.scrollHelpBy(1)
+	case "pgup":
+		m.scrollHelpBy(-max(1, m.helpViewport.Height))
+	case "pgdown":
+		m.scrollHelpBy(max(1, m.helpViewport.Height))
+	case "home", "g":
+		m.helpViewport.YOffset = 0
+	case "end", "shift+g":
+		m.helpViewport.YOffset = m.maxHelpViewportOffset()
+	}
+	return m, nil
+}
+
+func (m *Model) scrollHelpBy(delta int) {
+	maxOffset := m.maxHelpViewportOffset()
+	m.helpViewport.YOffset = clamp(m.helpViewport.YOffset+delta, 0, maxOffset)
+}
+
+func (m *Model) maxHelpViewportOffset() int {
+	total := m.helpViewport.TotalLineCount()
+	return max(0, total-m.helpViewport.Height)
+}
+
 // handleSearchKey routes key presses while the search popup is active.
 func (m *Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
@@ -188,6 +226,8 @@ func (m *Model) handleRefresh() (tea.Model, tea.Cmd) {
 func (m *Model) toggleHelp() (tea.Model, tea.Cmd) {
 	m.showHelp = !m.showHelp
 	if m.showHelp {
+		m.helpViewport.YOffset = 0
+		m.helpViewport.SetContent(m.helpContent())
 		m.status = ""
 	}
 	return m, nil

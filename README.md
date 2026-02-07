@@ -13,6 +13,7 @@ This application is a work in progress, it currently works, but I'm working on f
 - Colorful tree rows that visually separate folders and notes
 - Directory organization (folders instead of notebooks)
 - Search popup (`Ctrl+P`) for filtering folders by name and notes by name/content
+- Search popup match counters (`N matches`, `M of N`) for result context
 - Workspace popup (`Ctrl+W`) for switching named notes roots
 - Recent-files popup (`Ctrl+O`) for quick jumps to previously viewed notes
 - Heading outline popup (`o`) for jump-to-section in long notes
@@ -28,6 +29,8 @@ This application is a work in progress, it currently works, but I'm working on f
 - Edit-mode undo/redo (`Ctrl+Z` / `Ctrl+Y`) with typing-burst history boundaries
 - Edit-mode mouse selection via left-click drag
 - Adaptive 2-3 row footer with grouped key hints, context telemetry, and status feedback
+- Footer and help browse legends dynamically reflect configured keybindings
+- Scrollable help panel with keyboard navigation on small terminals
 - Footer note metrics (words/chars/lines) in preview and edit modes
 - Tree sorting modes (name/modified/size/created) with per-workspace persistence
 - Auto-saved edit drafts with startup recovery prompts
@@ -69,11 +72,14 @@ On first run, the app runs a configurator and asks where to store your notes. Th
 ```bash
 ./notes --render-light
 ./notes --configure
+./notes --version
 ```
 
 Use `--render-light` to render markdown with a light theme (default is dark). This is equivalent to setting `CLI_NOTES_GLAMOUR_STYLE=light`.
 
 Use `--configure` to re-run the configurator and change the notes directory.
+
+Use `--version` to print the current build version and commit hash.
 
 ## Keyboard Shortcuts
 
@@ -166,6 +172,7 @@ Edit-mode drafts are auto-saved every few seconds in `<notes_dir>/.cli-notes/.dr
 | `Esc` | Close popup |
 
 Search also supports `tag:<name>` tokens (for example `tag:go`) to filter by frontmatter tags.
+When a query is active, the popup also shows total matches and current selection position.
 
 ### Recent Files Popup
 
@@ -216,6 +223,7 @@ All notes are stored as plain Markdown files in your configured `notes_dir` (set
 - `keybindings`: inline action-to-key overrides
 - `keymap_file`: optional external keymap JSON path (default `~/.cli-notes/keymap.json`)
 - `theme_preset`: UI palette preset (`ocean_citrus`, `sunset`, `neon_slate`)
+- `file_watch_interval_seconds`: external filesystem poll interval (default `2`, clamped `1..300`)
 
 ## Requirements
 

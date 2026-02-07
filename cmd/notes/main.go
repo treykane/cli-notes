@@ -8,6 +8,7 @@
 //
 //	--render-light  Force light-theme markdown rendering (sets CLI_NOTES_GLAMOUR_STYLE=light).
 //	--configure     Re-run the interactive configurator to change the notes directory.
+//	--version       Print the application version and commit hash, then exit.
 //
 // Environment:
 //
@@ -35,6 +36,12 @@ import (
 // log is the structured logger for the main package, tagged with component="main".
 var log = logging.New("main")
 
+// buildVersion and buildCommit are injected at build time via -ldflags.
+var (
+	buildVersion = "dev"
+	buildCommit  = "unknown"
+)
+
 // main parses flags, ensures configuration exists, and starts the TUI.
 //
 // Startup sequence:
@@ -46,7 +53,13 @@ var log = logging.New("main")
 func main() {
 	renderLight := flag.Bool("render-light", false, "render markdown using a light theme")
 	configure := flag.Bool("configure", false, "run configurator to choose the notes directory")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(versionString())
+		return
+	}
 
 	if *renderLight {
 		_ = os.Setenv("CLI_NOTES_GLAMOUR_STYLE", "light")
@@ -85,6 +98,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+func versionString() string {
+	return fmt.Sprintf("notes %s (%s)", buildVersion, buildCommit)
 }
 
 // runConfigurator prompts the user to choose a notes directory and persists

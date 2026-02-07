@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -126,6 +127,15 @@ func (m *Model) statusHelpSegments() []string {
 	case modeConfirmDelete:
 		return []string{"y confirm delete", "n/Esc cancel"}
 	default:
+		if m.showHelp {
+			return []string{
+				"Help panel",
+				"↑/↓ or j/k scroll",
+				"PgUp/PgDn page",
+				"Home/End top-bottom",
+				"? close",
+			}
+		}
 		switch m.overlay {
 		case overlaySearch:
 			return []string{"Search popup", "type", "↑/↓ move", "Enter jump", "Esc cancel"}
@@ -143,36 +153,35 @@ func (m *Model) statusHelpSegments() []string {
 			return []string{"Wiki autocomplete", "↑/↓ move", "Tab/Enter insert", "Esc close"}
 		}
 		help := []string{
-			"↑/↓ or k/j move",
-			"Enter/→/l toggle",
-			"←/h collapse",
-			"g/G top-bottom",
-			"PgUp/PgDn preview",
-			"Ctrl+U/D half-preview",
-			"Ctrl+P search",
-			"n new",
-			"f folder",
-			"e edit",
-			"r rename",
-			"m move",
-			"d delete",
-			"Shift+R refresh",
-			"s sort",
-			"t pin",
-			"Ctrl+O recents",
-			"o outline",
-			"Ctrl+W workspaces",
-			"x export",
-			"Shift+L wiki",
-			"z split",
-			"Tab split-focus",
-			"y copy content",
-			"Y copy path",
+			fmt.Sprintf("%s up", m.primaryActionKey(actionCursorUp, "↑")),
+			fmt.Sprintf("%s down", m.primaryActionKey(actionCursorDown, "↓")),
+			fmt.Sprintf("%s toggle", m.primaryActionKey(actionExpandToggle, "Enter")),
+			fmt.Sprintf("%s collapse", m.primaryActionKey(actionCollapse, "←")),
+			fmt.Sprintf("%s top", m.primaryActionKey(actionJumpTop, "G")),
+			fmt.Sprintf("%s bottom", m.primaryActionKey(actionJumpBottom, "Shift+G")),
+			fmt.Sprintf("%s page-up", m.primaryActionKey(actionPreviewScrollPageUp, "PgUp")),
+			fmt.Sprintf("%s page-down", m.primaryActionKey(actionPreviewScrollPageDown, "PgDn")),
+			fmt.Sprintf("%s search", m.primaryActionKey(actionSearch, "Ctrl+P")),
+			fmt.Sprintf("%s recents", m.primaryActionKey(actionRecent, "Ctrl+O")),
+			fmt.Sprintf("%s workspace", m.primaryActionKey(actionWorkspace, "Ctrl+W")),
+			fmt.Sprintf("%s edit", m.primaryActionKey(actionEditNote, "E")),
+			fmt.Sprintf("%s new", m.primaryActionKey(actionNewNote, "N")),
+			fmt.Sprintf("%s folder", m.primaryActionKey(actionNewFolder, "F")),
+			fmt.Sprintf("%s rename", m.primaryActionKey(actionRename, "R")),
+			fmt.Sprintf("%s move", m.primaryActionKey(actionMove, "M")),
+			fmt.Sprintf("%s delete", m.primaryActionKey(actionDelete, "D")),
+			fmt.Sprintf("%s refresh", m.primaryActionKey(actionRefresh, "Shift+R")),
+			fmt.Sprintf("%s help", m.primaryActionKey(actionHelp, "?")),
 		}
 		if m.git.isRepo {
-			help = append(help, "c commit", "p pull", "P push")
+			help = append(
+				help,
+				fmt.Sprintf("%s commit", m.primaryActionKey(actionGitCommit, "C")),
+				fmt.Sprintf("%s pull", m.primaryActionKey(actionGitPull, "P")),
+				fmt.Sprintf("%s push", m.primaryActionKey(actionGitPush, "Shift+P")),
+			)
 		}
-		help = append(help, "? help", "q quit", "notes --configure")
+		help = append(help, fmt.Sprintf("%s quit", m.primaryActionKey(actionQuit, "Q")), "notes --configure")
 		return help
 	}
 }
@@ -194,66 +203,72 @@ func (m *Model) statusMessageSegment() string {
 	return strings.TrimSpace(m.status)
 }
 
-func (m *Model) renderHelp(width, height int) string {
+func (m *Model) helpContent() string {
 	lines := []string{
 		titleStyle.Render("Keyboard Shortcuts"),
 		"",
 		"Browse",
-		"  ↑/↓, k/j, Ctrl+N          Move selection",
-		"  Enter, →, l               Expand/collapse folder",
-		"  ←, h                      Collapse folder",
-		"  g / G                     Jump to top / bottom",
-		"  PgUp / PgDn               Scroll preview up / down one page",
-		"  Ctrl+U / Ctrl+D           Scroll preview up / down half page",
-		"  Ctrl+P                    Open search popup",
-		"  Ctrl+O                    Open recent-files popup",
-		"  o                         Open heading outline popup",
-		"  Ctrl+W                    Open workspace popup",
-		"  x                         Export current note (HTML/PDF)",
-		"  Shift+L                   Open wiki-links popup",
-		"  z                         Toggle split mode",
-		"  Tab                       Toggle split focus",
-		"  n                         New note",
-		"  f                         New folder",
-		"  e                         Edit note",
-		"  r                         Rename selected item",
-		"  m                         Move selected item",
-		"  d                         Delete (with confirmation)",
-		"  Shift+R / Ctrl+R          Refresh",
-		"  s                         Cycle tree sort mode",
-		"  t                         Pin/unpin selected item",
-		"  y / Y                     Copy note content / path",
-		"  ?                         Toggle help",
-		"  q or Ctrl+C               Quit",
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionCursorUp, "↑, K"), "Move selection up"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionCursorDown, "↓, J, Ctrl+N"), "Move selection down"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionExpandToggle, "Enter, →, L"), "Expand/collapse folder"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionCollapse, "←, H"), "Collapse folder"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionJumpTop, "G"), "Jump to top"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionJumpBottom, "Shift+G"), "Jump to bottom"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionPreviewScrollPageUp, "PgUp"), "Scroll preview up one page"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionPreviewScrollPageDown, "PgDn"), "Scroll preview down one page"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionPreviewScrollHalfUp, "Ctrl+U"), "Scroll preview up half page"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionPreviewScrollHalfDown, "Ctrl+D"), "Scroll preview down half page"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionSearch, "Ctrl+P"), "Open search popup"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionRecent, "Ctrl+O"), "Open recent-files popup"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionOutline, "O"), "Open heading outline popup"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionWorkspace, "Ctrl+W"), "Open workspace popup"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionExport, "X"), "Export current note (HTML/PDF)"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionWikiLinks, "Shift+L"), "Open wiki-links popup"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionSplitToggle, "Z"), "Toggle split mode"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionSplitFocus, "Tab"), "Toggle split focus"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionNewNote, "N"), "New note"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionNewFolder, "F"), "New folder"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionEditNote, "E"), "Edit note"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionRename, "R"), "Rename selected item"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionMove, "M"), "Move selected item"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionDelete, "D"), "Delete (with confirmation)"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionRefresh, "Ctrl+R, Shift+R"), "Refresh"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionSort, "S"), "Cycle tree sort mode"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionPin, "T"), "Pin/unpin selected item"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionCopyContent, "Y"), "Copy note content"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionCopyPath, "Shift+Y"), "Copy note path"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionHelp, "?"), "Toggle help"),
+		fmt.Sprintf("  %-24s %s", m.allActionKeys(actionQuit, "Q, Ctrl+C"), "Quit"),
 	}
 	if m.git.isRepo {
 		lines = append(lines,
-			"  c                         Git add+commit",
-			"  p                         Git pull --ff-only",
-			"  P                         Git push",
+			fmt.Sprintf("  %-24s %s", m.allActionKeys(actionGitCommit, "C"), "Git add+commit"),
+			fmt.Sprintf("  %-24s %s", m.allActionKeys(actionGitPull, "P"), "Git pull --ff-only"),
+			fmt.Sprintf("  %-24s %s", m.allActionKeys(actionGitPush, "Shift+P"), "Git push"),
 		)
 	}
 	lines = append(lines,
 		"",
 		"CLI",
 		"  notes --configure         Re-run configurator",
+		"  notes --version           Print build version and commit",
 		"",
 		"Search Popup",
-		"  Type                Filter folders by name, notes by name/content",
-		"  ↑/↓, j/k            Move search selection",
-		"  Enter               Jump to selected result",
-		"  Esc                 Close search popup",
+		"  Type                      Filter folders by name, notes by name/content",
+		"  ↑/↓, j/k, Ctrl+P/N        Move search selection",
+		"  Enter                     Jump to selected result",
+		"  Esc                       Close search popup",
 		"",
 		"Recent Files Popup",
-		"  ↑/↓, j/k            Move recent selection",
-		"  Enter               Jump to selected recent note",
-		"  Esc                 Close popup",
+		"  ↑/↓, j/k                  Move recent selection",
+		"  Enter                     Jump to selected recent note",
+		"  Esc                       Close popup",
 		"",
 		"Heading Outline Popup",
-		"  o                   Open heading outline for current note",
-		"  ↑/↓, j/k            Move heading selection",
-		"  Enter               Jump preview to heading",
-		"  Esc                 Close popup",
+		"  o                         Open heading outline for current note",
+		"  ↑/↓, j/k                  Move heading selection",
+		"  Enter                     Jump preview to heading",
+		"  Esc                       Close popup",
 		"",
 		"New Note/Folder",
 		"  Enter or Ctrl+S  Save",
@@ -294,13 +309,12 @@ func (m *Model) renderHelp(width, height int) string {
 		"  Ctrl+V         Paste clipboard text",
 		"  Esc            Cancel",
 		"",
-		"Press ? to return.",
+		"Help Panel Navigation",
+		"  ↑/↓, j/k      Scroll line",
+		"  PgUp / PgDn   Scroll page",
+		"  Home / g      Jump to top",
+		"  End / G       Jump to bottom",
+		"  ?             Return to app",
 	)
-
-	visible := min(height, len(lines))
-	out := make([]string, 0, visible)
-	for i := 0; i < visible; i++ {
-		out = append(out, truncate(lines[i], width))
-	}
-	return strings.Join(out, "\n")
+	return strings.Join(lines, "\n")
 }
