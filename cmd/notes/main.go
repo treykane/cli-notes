@@ -1,3 +1,19 @@
+// Package main is the entry point for the cli-notes application.
+//
+// It handles CLI flag parsing, first-run configuration, and launching
+// the Bubble Tea TUI program. On first run (or when --configure is passed),
+// the user is prompted to choose a notes directory before the UI starts.
+//
+// Flags:
+//
+//	--render-light  Force light-theme markdown rendering (sets CLI_NOTES_GLAMOUR_STYLE=light).
+//	--configure     Re-run the interactive configurator to change the notes directory.
+//
+// Environment:
+//
+//	CLI_NOTES_LOG_LEVEL   Controls log verbosity (debug, info, warn, error). Default: info.
+//	CLI_NOTES_GLAMOUR_STYLE  Overrides the Glamour markdown rendering style (dark, light, notty, auto).
+//	CLI_NOTES_DEBUG_INPUT    When set, surfaces ignored terminal escape sequences in the status bar.
 package main
 
 import (
@@ -16,8 +32,17 @@ import (
 	"github.com/treykane/cli-notes/internal/logging"
 )
 
+// log is the structured logger for the main package, tagged with component="main".
 var log = logging.New("main")
 
+// main parses flags, ensures configuration exists, and starts the TUI.
+//
+// Startup sequence:
+//  1. Parse CLI flags (--render-light, --configure).
+//  2. Check whether a config file exists at ~/.cli-notes/config.json.
+//  3. If missing or --configure was passed, run the interactive configurator.
+//  4. Initialize the app Model (loads config, builds tree, sets up search index).
+//  5. Launch Bubble Tea in alt-screen mode.
 func main() {
 	renderLight := flag.Bool("render-light", false, "render markdown using a light theme")
 	configure := flag.Bool("configure", false, "run configurator to choose the notes directory")
@@ -62,6 +87,16 @@ func main() {
 	}
 }
 
+// runConfigurator prompts the user to choose a notes directory and persists
+// the result to ~/.cli-notes/config.json.
+//
+// It reads from in and writes prompts to out, making it testable with mock
+// readers/writers. The user can accept the default directory (~/notes) by
+// pressing Enter, or type a custom path. The path is normalized (~ expanded,
+// made absolute) and validated before saving. If the directory doesn't exist,
+// it is created automatically.
+//
+// The configurator loops until a valid directory is provided or EOF is reached.
 func runConfigurator(in io.Reader, out io.Writer) error {
 	defaultDir, err := config.DefaultNotesDir()
 	if err != nil {

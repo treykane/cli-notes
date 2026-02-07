@@ -10,6 +10,7 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-08: Completed comprehensive inline documentation pass across all source files. Added godoc-style package comments, function/type/field comments, algorithm rationale, and edge-case notes. Fixed `gofmt` formatting across 14 files that had drifted. Documented the three platform-specific `file_time_*.go` files (darwin/unix/other) and added a file-level doc comment to `state.go`. All changes are documentation-only; no functional code was modified. Build, vet, and all tests pass cleanly.
 - 2026-02-07: Added YAML frontmatter parsing for `title`/`date`/`category`/`tags`; tags now render in tree rows and `Ctrl+P` search supports `tag:<name>` filtering plus metadata-aware matches.
 - 2026-02-07: Added named multi-workspace config (`workspaces` + `active_workspace`) with migration from legacy `notes_dir`; browse-mode workspace popup (`Ctrl+W`) switches roots and rebinds state/search/render caches.
 - 2026-02-07: Added configurable keybindings via `config.json` `keybindings` map plus optional `keymap_file` (default `~/.cli-notes/keymap.json`), with conflict warnings and safe fallback to defaults.

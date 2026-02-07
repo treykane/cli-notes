@@ -1,3 +1,31 @@
+// view.go implements the View function and all rendering helpers for the
+// terminal UI.
+//
+// The UI is composed of three visual regions drawn top-to-bottom:
+//
+//  1. Main row: a horizontal join of the left tree pane and the right content
+//     pane. When a popup is active, the main row is replaced entirely by the
+//     popup overlay centered on screen.
+//  2. Footer status bar: a single row at the bottom showing mode-specific help
+//     hints, note metrics (W/C/L), git status, and the last status message.
+//
+// The View function is called by Bubble Tea on every frame. It must return
+// a complete string representation of the screen — there is no incremental
+// redraw. To avoid visual artifacts from previous frames, all regions are
+// padded to exact terminal dimensions via padBlock.
+//
+// # Popup Overlays
+//
+// Popups (search, recent files, outline, workspace, export, wiki links, wiki
+// autocomplete) replace the main row content entirely. They are rendered as
+// fixed-size boxes centered (or bottom-aligned for autocomplete) within the
+// available space using lipgloss.Place.
+//
+// # Split Pane
+//
+// When split mode is active, the right pane is divided into two side-by-side
+// sub-panes via renderRightSplit, each independently showing a rendered note
+// or the editor.
 package app
 
 import (
@@ -9,6 +37,11 @@ import (
 )
 
 // View draws the full UI (left tree + right pane + status line).
+//
+// This is the top-level Bubble Tea View function. It calculates layout
+// dimensions, renders each pane, overlays any active popup, and assembles
+// the final output string. The result is padded to exactly fill the terminal
+// so that every frame fully overwrites the previous one.
 func (m *Model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return "Loading..."
@@ -41,6 +74,16 @@ func (m *Model) View() string {
 }
 
 // renderTree draws the left-hand directory tree pane.
+//
+// The tree pane shows a scrollable list of treeItem rows within a bordered
+// Lipgloss box. A header line shows the notes directory path. Items are
+// rendered with indentation, type badges (DIR/MD), pin markers, and tag
+// labels. The currently selected row is rendered with reversed colors
+// spanning the full pane width.
+//
+// Scrolling is handled by slicing the items array from treeOffset to
+// treeOffset + visibleHeight, so only the visible window of items is
+// rendered each frame.
 func (m *Model) renderTree(width, height int) string {
 	innerWidth := max(0, width-paneStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-paneStyle.GetVerticalFrameSize())
@@ -74,6 +117,17 @@ func (m *Model) renderTree(width, height int) string {
 }
 
 // renderRight draws the right-hand pane (editor, input, or markdown viewport).
+//
+// The right pane's content depends on the current mode:
+//   - modeBrowse: rendered markdown in the viewport (or help screen if toggled)
+//   - modeEditNote: the textarea editor with syntax highlighting
+//   - modeTemplatePicker: template selection list
+//   - modeDraftRecovery: draft recovery prompt
+//   - modeNewNote/modeNewFolder/modeRenameItem/modeMoveItem/modeGitCommit:
+//     text input with contextual prompt and location info
+//
+// In split mode, rendering is delegated to renderRightSplit which divides
+// the available width between two independent sub-panes.
 func (m *Model) renderRight(width, height int) string {
 	if m.splitMode {
 		return m.renderRightSplit(width, height)
@@ -125,6 +179,10 @@ func (m *Model) renderRight(width, height int) string {
 	return rightPaneStyle.Width(width).Height(height).Render(header + "\n" + body)
 }
 
+// renderRightSplit divides the right pane into two equal-width sub-panes
+// for side-by-side note viewing. The primary pane shows the current file
+// (or editor in edit mode); the secondary pane shows a second file in
+// read-only preview. Each sub-pane has its own header and focus indicator.
 func (m *Model) renderRightSplit(width, height int) string {
 	leftWidth := width / 2
 	rightWidth := width - leftWidth
@@ -135,6 +193,9 @@ func (m *Model) renderRightSplit(width, height int) string {
 	)
 }
 
+// renderSingleRightPane renders one half of the split view. It shows either
+// the editor (for the primary pane in edit mode) or a rendered markdown preview.
+// The header indicates pane number ([1]/[2]), focus state (▶), and file path.
 func (m *Model) renderSingleRightPane(width, height int, path string, secondary bool, focused bool) string {
 	rightPaneStyle := previewPane
 	headerStyle := previewHeader
@@ -176,6 +237,11 @@ func (m *Model) renderSingleRightPane(width, height int, path string, secondary 
 	return rightPaneStyle.Width(width).Height(height).Render(header + "\n" + body)
 }
 
+// renderedForPath returns the cached rendered markdown for a file, or renders
+// it synchronously if no cache entry exists. This is used by the secondary
+// split pane which cannot use the async debounced render pipeline (that
+// pipeline is tied to the primary pane's currentFile). Returns the rendered
+// content and true on success, or ("", false) if the file cannot be read.
 func (m *Model) renderedForPath(path string, width int) (string, bool) {
 	info, err := os.Stat(path)
 	if err != nil || info.IsDir() {
@@ -200,6 +266,15 @@ func (m *Model) renderedForPath(path string, width int) (string, bool) {
 	return rendered, true
 }
 
+// editorViewWithSelectionHighlight post-processes the editor's rendered view
+// to apply two visual enhancements:
+//
+//  1. Fenced code block highlighting (via highlightFencedCodeInEditorView)
+//  2. Selection highlighting: if a text selection is active, the selected
+//     text span is wrapped in selectionText style (white-on-black).
+//
+// Selection highlighting is limited to single-line selections. Multi-line
+// visual selection highlighting is tracked as a future improvement in TASKS.md.
 func (m *Model) editorViewWithSelectionHighlight(view string) string {
 	view = highlightFencedCodeInEditorView(view)
 	start, end, ok := m.editorSelectionRange()
@@ -227,7 +302,17 @@ func (m *Model) editorViewWithSelectionHighlight(view string) string {
 	return view[:idx] + selectionText.Render(selected) + view[idx+len(selected):]
 }
 
-// renderStatus renders the footer help line and any status message.
+// renderStatus renders the footer status bar at the bottom of the terminal.
+//
+// The bar is a single solid-color row (blue in preview mode, magenta in edit
+// mode) that contains, separated by " | ":
+//   - Mode-specific help hints (keys available in current mode)
+//   - Note metrics (word/character/line count) for the current note
+//   - Git status (branch, dirty flag, sync indicator) when in a git repo
+//   - The most recent status message (operation feedback, errors, etc.)
+//
+// The bar is left-padded by one space and truncated to the terminal width
+// to prevent line wrapping.
 func (m *Model) renderStatus(width int) string {
 	help := m.statusHelp()
 	parts := []string{help}
@@ -251,6 +336,9 @@ func (m *Model) renderStatus(width int) string {
 	return style.Width(width).Render(line)
 }
 
+// statusHelp returns the mode-specific keyboard shortcut hints shown in the
+// footer. Each mode gets a concise summary of available keys so the user
+// always knows what actions are possible without consulting the help screen.
 func (m *Model) statusHelp() string {
 	switch m.mode {
 	case modeEditNote:
@@ -298,6 +386,10 @@ func (m *Model) statusHelp() string {
 	}
 }
 
+// renderHelp renders the full-screen help overlay listing all keyboard
+// shortcuts organized by mode. The help text is a static multi-line string
+// truncated to the available width and height. Git-specific shortcuts are
+// only shown when the notes directory is inside a git repository.
 func (m *Model) renderHelp(width, height int) string {
 	lines := []string{
 		titleStyle.Render("Keyboard Shortcuts"),
@@ -404,6 +496,10 @@ func (m *Model) renderHelp(width, height int) string {
 	return strings.Join(out, "\n")
 }
 
+// inputModeMeta returns three strings for the text-input modes (new note,
+// new folder, rename, move, git commit): a title prompt, a location/context
+// line, and a helper hint line. These are displayed above the text input
+// widget to orient the user on what they're being asked to enter.
 func (m *Model) inputModeMeta() (string, string, string) {
 	switch m.mode {
 	case modeNewFolder:
@@ -419,6 +515,10 @@ func (m *Model) inputModeMeta() (string, string, string) {
 	}
 }
 
+// renderSearchPopupOverlay sizes and centers the search popup within the
+// available terminal area. The popup width is clamped between 44 and 70
+// columns; height between SearchPopupHeight and 16 rows, leaving some
+// margin around the edges.
 func (m *Model) renderSearchPopupOverlay(width, height int) string {
 	popupWidth := min(70, max(44, width-SearchPopupPadding))
 	popupHeight := min(16, max(SearchPopupHeight, height-4))
@@ -426,6 +526,7 @@ func (m *Model) renderSearchPopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+// renderRecentPopupOverlay sizes and centers the recent-files popup.
 func (m *Model) renderRecentPopupOverlay(width, height int) string {
 	popupWidth := min(70, max(44, width-SearchPopupPadding))
 	popupHeight := min(18, max(RecentPopupHeight, height-4))
@@ -433,6 +534,7 @@ func (m *Model) renderRecentPopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+// renderOutlinePopupOverlay sizes and centers the heading outline popup.
 func (m *Model) renderOutlinePopupOverlay(width, height int) string {
 	popupWidth := min(80, max(50, width-SearchPopupPadding))
 	popupHeight := min(20, max(OutlinePopupHeight, height-4))
@@ -440,6 +542,7 @@ func (m *Model) renderOutlinePopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+// renderWorkspacePopupOverlay sizes and centers the workspace chooser popup.
 func (m *Model) renderWorkspacePopupOverlay(width, height int) string {
 	popupWidth := min(80, max(48, width-SearchPopupPadding))
 	popupHeight := min(20, max(WorkspacePopupHeight, height-4))
@@ -447,6 +550,7 @@ func (m *Model) renderWorkspacePopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+// renderExportPopupOverlay sizes and centers the export format popup.
 func (m *Model) renderExportPopupOverlay(width, height int) string {
 	popupWidth := min(52, max(40, width-SearchPopupPadding))
 	popupHeight := min(12, max(ExportPopupHeight, height-4))
@@ -454,6 +558,7 @@ func (m *Model) renderExportPopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+// renderWikiLinksPopupOverlay sizes and centers the wiki-links popup.
 func (m *Model) renderWikiLinksPopupOverlay(width, height int) string {
 	popupWidth := min(90, max(52, width-SearchPopupPadding))
 	popupHeight := min(20, max(WikiLinksPopupHeight, height-4))
@@ -461,6 +566,9 @@ func (m *Model) renderWikiLinksPopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+// renderWikiAutocompletePopupOverlay sizes and bottom-aligns the wiki
+// autocomplete popup. It is placed at the bottom of the screen (rather than
+// centered) so it appears near the editor cursor where the user is typing.
 func (m *Model) renderWikiAutocompletePopupOverlay(width, height int) string {
 	popupWidth := min(70, max(42, width-SearchPopupPadding))
 	popupHeight := min(16, max(WikiAutocompletePopupHeight, height-4))
@@ -468,6 +576,10 @@ func (m *Model) renderWikiAutocompletePopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Bottom, popup)
 }
 
+// renderSearchPopup draws the interior content of the Ctrl+P search popup:
+// a title, the search text input, and a scrollable list of matching results
+// with the selected entry highlighted. Results show relative paths with a
+// trailing "/" for directories.
 func (m *Model) renderSearchPopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -502,6 +614,8 @@ func (m *Model) renderSearchPopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+// renderRecentPopup draws the interior content of the Ctrl+O recent-files
+// popup: a title and a list of recently viewed notes with relative paths.
 func (m *Model) renderRecentPopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -525,6 +639,10 @@ func (m *Model) renderRecentPopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+// renderOutlinePopup draws the heading outline popup for the current note.
+// Headings are indented by level (two spaces per level) to show the document
+// structure at a glance. Selecting a heading and pressing Enter scrolls the
+// preview to that section.
 func (m *Model) renderOutlinePopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -550,6 +668,9 @@ func (m *Model) renderOutlinePopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+// renderWorkspacePopup draws the workspace chooser popup listing all
+// configured workspaces. The active workspace is prefixed with "* " so the
+// user can see which one is currently in use.
 func (m *Model) renderWorkspacePopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -575,6 +696,7 @@ func (m *Model) renderWorkspacePopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+// renderExportPopup draws the export format chooser with HTML and PDF options.
 func (m *Model) renderExportPopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -596,6 +718,10 @@ func (m *Model) renderExportPopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+// renderTemplatePicker draws the template selection list shown during the
+// new-note flow when templates are available. The first entry is always
+// "Default (no template)"; subsequent entries are files from the templates
+// directory.
 func (m *Model) renderTemplatePicker(width, height int) string {
 	lines := []string{
 		titleStyle.Render("Choose Note Template"),
@@ -615,6 +741,9 @@ func (m *Model) renderTemplatePicker(width, height int) string {
 	return strings.Join(lines[:visible], "\n")
 }
 
+// renderDraftRecovery draws the startup draft recovery prompt. If a draft
+// is pending, the user is shown the source note path and offered three
+// choices: recover (y), discard (n), or skip remaining drafts (Esc).
 func (m *Model) renderDraftRecovery(width, height int) string {
 	lines := []string{
 		titleStyle.Render("Unsaved Draft Recovery"),
@@ -635,6 +764,8 @@ func (m *Model) renderDraftRecovery(width, height int) string {
 	return strings.Join(lines[:visible], "\n")
 }
 
+// rightHeaderPath returns the display text for the right-pane header bar:
+// the relative path of the current note, or "No note selected" as a fallback.
 func (m *Model) rightHeaderPath() string {
 	path := "No note selected"
 	if m.currentFile != "" {
@@ -643,12 +774,18 @@ func (m *Model) rightHeaderPath() string {
 	return path
 }
 
+// renderRightHeader renders the solid-color header bar at the top of the right
+// pane showing the current file path. The style parameter determines the
+// background color (blue for preview, magenta for edit).
 func (m *Model) renderRightHeader(width int, style lipgloss.Style) string {
 	line := " " + truncate(m.rightHeaderPath(), max(0, width-1))
 	return style.Width(width).Render(line)
 }
 
-// formatTreeItem formats a directory or file row with indentation and markers.
+// formatTreeItem formats a non-selected directory or file row with styled
+// indentation, type markers ([+]/[-] for dirs), badges (DIR/MD/PIN), and
+// optional tag labels. Colors are applied via Lipgloss styles so the row
+// is visually distinct from the selected row.
 func (m *Model) formatTreeItem(item treeItem) string {
 	indent := strings.Repeat("  ", item.depth)
 	if item.isDir {
@@ -674,6 +811,11 @@ func (m *Model) formatTreeItem(item treeItem) string {
 	return fmt.Sprintf("%s    %s %s%s%s", indent, treeFileTag.Render("MD"), treeFileName.Render(item.name), pin, tagBadge)
 }
 
+// formatTreeItemSelected formats the currently selected tree row using plain
+// unstyled text (no Lipgloss colors). The selected row is then wrapped in
+// selectedStyle (reversed colors) by renderTree, so applying colors here
+// would create illegible double-styling. The markers, badges, and layout
+// match formatTreeItem but without color codes.
 func (m *Model) formatTreeItemSelected(item treeItem) string {
 	indent := strings.Repeat("  ", item.depth)
 	if item.isDir {
@@ -699,7 +841,9 @@ func (m *Model) formatTreeItemSelected(item treeItem) string {
 	return fmt.Sprintf("%s    MD %s%s%s", indent, item.name, pin, tagBadge)
 }
 
-// updateLayout recomputes viewport sizing after a window resize.
+// updateLayout recomputes viewport sizing after a window resize. This is a
+// convenience wrapper that calculates the new layout dimensions and applies
+// them to the viewport widget in a single call.
 func (m *Model) updateLayout() {
 	layout := m.calculateLayout()
 	m.applyLayout(layout)

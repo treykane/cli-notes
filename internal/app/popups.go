@@ -1,3 +1,22 @@
+// popups.go implements browse-mode popup overlays for recent files, heading
+// outline, and pin/unpin toggling.
+//
+// Each popup follows a consistent interaction pattern:
+//
+//   - A keybinding opens the popup, populating its data and resetting the cursor.
+//   - Up/Down (or j/k) navigate the list; Enter selects; Esc closes.
+//   - Only one popup is visible at a time — opening one closes others via
+//     closeTransientPopups (defined in workspace_export.go).
+//
+// The heading outline popup parses markdown headings from the current note's
+// raw content and renders them with indentation matching their heading level.
+// Selecting a heading scrolls the preview viewport to that section.
+//
+// The recent files popup filters the persisted recent-files list to only show
+// entries that still exist on disk and are within the current workspace root.
+//
+// Pin toggling does not use a popup — it simply toggles the pinned flag for the
+// selected tree item and rebuilds the tree so pinned items float to the top.
 package app
 
 import (
@@ -9,12 +28,20 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// noteHeading represents a single parsed markdown heading for the outline popup.
+// Level is the heading depth (1–6, corresponding to # through ######), Title
+// is the heading text (without the leading # markers), and Line is the 1-based
+// line number in the raw note content for jump-to-section targeting.
 type noteHeading struct {
 	Level int
 	Title string
 	Line  int
 }
 
+// openRecentPopup shows the recent-files popup (Ctrl+O). It rebuilds the
+// visible entries list from the persisted recent files, filtering out entries
+// that no longer exist on disk. The search popup is closed if open, since
+// only one overlay is shown at a time.
 func (m *Model) openRecentPopup() {
 	if m.searching {
 		m.closeSearchPopup()
@@ -31,10 +58,13 @@ func (m *Model) openRecentPopup() {
 	m.status = "Recent files: Enter to jump, Esc to close"
 }
 
+// closeRecentPopup hides the recent-files popup without selecting an entry.
 func (m *Model) closeRecentPopup() {
 	m.showRecentPopup = false
 }
 
+// handleRecentPopupKey routes key presses while the recent-files popup is visible.
+// Navigation uses j/k or arrow keys; Enter jumps to the selected file; Esc closes.
 func (m *Model) handleRecentPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
@@ -65,6 +95,10 @@ func (m *Model) handleRecentPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
+// selectRecentEntry opens the file at the current recent-files cursor position.
+// If the file no longer exists on disk it is silently removed from the list and
+// the user is notified. Otherwise the popup is closed, the tree is expanded to
+// reveal the file, and it is loaded into the viewport.
 func (m *Model) selectRecentEntry() (tea.Model, tea.Cmd) {
 	if len(m.recentEntries) == 0 {
 		m.status = "No recent files"
@@ -86,6 +120,10 @@ func (m *Model) selectRecentEntry() (tea.Model, tea.Cmd) {
 	return m, m.setFocusedFile(path)
 }
 
+// openOutlinePopup shows the heading outline popup (o key in browse mode).
+// It parses all markdown headings (# through ######) from the current note's
+// raw content, skipping headings inside fenced code blocks. If no headings are
+// found, a status message is shown instead of opening an empty popup.
 func (m *Model) openOutlinePopup() {
 	if m.mode != modeBrowse || m.currentFile == "" {
 		m.status = "Select a note first"
@@ -107,10 +145,13 @@ func (m *Model) openOutlinePopup() {
 	m.status = "Outline: Enter to jump, Esc to close"
 }
 
+// closeOutlinePopup hides the heading outline popup without jumping.
 func (m *Model) closeOutlinePopup() {
 	m.showOutlinePopup = false
 }
 
+// handleOutlinePopupKey routes key presses while the outline popup is visible.
+// Enter jumps the preview viewport to the selected heading; Esc closes.
 func (m *Model) handleOutlinePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
@@ -143,6 +184,11 @@ func (m *Model) handleOutlinePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
+// jumpToOutlineHeading scrolls the preview viewport so the selected heading is
+// at the top of the visible area. It first searches the rendered view for the
+// heading text (since Glamour rendering may shift line numbers) and falls back
+// to the raw source line number if no rendered match is found. The viewport
+// offset is saved to per-note position memory so the scroll position persists.
 func (m *Model) jumpToOutlineHeading(heading noteHeading) {
 	lines := strings.Split(m.viewport.View(), "\n")
 	target := heading.Title
@@ -162,6 +208,16 @@ func (m *Model) jumpToOutlineHeading(heading noteHeading) {
 	m.status = fmt.Sprintf("Jumped to heading: %s", heading.Title)
 }
 
+// parseMarkdownHeadings extracts all ATX-style markdown headings from content.
+//
+// Parsing rules:
+//   - Lines starting with one or more '#' characters followed by a space are
+//     recognized as headings (levels 1–6).
+//   - Headings inside fenced code blocks (``` delimited) are ignored.
+//   - Leading/trailing whitespace is trimmed from the heading title.
+//   - Empty titles (e.g. "# " with nothing after) are skipped.
+//
+// Returns headings in document order with 1-based line numbers.
 func parseMarkdownHeadings(content string) []noteHeading {
 	lines := strings.Split(content, "\n")
 	headings := make([]noteHeading, 0, 16)
@@ -199,6 +255,10 @@ func parseMarkdownHeadings(content string) []noteHeading {
 	return headings
 }
 
+// togglePinnedSelection pins or unpins the currently selected tree item.
+// Pinned items are sorted to the top of their directory level across all sort
+// modes. The pin state is persisted in per-workspace state.json. The root
+// notes directory cannot be pinned.
 func (m *Model) togglePinnedSelection() {
 	item := m.selectedItem()
 	if item == nil {

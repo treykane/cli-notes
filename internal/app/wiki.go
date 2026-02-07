@@ -1,3 +1,18 @@
+// wiki.go implements wiki-style [[link]] support: parsing, resolution,
+// navigation, and edit-mode autocomplete.
+//
+// Wiki links use the syntax [[Label]], where Label is matched against note
+// titles (from YAML frontmatter) and filename stems (without extension).
+// Links inside fenced code blocks (``` ... ```) are intentionally ignored
+// to avoid false positives in code samples.
+//
+// Two UI surfaces consume wiki links:
+//
+//   - Browse-mode popup (Shift+L): lists all [[links]] in the current note,
+//     shows whether each resolves to an existing note, and allows jumping
+//     to the target with Enter.
+//   - Edit-mode autocomplete: typing "[[" triggers a filterable popup of all
+//     note titles/names. Selecting an entry inserts the label and closing "]]".
 package app
 
 import (
@@ -7,14 +22,24 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// wikiLink represents a single parsed [[link]] from a note's content.
+// Label is the raw text between the brackets, Target is the resolved absolute
+// path (empty if unresolved), and Resolved indicates whether Target was found.
 type wikiLink struct {
 	Label    string
 	Target   string
 	Resolved bool
 }
 
+// wikiLinkPattern matches [[...]] tokens, capturing the inner label.
+// It does not match nested brackets ([[a[b]c]]) by excluding [ and ] from
+// the capture group.
 var wikiLinkPattern = regexp.MustCompile(`\[\[([^\[\]]+)\]\]`)
 
+// openWikiLinksPopup parses all [[links]] from the current note, resolves each
+// against the search index (title match first, then filename stem), and opens
+// a navigable popup listing the results. Unresolved links are shown but cannot
+// be jumped to.
 func (m *Model) openWikiLinksPopup() {
 	if m.currentFile == "" {
 		m.status = "Select a note first"
@@ -48,6 +73,9 @@ func (m *Model) openWikiLinksPopup() {
 	m.status = "Wiki links: Enter to open, Esc to close"
 }
 
+// handleWikiLinksPopupKey routes key presses while the wiki-links popup is
+// visible. Supports up/down navigation, Enter to jump to a resolved link,
+// and Esc to dismiss.
 func (m *Model) handleWikiLinksPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
@@ -82,6 +110,12 @@ func (m *Model) handleWikiLinksPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
+// parseWikiLinks extracts unique wiki-link labels from markdown content.
+//
+// The parser is fence-aware: lines inside fenced code blocks (delimited by
+// ```) are skipped so that [[...]] tokens in code samples are not treated
+// as real links. Labels are deduplicated case-insensitively; only the first
+// occurrence of each label is returned to keep the popup concise.
 func parseWikiLinks(content string) []string {
 	if strings.TrimSpace(content) == "" {
 		return nil
@@ -115,6 +149,8 @@ func parseWikiLinks(content string) []string {
 	return out
 }
 
+// renderWikiLinksPopup draws the wiki-links popup content showing each link's
+// label, its resolved target path (or "(unresolved)"), and navigation hints.
 func (m *Model) renderWikiLinksPopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -145,6 +181,8 @@ func (m *Model) renderWikiLinksPopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+// renderWikiAutocompletePopup draws the edit-mode autocomplete popup showing
+// matching note titles/names filtered by the prefix typed after "[[".
 func (m *Model) renderWikiAutocompletePopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -170,6 +208,16 @@ func (m *Model) renderWikiAutocompletePopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+// handleWikiAutocompleteKey intercepts key presses when the wiki autocomplete
+// popup is visible in edit mode. It returns (model, cmd, handled) where handled
+// indicates whether the key was consumed by the autocomplete popup.
+//
+// Supported keys:
+//   - Esc: dismiss the popup without inserting anything.
+//   - Up/Down: navigate the candidate list.
+//   - Enter/Tab: accept the selected candidate, inserting its label and
+//     closing brackets into the editor.
+//   - Any other key: not handled — falls through to the normal editor handler.
 func (m *Model) handleWikiAutocompleteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	if !m.showWikiAutocomplete {
 		return m, nil, false
@@ -203,6 +251,13 @@ func (m *Model) handleWikiAutocompleteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, b
 	}
 }
 
+// maybeTriggerWikiAutocomplete checks whether the editor cursor is positioned
+// inside an open [[ token. If so, it builds a filtered list of note candidates
+// matching the prefix typed so far and opens the autocomplete popup. If the
+// cursor is not inside a [[ context, the popup is dismissed.
+//
+// This is called after every editor content change in edit mode so the popup
+// tracks the user's typing in real time.
 func (m *Model) maybeTriggerWikiAutocomplete() {
 	prefix, ok := currentWikiPrefix(m.editor.Value(), m.currentEditorCursorOffset())
 	if !ok {
@@ -238,6 +293,15 @@ func (m *Model) maybeTriggerWikiAutocomplete() {
 	m.wikiAutocompleteCursor = clamp(m.wikiAutocompleteCursor, 0, len(filtered)-1)
 }
 
+// currentWikiPrefix scans backward from the cursor position in the editor
+// value to find an open [[ token. If found, it returns the text between
+// the [[ and the cursor (the prefix the user has typed so far) and true.
+//
+// Returns ("", false) when:
+//   - No [[ is found before the cursor on the current line.
+//   - A ]] closing token is encountered first (the link is already closed).
+//   - A newline is reached (links do not span lines).
+//   - The prefix contains unbalanced brackets.
 func currentWikiPrefix(value string, cursor int) (string, bool) {
 	runes := []rune(value)
 	cursor = clamp(cursor, 0, len(runes))
@@ -264,6 +328,11 @@ func currentWikiPrefix(value string, cursor int) (string, bool) {
 	return strings.TrimSpace(prefix), true
 }
 
+// acceptWikiAutocomplete inserts the selected note's label into the editor,
+// replacing any partial prefix typed after [[. If closing brackets ]] are
+// not already present after the cursor, they are appended automatically.
+// The cursor is positioned immediately after the inserted label (and after
+// the closing ]] if they were added).
 func (m *Model) acceptWikiAutocomplete(target noteTarget) {
 	label := strings.TrimSpace(target.Title)
 	if label == "" {

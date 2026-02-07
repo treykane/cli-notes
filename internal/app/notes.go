@@ -1,3 +1,18 @@
+// notes.go implements note and folder CRUD operations (create, read, update, delete)
+// as well as rename and move workflows.
+//
+// All filesystem mutations funnel through this file. Each operation follows a
+// consistent pattern:
+//
+//  1. Validate inputs (non-empty name, path within notes root, no collisions).
+//  2. Perform the filesystem operation (WriteFile, MkdirAll, Rename, Remove).
+//  3. Update in-memory caches: rebuild the tree, upsert/remove from the search
+//     index, refresh git status, and remap persisted state (pins, positions,
+//     recent files) when paths change.
+//  4. Return a Bubble Tea Cmd to re-render the viewport if a file was affected.
+//
+// Note content is normalized before writing so that every file ends with
+// exactly one trailing newline (see normalizeNoteContent).
 package app
 
 import (
@@ -9,6 +24,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// welcomeNote is the markdown content seeded into a new notes directory on
+// first run. It serves as both a quick-start guide and a smoke test that the
+// directory was created successfully.
 const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"This is your personal notes manager in the terminal.\n\n" +
 	"## Features\n\n" +
@@ -57,6 +75,9 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"3. Press f to create folders and organize your notes\n\n" +
 	"Happy note-taking!\n"
 
+// ensureNotesDir creates the notes directory if it does not exist and seeds
+// it with a Welcome.md note when the directory is empty. This is called
+// during app initialization to guarantee the filesystem is ready.
 func ensureNotesDir(notesDir string) error {
 	if err := os.MkdirAll(notesDir, DirPermission); err != nil {
 		return fmt.Errorf("create notes directory %q: %w", notesDir, err)
@@ -159,6 +180,9 @@ func (m *Model) startRenameSelected() {
 }
 
 // startMoveSelected switches to move mode with the current parent directory prefilled.
+// startMoveSelected switches to move mode with the current parent directory
+// prefilled in the input widget. The user can edit the destination path
+// relative to the notes root.
 func (m *Model) startMoveSelected() {
 	item := m.selectedItem()
 	if item == nil {
@@ -276,6 +300,9 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// saveRenameItem validates the new name, performs the filesystem rename, and
+// updates all in-memory state (expanded paths, pinned paths, recent files,
+// note positions, search index, and git status) to reflect the new path.
 func (m *Model) saveRenameItem() (tea.Model, tea.Cmd) {
 	oldPath := m.actionPath
 	name := strings.TrimSpace(m.input.Value())
@@ -332,6 +359,12 @@ func (m *Model) saveRenameItem() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// saveMoveItem validates the destination folder, performs the filesystem move
+// via os.Rename, and updates all in-memory state to reflect the new location.
+// Moving a folder into itself (or a descendant) is detected and rejected.
+//
+// Note: os.Rename may fail across filesystem boundaries (EXDEV). A copy-then-
+// delete fallback is tracked as a future improvement in TASKS.md.
 func (m *Model) saveMoveItem() (tea.Model, tea.Cmd) {
 	oldPath := m.actionPath
 	if !isWithinRoot(m.notesDir, oldPath) {
@@ -517,6 +550,14 @@ func isDirEmpty(path string) bool {
 	return len(entries) == 0
 }
 
+// resolveMoveDestination parses user input into an absolute directory path.
+//
+// Input handling:
+//   - Leading "/" is treated as relative to the notes root (not filesystem root).
+//   - Absolute paths are accepted as-is.
+//   - Bare relative paths are resolved relative to the notes root.
+//
+// The resolved path must be an existing directory within the notes root.
 func (m *Model) resolveMoveDestination(value string) (string, error) {
 	destValue := strings.TrimSpace(value)
 	if destValue == "" {
@@ -547,6 +588,8 @@ func (m *Model) resolveMoveDestination(value string) (string, error) {
 	return destDir, nil
 }
 
+// remapExpandedPaths updates the expanded-directories map after a rename or
+// move so that the tree remembers which folders were open under the new path.
 func (m *Model) remapExpandedPaths(oldPath, newPath string) {
 	if oldPath == "" || newPath == "" || oldPath == newPath {
 		return
@@ -558,6 +601,10 @@ func (m *Model) remapExpandedPaths(oldPath, newPath string) {
 	m.expanded = remapped
 }
 
+// replacePathPrefix swaps oldPrefix for newPrefix at the start of path.
+// If path equals oldPrefix exactly, newPrefix is returned. If path is a
+// descendant (starts with oldPrefix + separator), only the prefix portion
+// is replaced. Otherwise, path is returned unchanged.
 func replacePathPrefix(path, oldPrefix, newPrefix string) string {
 	if path == "" || oldPrefix == "" || newPrefix == "" {
 		return path

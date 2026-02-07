@@ -1,3 +1,23 @@
+// state.go implements per-workspace persistent state: recent files, pinned
+// paths, and per-note scroll/cursor position memory.
+//
+// State is stored as JSON at <notes_dir>/.cli-notes/state.json so each
+// workspace maintains independent state that travels with the notes directory
+// (e.g. across machines via git sync). All paths in the JSON file are stored
+// as relative paths (relative to notesDir) so the state remains valid if the
+// workspace root is relocated.
+//
+// The in-memory representation (appPersistentState) uses absolute paths for
+// O(1) lookups. Conversion between absolute and relative paths happens at
+// the load/save boundaries via statePathToAbs and absToStatePath, with
+// validation to reject paths that escape the workspace root.
+//
+// State is saved:
+//   - After every file navigation (recent file tracking)
+//   - Before switching files or workspaces (position memory)
+//   - After pin/unpin toggles
+//   - After rename/move/delete operations (state path remapping)
+//   - On external filesystem change detection (watcher refresh)
 package app
 
 import (
@@ -8,27 +28,49 @@ import (
 	"sort"
 )
 
+// notePosition records the viewport scroll offset and editor cursor position
+// for a single note so the app can restore the user's reading/editing position
+// when they return to a previously viewed file.
 type notePosition struct {
 	PreviewOffset int `json:"preview_offset,omitempty"`
 	EditorCursor  int `json:"editor_cursor,omitempty"`
 }
 
+// persistedState is the on-disk JSON representation of per-workspace app state.
+//
+// All paths are stored as relative paths (relative to the workspace's notesDir)
+// so state files remain valid when the workspace root is relocated. Conversion
+// between absolute and relative paths happens at load/save boundaries via
+// statePathToAbs and absToStatePath.
 type persistedState struct {
 	RecentFiles []string                `json:"recent_files,omitempty"`
 	PinnedPaths []string                `json:"pinned_paths,omitempty"`
 	Positions   map[string]notePosition `json:"positions,omitempty"`
 }
 
+// appPersistentState is the in-memory representation of workspace state.
+//
+// Unlike persistedState, all paths here are absolute. PinnedPaths uses a
+// map[string]bool for O(1) lookup during tree sorting and rendering.
 type appPersistentState struct {
 	RecentFiles []string
 	PinnedPaths map[string]bool
 	Positions   map[string]notePosition
 }
 
+// appStatePath returns the filesystem path to the per-workspace state file.
+// State is stored inside the managed directory (<notesDir>/.cli-notes/state.json)
+// so it lives alongside the notes it describes and is workspace-specific.
 func appStatePath(notesDir string) string {
 	return filepath.Join(notesDir, managedNotesDirName, "state.json")
 }
 
+// loadAppState reads and deserializes the per-workspace state file.
+//
+// If the state file does not exist (first run or new workspace), an empty state
+// with initialized maps is returned without error. Relative paths in the JSON
+// are converted to absolute paths, and invalid entries (negative offsets, paths
+// outside the workspace root) are silently discarded to keep state clean.
 func loadAppState(notesDir string) (appPersistentState, error) {
 	state := appPersistentState{
 		PinnedPaths: map[string]bool{},
@@ -85,6 +127,14 @@ func loadAppState(notesDir string) (appPersistentState, error) {
 	return state, nil
 }
 
+// saveAppState serializes the current in-memory state (recent files, pinned
+// paths, and per-note positions) to the per-workspace state file on disk.
+//
+// Absolute paths are converted to relative paths before writing so the state
+// file is portable if the workspace root moves. Pinned paths are sorted for
+// deterministic output. Positions with zero values are omitted to keep the
+// file compact. The file is written atomically with restrictive permissions
+// (0600) since it lives inside the user's notes directory.
 func (m *Model) saveAppState() {
 	if m.notesDir == "" {
 		return
@@ -142,6 +192,9 @@ func (m *Model) saveAppState() {
 	}
 }
 
+// absToStatePath converts an absolute path to a relative path for state
+// persistence. Returns false if the path is not within the workspace root
+// or cannot be relativized, ensuring only valid workspace paths are stored.
 func absToStatePath(root, path string) (string, bool) {
 	if !isWithinRoot(root, path) {
 		return "", false
@@ -157,6 +210,10 @@ func absToStatePath(root, path string) (string, bool) {
 	return rel, true
 }
 
+// statePathToAbs converts a relative path from the state file back to an
+// absolute path. Returns false if the relative path is invalid, empty, or
+// would resolve outside the workspace root (e.g. via ".." traversal),
+// preventing path traversal attacks from malformed state files.
 func statePathToAbs(root, rel string) (string, bool) {
 	rel = filepath.Clean(rel)
 	if rel == "." || rel == "" || filepath.IsAbs(rel) {
@@ -169,6 +226,9 @@ func statePathToAbs(root, rel string) (string, bool) {
 	return path, true
 }
 
+// rememberCurrentNotePosition saves the current viewport offset and editor
+// cursor for the active note so the position can be restored later. This is
+// called before switching files, saving state, or exiting edit mode.
 func (m *Model) rememberCurrentNotePosition() {
 	if m.currentFile == "" {
 		return
@@ -176,6 +236,9 @@ func (m *Model) rememberCurrentNotePosition() {
 	m.rememberNotePosition(m.currentFile)
 }
 
+// rememberNotePosition saves the viewport offset and (if in edit mode) editor
+// cursor position for the given note path. The position is stored in the
+// notePositions map and persisted to disk on the next saveAppState call.
 func (m *Model) rememberNotePosition(path string) {
 	if path == "" {
 		return
@@ -191,6 +254,9 @@ func (m *Model) rememberNotePosition(path string) {
 	m.notePositions[path] = pos
 }
 
+// restorePreviewOffset restores the viewport scroll position for a note that
+// was previously viewed. If no saved position exists, the viewport is reset
+// to the top of the document.
 func (m *Model) restorePreviewOffset(path string) {
 	if path == "" {
 		return
@@ -203,6 +269,10 @@ func (m *Model) restorePreviewOffset(path string) {
 	m.viewport.YOffset = max(0, pos.PreviewOffset)
 }
 
+// restoreEditorCursor restores the editor cursor to the previously saved
+// position when re-entering edit mode for a note. If no position was saved
+// or the saved position is zero, the cursor is placed at the end of the
+// document as a sensible default.
 func (m *Model) restoreEditorCursor(path string) {
 	if path == "" {
 		return
@@ -215,6 +285,10 @@ func (m *Model) restoreEditorCursor(path string) {
 	m.setEditorValueAndCursorOffset(m.editor.Value(), pos.EditorCursor)
 }
 
+// trackRecentFile adds a note path to the front of the recent files list.
+// Duplicates are removed so each path appears at most once. The list is
+// capped at MaxRecentFiles entries. Non-markdown files are ignored since
+// the app only previews/edits markdown. State is persisted immediately.
 func (m *Model) trackRecentFile(path string) {
 	if path == "" || !hasSuffixCaseInsensitive(path, ".md") {
 		return
@@ -225,6 +299,10 @@ func (m *Model) trackRecentFile(path string) {
 	m.saveAppState()
 }
 
+// rebuildRecentEntries filters the recent files list to only include paths
+// that still exist on disk and are within the current workspace root. This
+// is called after workspace switches, file deletions, and state loads to
+// ensure the recent-files popup never shows stale or missing entries.
 func (m *Model) rebuildRecentEntries() {
 	if len(m.recentFiles) == 0 {
 		m.recentEntries = nil
@@ -251,12 +329,18 @@ func (m *Model) rebuildRecentEntries() {
 	m.recentCursor = clamp(m.recentCursor, 0, len(m.recentEntries)-1)
 }
 
+// trimRecentFiles caps the recent files list at MaxRecentFiles entries,
+// discarding the oldest entries (those at the end of the slice).
 func trimRecentFiles(paths *[]string) {
 	if len(*paths) > MaxRecentFiles {
 		*paths = (*paths)[:MaxRecentFiles]
 	}
 }
 
+// clearStateForPath removes all persisted state associated with the given
+// path: pinned status, saved positions, and recent file entries. If the path
+// is a directory, all descendant paths are also cleared. This is called after
+// a file or folder is deleted to avoid stale references in state.
 func (m *Model) clearStateForPath(path string) {
 	if path == "" {
 		return
@@ -280,6 +364,10 @@ func (m *Model) clearStateForPath(path string) {
 	m.saveAppState()
 }
 
+// remapStatePaths updates all persisted state references when a file or folder
+// is renamed or moved. Pinned paths, note positions, and recent file entries
+// are all updated so that the old path prefix is replaced with the new one.
+// This ensures state survives rename/move operations without data loss.
 func (m *Model) remapStatePaths(oldPath, newPath string) {
 	if oldPath == "" || newPath == "" || oldPath == newPath {
 		return
@@ -291,6 +379,7 @@ func (m *Model) remapStatePaths(oldPath, newPath string) {
 	m.saveAppState()
 }
 
+// remapPinnedPaths replaces oldPath prefix with newPath in all pinned entries.
 func (m *Model) remapPinnedPaths(oldPath, newPath string) {
 	if len(m.pinnedPaths) == 0 {
 		return
@@ -305,6 +394,7 @@ func (m *Model) remapPinnedPaths(oldPath, newPath string) {
 	m.pinnedPaths = remapped
 }
 
+// remapPositionPaths replaces oldPath prefix with newPath in all saved positions.
 func (m *Model) remapPositionPaths(oldPath, newPath string) {
 	if len(m.notePositions) == 0 {
 		return
@@ -316,6 +406,8 @@ func (m *Model) remapPositionPaths(oldPath, newPath string) {
 	m.notePositions = remapped
 }
 
+// remapRecentPaths replaces oldPath prefix with newPath in the recent files list,
+// then deduplicates and trims the result.
 func (m *Model) remapRecentPaths(oldPath, newPath string) {
 	if len(m.recentFiles) == 0 {
 		return
@@ -328,6 +420,7 @@ func (m *Model) remapRecentPaths(oldPath, newPath string) {
 	trimRecentFiles(&m.recentFiles)
 }
 
+// removePathFromList returns a new slice with all occurrences of target removed.
 func removePathFromList(paths []string, target string) []string {
 	if len(paths) == 0 {
 		return nil
@@ -342,6 +435,8 @@ func removePathFromList(paths []string, target string) []string {
 	return out
 }
 
+// removePathsWithPrefix returns a new slice with all paths matching the given
+// prefix removed. Used to clear descendants when a directory is deleted.
 func removePathsWithPrefix(paths []string, prefix string) []string {
 	if len(paths) == 0 {
 		return nil
@@ -356,10 +451,16 @@ func removePathsWithPrefix(paths []string, prefix string) []string {
 	return out
 }
 
+// hasPathPrefix reports whether path starts with prefix. This is a raw string
+// comparison (not filepath-aware), so callers should ensure prefix ends with
+// the path separator when checking for directory containment.
 func hasPathPrefix(path, prefix string) bool {
 	return len(prefix) > 0 && len(path) >= len(prefix) && path[:len(prefix)] == prefix
 }
 
+// dedupePaths returns a new slice with duplicate paths removed, preserving the
+// order of first occurrence. Used after path remapping to eliminate duplicates
+// that can arise when both a parent and child are renamed to the same target.
 func dedupePaths(paths []string) []string {
 	if len(paths) == 0 {
 		return nil

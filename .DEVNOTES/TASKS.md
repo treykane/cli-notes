@@ -1,5 +1,9 @@
 # Tasks
 
+## Recently Completed
+
+- [x] **Comprehensive inline documentation**: Added godoc-style package comments, function/type/field documentation, algorithm rationale, and edge-case notes across all source files. Documented platform-specific `file_time_*.go` files and added file-level doc to `state.go`. Fixed `gofmt` formatting across 14 files. All changes documentation-only; build, vet, and tests pass cleanly.
+
 ## In Progress
 
 - [ ] Add mouse-driven editor selection using Bubble Tea mouse events and map drag gestures to the shared selection API.

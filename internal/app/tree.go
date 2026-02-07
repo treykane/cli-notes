@@ -1,3 +1,26 @@
+// tree.go implements the left-hand directory tree pane: building, sorting,
+// navigating, expanding/collapsing, and searching the note file hierarchy.
+//
+// The tree is a flat slice of treeItem structs produced by a depth-first walk
+// of the notes directory. Each item records its indentation depth so the View
+// layer can render proper visual nesting without maintaining a recursive data
+// structure. Only expanded directories have their children included in the
+// slice, which keeps the list compact and makes cursor math straightforward.
+//
+// # Sort Modes
+//
+// The tree supports four sort modes that affect the ordering of entries within
+// each directory level:
+//
+//   - name:     Case-insensitive alphabetical (default)
+//   - modified: Most recently modified first
+//   - size:     Largest first
+//   - created:  Most recently created first (platform-dependent; see file_time_*.go)
+//
+// In every mode, directories are sorted before files, and pinned items are
+// sorted before unpinned items at the same level. When the primary sort key
+// is equal (e.g. two files with the same modification time), the tiebreaker
+// is always case-insensitive alphabetical order.
 package app
 
 import (
@@ -8,15 +31,20 @@ import (
 	"time"
 )
 
+// sortMode determines how entries are ordered within each directory level
+// of the tree. The mode is persisted in config.json under "tree_sort" and
+// can be cycled at runtime with the `s` keybinding.
 type sortMode string
 
 const (
-	sortModeName     sortMode = "name"
-	sortModeModified sortMode = "modified"
-	sortModeSize     sortMode = "size"
-	sortModeCreated  sortMode = "created"
+	sortModeName     sortMode = "name"     // Case-insensitive alphabetical (default)
+	sortModeModified sortMode = "modified" // Most recently modified first
+	sortModeSize     sortMode = "size"     // Largest files first
+	sortModeCreated  sortMode = "created"  // Most recently created first
 )
 
+// parseSortMode converts a config string to a sortMode constant.
+// Unrecognized values fall back to sortModeName for safe defaults.
 func parseSortMode(value string) sortMode {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case string(sortModeModified):
@@ -30,10 +58,12 @@ func parseSortMode(value string) sortMode {
 	}
 }
 
+// String returns the sort mode's config-file representation.
 func (s sortMode) String() string {
 	return string(s)
 }
 
+// Label returns a human-readable label for display in the status bar.
 func (s sortMode) Label() string {
 	switch s {
 	case sortModeModified:
@@ -47,6 +77,8 @@ func (s sortMode) Label() string {
 	}
 }
 
+// nextSortMode cycles through sort modes in a fixed order:
+// name → modified → size → created → name → ...
 func nextSortMode(current sortMode) sortMode {
 	switch current {
 	case sortModeName:
@@ -86,7 +118,10 @@ func (m *Model) adjustTreeOffset() {
 	}
 }
 
-// toggleExpand expands or collapses a directory row.
+// toggleExpand expands or collapses a directory row. When expandIfDir is true,
+// the directory's expanded state is toggled (used by Enter/Right/l). When false,
+// the directory is collapsed without toggling (used by Left/h). The root notes
+// directory cannot be collapsed to ensure at least one level is always visible.
 func (m *Model) toggleExpand(expandIfDir bool) {
 	item := m.selectedItem()
 	if item == nil || !item.isDir {
@@ -152,8 +187,20 @@ func buildTree(root string, expanded map[string]bool, mode sortMode, pinned map[
 
 // walkTree recursively appends directory contents in sorted order.
 //
-// Each directory is sorted with folders first, then alphabetically (case-insensitive).
-// Only expanded folders have their children added to the tree.
+// For each directory level the function:
+//  1. Reads all directory entries, skipping the managed .cli-notes directory.
+//  2. Stats each entry to gather sort metadata (mod time, size, creation time).
+//  3. Sorts entries using a multi-key comparator:
+//     - Pinned items first (within the same directory level)
+//     - Directories before files
+//     - Primary key determined by sortMode (name, modified, size, or created)
+//     - Tiebreaker: case-insensitive alphabetical name
+//  4. Appends each entry as a treeItem. For markdown files, frontmatter tags
+//     are parsed and attached to the item for display in the tree row.
+//  5. If a directory is marked as expanded, recurses into it at depth+1.
+//
+// Only expanded folders have their children added to the tree, which keeps the
+// flat items slice compact and makes cursor indexing simple.
 func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pinned map[string]bool, items *[]treeItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -242,6 +289,9 @@ func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pi
 	}
 }
 
+// searchTreeItems performs a one-shot search by building a temporary search
+// index over the given root directory and querying it with the provided string.
+// This is a convenience wrapper used when no persistent index is available.
 func searchTreeItems(root, query string) []treeItem {
 	if strings.TrimSpace(query) == "" {
 		return nil

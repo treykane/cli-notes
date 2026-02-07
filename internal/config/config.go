@@ -1,3 +1,30 @@
+// Package config manages the persistent user configuration for cli-notes.
+//
+// Configuration is stored in a JSON file at ~/.cli-notes/config.json. The file
+// is created by the first-run configurator (see cmd/notes/main.go) and can be
+// re-generated at any time with `notes --configure`.
+//
+// # Configuration Fields
+//
+//   - notes_dir:         Legacy single-workspace notes directory (migrated to workspaces).
+//   - tree_sort:         Persisted tree sort mode (name, modified, size, created).
+//   - templates_dir:     Directory containing note templates (default: ~/.cli-notes/templates).
+//   - workspaces:        Named workspace list, each with its own notes_dir.
+//   - active_workspace:  Name of the currently active workspace.
+//   - keybindings:       Inline action→key overrides (merged with keymap_file).
+//   - keymap_file:       Path to an external keymap JSON file (default: ~/.cli-notes/keymap.json).
+//
+// # Workspace Migration
+//
+// Older config files that have only a top-level notes_dir (no workspaces array)
+// are automatically migrated: a single workspace named "default" is created
+// pointing at the legacy notes_dir.
+//
+// # Path Normalization
+//
+// All directory paths stored in config are expanded (~ → home dir) and made
+// absolute before use, so relative or tilde-prefixed paths in the JSON are
+// handled transparently. See NormalizeNotesDir for details.
 package config
 
 import (
@@ -12,24 +39,59 @@ import (
 )
 
 const (
-	configDirName  = ".cli-notes"
+	// configDirName is the hidden directory under the user's home where app-level
+	// configuration (config.json, keymap.json, templates/) is stored.
+	configDirName = ".cli-notes"
+
+	// configFileName is the name of the JSON configuration file inside configDirName.
 	configFileName = "config.json"
 )
 
+// ErrNotConfigured is returned by Load when no config file exists, signaling
+// the caller to run the interactive configurator before starting the app.
 var ErrNotConfigured = errors.New("cli-notes is not configured")
+
+// log is the structured logger for the config package, tagged with component="config".
 var log = logging.New("config")
 
 // Config stores user-defined CLI Notes settings.
+//
+// The struct is serialized to and deserialized from ~/.cli-notes/config.json.
+// Fields tagged with omitempty are excluded from the JSON output when empty,
+// keeping the config file concise for simple single-workspace setups.
 type Config struct {
-	NotesDir        string            `json:"notes_dir,omitempty"`
-	TreeSort        string            `json:"tree_sort,omitempty"`
-	TemplatesDir    string            `json:"templates_dir,omitempty"`
-	Workspaces      []WorkspaceConfig `json:"workspaces,omitempty"`
-	ActiveWorkspace string            `json:"active_workspace,omitempty"`
-	Keybindings     map[string]string `json:"keybindings,omitempty"`
-	KeymapFile      string            `json:"keymap_file,omitempty"`
+	// NotesDir is the active workspace's notes directory (absolute path).
+	// In multi-workspace configs this is derived from the active workspace
+	// entry and may differ from what is stored on disk.
+	NotesDir string `json:"notes_dir,omitempty"`
+
+	// TreeSort is the persisted tree sort mode (name, modified, size, created).
+	TreeSort string `json:"tree_sort,omitempty"`
+
+	// TemplatesDir is the directory scanned for note templates when creating
+	// new notes. Defaults to ~/.cli-notes/templates if unset.
+	TemplatesDir string `json:"templates_dir,omitempty"`
+
+	// Workspaces lists all configured named workspaces. If empty, a default
+	// workspace is synthesized from NotesDir during Load.
+	Workspaces []WorkspaceConfig `json:"workspaces,omitempty"`
+
+	// ActiveWorkspace is the name of the workspace to activate on startup.
+	// Must match one of the entries in Workspaces.
+	ActiveWorkspace string `json:"active_workspace,omitempty"`
+
+	// Keybindings holds inline action→key overrides from config.json. These
+	// are merged with (and take priority over) any keymap_file bindings.
+	Keybindings map[string]string `json:"keybindings,omitempty"`
+
+	// KeymapFile is the path to an external keymap JSON file with additional
+	// keybinding overrides. Defaults to ~/.cli-notes/keymap.json if unset.
+	KeymapFile string `json:"keymap_file,omitempty"`
 }
 
+// WorkspaceConfig pairs a human-readable workspace name with the absolute path
+// to its notes directory. Names must be unique (case-insensitive) and
+// directories must not overlap between workspaces.
 type WorkspaceConfig struct {
 	Name     string `json:"name"`
 	NotesDir string `json:"notes_dir"`
@@ -71,7 +133,8 @@ func ConfigPath() (string, error) {
 	return filepath.Join(home, configDirName, configFileName), nil
 }
 
-// Exists reports whether the config file exists.
+// Exists reports whether the config file exists on disk. This is used at
+// startup to decide whether to run the first-run configurator.
 func Exists() (bool, error) {
 	path, err := ConfigPath()
 	if err != nil {
@@ -87,7 +150,21 @@ func Exists() (bool, error) {
 	return false, fmt.Errorf("stat config path %q: %w", path, err)
 }
 
-// Load reads and validates the saved configuration.
+// Load reads, parses, and validates the saved configuration from disk.
+//
+// Validation steps performed during load:
+//  1. All directory paths are normalized (~ expanded, made absolute).
+//  2. TreeSort defaults to "name" if empty.
+//  3. TemplatesDir defaults to ~/.cli-notes/templates if empty.
+//  4. KeymapFile defaults to ~/.cli-notes/keymap.json if empty.
+//  5. Workspaces are normalized: names are validated for uniqueness, directories
+//     are expanded and checked for duplicates. If no workspaces are configured,
+//     a "default" workspace is created from the legacy notes_dir field.
+//  6. ActiveWorkspace is resolved to an existing workspace name (falls back to
+//     the first workspace if the configured name doesn't match).
+//  7. NotesDir is set to the active workspace's directory.
+//
+// Returns ErrNotConfigured if the config file does not exist.
 func Load() (Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
@@ -167,7 +244,13 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-// Save writes configuration to disk.
+// Save writes configuration to disk at ~/.cli-notes/config.json.
+//
+// Before writing, the configuration is normalized using the same rules as Load
+// (path expansion, workspace deduplication, sort mode defaulting) so the
+// persisted file is always in canonical form. The config directory is created
+// if it doesn't exist. The file is written with restrictive permissions (0600)
+// since it may contain filesystem paths the user considers private.
 func Save(cfg Config) error {
 	var err error
 	legacyNotesDir := strings.TrimSpace(cfg.NotesDir)
@@ -248,7 +331,16 @@ func Save(cfg Config) error {
 	return nil
 }
 
-// NormalizeNotesDir expands and normalizes a notes directory path.
+// NormalizeNotesDir expands and normalizes a filesystem path for use as a
+// notes directory (or templates directory, or keymap file path).
+//
+// Processing steps:
+//  1. Trim whitespace.
+//  2. Expand leading ~ or ~/ to the user's home directory.
+//  3. Resolve to an absolute path.
+//  4. Clean redundant separators and . / .. components.
+//
+// Returns an error if the path is empty or home directory resolution fails.
 func NormalizeNotesDir(path string) (string, error) {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" {
@@ -268,6 +360,9 @@ func NormalizeNotesDir(path string) (string, error) {
 	return filepath.Clean(abs), nil
 }
 
+// expandHome replaces a leading ~ or ~/ with the current user's home directory.
+// Paths that don't start with ~ are returned unchanged. This allows users to
+// write portable paths like "~/notes" in their config file.
 func expandHome(path string) (string, error) {
 	if path == "~" {
 		home, err := os.UserHomeDir()
@@ -286,6 +381,17 @@ func expandHome(path string) (string, error) {
 	return path, nil
 }
 
+// normalizeWorkspaces validates and normalizes the workspace list.
+//
+// It enforces the following invariants:
+//   - Every workspace has a non-empty, unique name (case-insensitive).
+//   - Every workspace's notes_dir is a valid, unique absolute path.
+//   - At least one workspace exists (if the list is empty, a "default" workspace
+//     is created from fallbackNotesDir).
+//   - activeWorkspace resolves to an existing workspace name; if it doesn't
+//     match any workspace, the first workspace is selected as the default.
+//
+// Returns the normalized workspace list and the resolved active workspace name.
 func normalizeWorkspaces(workspaces []WorkspaceConfig, activeWorkspace string, fallbackNotesDir string) ([]WorkspaceConfig, string, error) {
 	normalized := make([]WorkspaceConfig, 0, len(workspaces)+1)
 	seenNames := map[string]bool{}
