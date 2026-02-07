@@ -5,14 +5,6 @@
 - [ ] Allow vertical selection when highlighting text
 - [ ] **Dynamic keybinding legends**: Help/footer key legends are still static strings and do not reflect user-customized keymaps. Render these hints from the active action->keys map.
 
-## Code Quality & Optimization
-
-- [x] **Consolidate `handleBrowseKey` key dispatch**: Many keys (arrows, g/G, enter, h/l, ctrl+p, ctrl+o, o, etc.) are matched by direct string comparison before the action-based keybinding system is consulted, which means custom keybindings cannot override them. Route all browse-mode keys through the `actionForKey` dispatch so the configurable keybinding system is authoritative for every action.
-- [x] **Cap or evict glamour `rendererCache`**: The global `rendererCache` map (render.go) grows one entry per unique width bucket and is never pruned. Add a bounded LRU or cap to prevent memory growth when the terminal is resized frequently.
-- [x] **Avoid double `readMarkdownContentAndMetadata` during uncached tree builds**: When `buildTree` is called without the metadata cache callback (e.g. in test helpers), every markdown file is read from disk inline. Ensure all production call paths use `buildTreeWithMetadataCache` with the `cachedTagsForPath` callback.
-- [x] **Reduce map iteration in `removeDescendants`**: `searchIndex.removeDescendants` iterates the entire `docs` map with `strings.HasPrefix`. For large workspaces (10k+ files), consider a trie or sorted-slice approach to speed up prefix removal.
-- [x] **Consolidate duplicate search popup key handling**: `handleSearchKey` has separate cases for `"up"/"k"` and `"ctrl+p"` (both call `moveSearchCursor(-1)`) and similar for down. Merge these into combined match arms for clarity.
-
 ## New Feature Ideas
 
 - [ ] **`--version` CLI flag**: Add a `--version` flag that prints the build version/commit hash, useful for issue reporting and debugging. Wire it into the CI build with `-ldflags`.
