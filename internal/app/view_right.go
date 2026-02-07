@@ -1,10 +1,13 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	rw "github.com/mattn/go-runewidth"
 )
 
 func (m *Model) renderRight(width, height int) string {
@@ -163,45 +166,178 @@ func (m *Model) editorViewWithSelectionHighlight(view string) string {
 		return view
 	}
 
-	selected := string(runes[start:end])
+	spans := m.editorSelectionRowSpans(start, end)
+	if len(spans) == 0 {
+		return view
+	}
+
+	lines := strings.Split(view, "\n")
+	contentStart := m.editorContentStartColumn()
+	for _, span := range spans {
+		if span.row < 0 || span.row >= len(lines) {
+			continue
+		}
+		lines[span.row] = highlightEditorRowSpan(lines[span.row], contentStart, span.startCol, span.endCol)
+	}
+	return strings.Join(lines, "\n")
+}
+
+type editorRowSelectionSpan struct {
+	row      int
+	startCol int
+	endCol   int
+}
+
+func (m *Model) editorSelectionRowSpans(start, end int) []editorRowSelectionSpan {
+	value := m.editor.Value()
+	runes := []rune(value)
+	start = clamp(start, 0, len(runes))
+	end = clamp(end, 0, len(runes))
+	if start > end {
+		start, end = end, start
+	}
+	if start >= end {
+		return nil
+	}
+
+	lines := splitEditorLines(value)
+	wrapWidth := max(1, m.editor.Width())
+	spans := make([]editorRowSelectionSpan, 0, len(lines))
+
+	globalOffset := 0
+	rowIndex := 0
+	for i, line := range lines {
+		wrapped := wrapEditorLineWithSources(line, wrapWidth)
+		for _, row := range wrapped {
+			if startCol, endCol, ok := selectionColumnsForWrappedRow(row, globalOffset, start, end); ok {
+				spans = append(spans, editorRowSelectionSpan{
+					row:      rowIndex,
+					startCol: startCol,
+					endCol:   endCol,
+				})
+			}
+			rowIndex++
+		}
+
+		globalOffset += len(line)
+		if i < len(lines)-1 {
+			globalOffset++
+		}
+	}
+
+	return spans
+}
+
+func selectionColumnsForWrappedRow(row []wrappedEditorCell, lineOffset, selectionStart, selectionEnd int) (startCol, endCol int, ok bool) {
+	col := 0
+	startCol = -1
+	endCol = -1
+	for _, cell := range row {
+		cellWidth := max(1, cell.display)
+		if cell.source >= 0 {
+			offset := lineOffset + cell.source
+			if offset >= selectionStart && offset < selectionEnd {
+				if startCol < 0 {
+					startCol = col
+				}
+				endCol = col + cellWidth
+			}
+		}
+		col += cellWidth
+	}
+
+	if startCol < 0 || endCol <= startCol {
+		return 0, 0, false
+	}
+	return startCol, endCol, true
+}
+
+func (m *Model) editorContentStartColumn() int {
+	gutter := lipgloss.Width(m.editor.Prompt)
+	if m.editor.ShowLineNumbers {
+		gutter += len(fmt.Sprintf("%3v ", max(1, m.editor.LineCount())))
+	}
+	return max(0, gutter)
+}
+
+func highlightEditorRowSpan(line string, contentStart, startCol, endCol int) string {
+	if endCol <= startCol {
+		return line
+	}
+
+	raw := ansi.Strip(line)
+	if raw == "" {
+		return line
+	}
+
+	gutter, content := splitByDisplayColumn(raw, contentStart)
+	startCol = clamp(startCol, 0, rw.StringWidth(content))
+	endCol = clamp(endCol, startCol, rw.StringWidth(content))
+	if endCol <= startCol {
+		return line
+	}
+
+	before, selected, after := splitByDisplayRange(content, startCol, endCol)
 	if selected == "" {
-		return view
+		return line
 	}
-	segments := selectionSegments(selected)
-	if len(segments) == 0 {
-		return view
+
+	switch renderedLineStyleKind(line, raw) {
+	case renderedLineStyleCode:
+		return editorCodeLine.Render(gutter+before) + selectionText.Render(selected) + editorCodeLine.Render(after)
+	case renderedLineStyleFence:
+		return editorFenceLine.Render(gutter+before) + selectionText.Render(selected) + editorFenceLine.Render(after)
+	default:
+		return gutter + before + selectionText.Render(selected) + after
 	}
-	return highlightSelectionSegmentsInView(view, segments)
 }
 
-func selectionSegments(selected string) []string {
-	parts := strings.Split(selected, "\n")
-	segments := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		segments = append(segments, part)
+type renderedLineStyle int
+
+const (
+	renderedLineStyleNone renderedLineStyle = iota
+	renderedLineStyleCode
+	renderedLineStyleFence
+)
+
+func renderedLineStyleKind(line, raw string) renderedLineStyle {
+	switch {
+	case line == editorCodeLine.Render(raw):
+		return renderedLineStyleCode
+	case line == editorFenceLine.Render(raw):
+		return renderedLineStyleFence
+	default:
+		return renderedLineStyleNone
 	}
-	return segments
 }
 
-func highlightSelectionSegmentsInView(view string, segments []string) string {
-	searchFrom := 0
-	for _, segment := range segments {
-		if segment == "" {
-			continue
-		}
-		idx := strings.Index(view[searchFrom:], segment)
-		if idx < 0 {
-			continue
-		}
-		absolute := searchFrom + idx
-		highlighted := selectionText.Render(segment)
-		view = view[:absolute] + highlighted + view[absolute+len(segment):]
-		searchFrom = absolute + len(highlighted)
+func splitByDisplayRange(s string, startCol, endCol int) (before, middle, after string) {
+	before, rest := splitByDisplayColumn(s, startCol)
+	middle, after = splitByDisplayColumn(rest, max(0, endCol-startCol))
+	return before, middle, after
+}
+
+func splitByDisplayColumn(s string, col int) (left, right string) {
+	if col <= 0 {
+		return "", s
 	}
-	return view
+
+	runes := []rune(s)
+	width := 0
+	for i, r := range runes {
+		w := rw.RuneWidth(r)
+		if w <= 0 {
+			w = 1
+		}
+		if width+w > col {
+			return string(runes[:i]), string(runes[i:])
+		}
+		width += w
+		if width == col {
+			return string(runes[:i+1]), string(runes[i+1:])
+		}
+	}
+	return s, ""
 }
 
 func (m *Model) inputModeMeta() (string, string, string) {

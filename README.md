@@ -146,7 +146,7 @@ Use `--version` to print the current build version and commit hash.
 | `Ctrl+V` | Paste from system clipboard |
 | `Esc` | Cancel |
 
-Edit mode highlights selected text (including multiline ranges) with a light background and dark text.
+Edit mode highlights selected text with offset-aware precision (including multiline/vertical ranges), so repeated text segments are highlighted only at the true selected offsets.
 
 ### Template Picker
 

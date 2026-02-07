@@ -66,7 +66,7 @@ Tip: run `./notes --version` to print the current build version and commit.
 - Left-click + drag to select text with the mouse
 - Set a selection anchor with `Alt+S` (move cursor to define range)
 - Or hold `Shift` with arrow keys/home/end to extend selection
-- Selected text is highlighted (light background with dark text), including multiline selections
+- Selected text is highlighted with offset-aware precision (light background with dark text), including multiline/vertical selections even when text repeats
 - Formatting toggles on the active selection (or current word if no selection):
   - `Ctrl+B` for `**bold**`
   - `Alt+I` for `*italic*`
