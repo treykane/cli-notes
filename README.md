@@ -7,12 +7,19 @@ This application is a work in progress, it currently works, but I'm working on f
 ## Features
 
 - Markdown support with rendered preview
+- YAML frontmatter metadata (`title`, `date`, `category`, `tags`)
+- Tag-aware tree rows and `Ctrl+P` filtering with `tag:<name>`
 - Mode-aware colors with distinct preview vs edit accents
 - Colorful tree rows that visually separate folders and notes
 - Directory organization (folders instead of notebooks)
 - Search popup (`Ctrl+P`) for filtering folders by name and notes by name/content
+- Workspace popup (`Ctrl+W`) for switching named notes roots
 - Recent-files popup (`Ctrl+O`) for quick jumps to previously viewed notes
 - Heading outline popup (`o`) for jump-to-section in long notes
+- Wiki links popup (`Shift+L`) for navigating `[[Note Name]]` references
+- Edit-mode wiki autocomplete when typing `[[`
+- Export popup (`x`) for HTML and PDF (Pandoc-backed) export
+- Split mode (`z`) for side-by-side two-note viewing with focus toggle (`Tab`)
 - Pinning (`t`) keeps favorite notes/folders sorted to the top of their folder
 - Poll-based file watcher auto-refreshes tree/search/render state on external edits
 - Persistent per-note positions restore preview and edit locations when revisiting files
@@ -52,7 +59,7 @@ Run the `notes` command to start the application:
 ./notes
 ```
 
-On first run, the app runs a configurator and asks where to store your notes. This path is saved in `~/.cli-notes/config.json` as `notes_dir`.
+On first run, the app runs a configurator and asks where to store your notes. The default workspace is saved in `~/.cli-notes/config.json`.
 
 ### Optional Flags
 
@@ -77,7 +84,12 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `g` / `G` | Jump to top / bottom |
 | `Ctrl+P` | Open search popup |
 | `Ctrl+O` | Open recent files popup |
+| `Ctrl+W` | Open workspace popup |
 | `o` | Open heading outline popup |
+| `x` | Open export popup |
+| `Shift+L` | Open wiki links popup |
+| `z` | Toggle split mode |
+| `Tab` | Toggle split focus |
 | `n` | Create a new note |
 | `f` | Create a new folder |
 | `e` | Edit the selected note |
@@ -146,6 +158,8 @@ Edit-mode drafts are auto-saved every few seconds in `<notes_dir>/.cli-notes/.dr
 | `Enter` | Jump to selected result |
 | `Esc` | Close popup |
 
+Search also supports `tag:<name>` tokens (for example `tag:go`) to filter by frontmatter tags.
+
 ### Recent Files Popup
 
 | Key | Action |
@@ -185,6 +199,14 @@ All notes are stored as plain Markdown files in your configured `notes_dir` (set
 - Sync them with cloud storage
 - Use them with other Markdown tools
 - Expect notes saved by the app to end with exactly one trailing newline
+
+### Config Additions
+
+`~/.cli-notes/config.json` now supports:
+- `workspaces`: named list of notes roots (`name` + `notes_dir`)
+- `active_workspace`: active workspace name
+- `keybindings`: inline action-to-key overrides
+- `keymap_file`: optional external keymap JSON path (default `~/.cli-notes/keymap.json`)
 
 ## Requirements
 

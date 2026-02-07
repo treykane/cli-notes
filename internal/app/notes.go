@@ -23,7 +23,10 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- g / G: Jump to top / bottom\n" +
 	"- Ctrl+P: Open search popup\n" +
 	"- Ctrl+O: Open recent files popup\n" +
+	"- Ctrl+W: Open workspace popup\n" +
 	"- o: Open heading outline popup\n" +
+	"- x: Open export popup\n" +
+	"- Shift+L: Open wiki links popup\n" +
 	"- n: Create a new note\n" +
 	"- f: Create a new folder\n" +
 	"- e: Edit the selected note\n" +
@@ -31,6 +34,8 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- m: Move the selected item\n" +
 	"- d: Delete the selected note/folder (with confirmation)\n" +
 	"- Shift+R or Ctrl+R: Refresh the directory tree\n" +
+	"- z: Toggle split mode (two notes)\n" +
+	"- Tab: Toggle split focus\n" +
 	"- ?: Toggle help\n" +
 	"- Enter or Ctrl+S: Save (when naming new note/folder)\n" +
 	"- Ctrl+S: Save (when editing)\n" +
@@ -40,6 +45,7 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- Ctrl+K: Insert [text](url) link template (when editing)\n" +
 	"- Ctrl+1/2/3: Toggle heading level on current line (when editing)\n" +
 	"- Ctrl+V: Paste from clipboard (when editing)\n" +
+	"- Type [[ in edit mode for wiki note-name autocomplete\n" +
 	"- y / Y: Copy current note content / path to clipboard\n" +
 	"- s: Cycle tree sort mode (name/modified/size/created)\n" +
 	"- t: Pin/unpin selected item\n" +

@@ -92,12 +92,16 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
+	if model, cmd, handled := m.handleWikiAutocompleteKey(msg); handled {
+		return model, cmd
+	}
 	key := msg.String()
 	if m.handleEditorShiftSelectionMove(msg) {
 		return m, nil
 	}
 	switch key {
 	case "ctrl+s":
+		m.showWikiAutocomplete = false
 		return m.saveEdit()
 	case "alt+s":
 		m.toggleEditorSelectionAnchor()
@@ -134,6 +138,7 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.saveAppState()
 		m.mode = modeBrowse
 		m.clearEditorSelection()
+		m.showWikiAutocomplete = false
 		m.clearDraftForPath(m.currentFile)
 		m.status = "Edit cancelled"
 		return m, nil
@@ -143,6 +148,7 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.editor, cmd = m.editor.Update(msg)
 		if before != m.editor.Value() {
 			m.clearEditorSelection()
+			m.maybeTriggerWikiAutocomplete()
 		} else if m.hasEditorSelectionAnchor() {
 			m.updateEditorSelectionStatus()
 		}

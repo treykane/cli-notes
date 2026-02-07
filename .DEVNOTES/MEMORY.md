@@ -10,6 +10,12 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-07: Added YAML frontmatter parsing for `title`/`date`/`category`/`tags`; tags now render in tree rows and `Ctrl+P` search supports `tag:<name>` filtering plus metadata-aware matches.
+- 2026-02-07: Added named multi-workspace config (`workspaces` + `active_workspace`) with migration from legacy `notes_dir`; browse-mode workspace popup (`Ctrl+W`) switches roots and rebinds state/search/render caches.
+- 2026-02-07: Added configurable keybindings via `config.json` `keybindings` map plus optional `keymap_file` (default `~/.cli-notes/keymap.json`), with conflict warnings and safe fallback to defaults.
+- 2026-02-07: Added export popup (`x`) for current markdown note: HTML export writes alongside source note; PDF export uses Pandoc when available and otherwise shows install guidance.
+- 2026-02-07: Added wiki-link tooling: `[[...]]` parsing (fence-aware), browse-mode wiki links popup (`Shift+L`) with title-first then filename fallback resolution, and edit-mode `[[` autocomplete.
+- 2026-02-07: Added basic fenced-code visual highlighting in edit mode and split-pane mode (`z`) for side-by-side two-note viewing with focus toggle (`Tab`).
 - 2026-02-06: Added poll-based filesystem watching for `notes_dir` external changes, with automatic tree rebuild, search-index invalidation, and markdown render-cache invalidation.
 - 2026-02-06: Added persistent app state in `<notes_dir>/.cli-notes/state.json` for recent files, pinned paths, and per-note position memory (preview offset + edit cursor).
 - 2026-02-06: Added browse-mode productivity popups: `Ctrl+O` recent files quick-jump and `o` heading outline jump-to-section.

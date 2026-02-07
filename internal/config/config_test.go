@@ -92,3 +92,25 @@ func TestNormalizeNotesDirRejectsEmpty(t *testing.T) {
 		t.Fatal("expected error for empty path")
 	}
 }
+
+func TestLoadMigratesLegacyNotesDirToDefaultWorkspace(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := Save(Config{NotesDir: "~/legacy-notes"}); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if len(cfg.Workspaces) != 1 {
+		t.Fatalf("expected one workspace, got %d", len(cfg.Workspaces))
+	}
+	if cfg.ActiveWorkspace == "" {
+		t.Fatal("expected active workspace")
+	}
+	if cfg.Workspaces[0].NotesDir != cfg.NotesDir {
+		t.Fatalf("workspace notes_dir %q should equal active notes_dir %q", cfg.Workspaces[0].NotesDir, cfg.NotesDir)
+	}
+}

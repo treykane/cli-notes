@@ -4,8 +4,9 @@ import tea "github.com/charmbracelet/bubbletea"
 
 // handleBrowseKey routes key presses in browse mode (not searching).
 func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
+	action := m.actionForKey(key)
 	switch key {
-	case "q", "ctrl+c":
+	case "ctrl+c":
 		return m, tea.Quit
 	case "?":
 		return m.toggleHelp()
@@ -35,43 +36,76 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 	case "o":
 		m.openOutlinePopup()
 		return m, nil
-	case "n":
+	}
+	switch action {
+	case actionQuit:
+		return m, tea.Quit
+	case actionHelp:
+		return m.toggleHelp()
+	case actionSearch:
+		m.openSearchPopup()
+		return m, nil
+	case actionRecent:
+		m.openRecentPopup()
+		return m, nil
+	case actionOutline:
+		m.openOutlinePopup()
+		return m, nil
+	case actionWorkspace:
+		m.openWorkspacePopup()
+		return m, nil
+	case actionNewNote:
 		m.startNewNote()
 		return m, nil
-	case "f":
+	case actionNewFolder:
 		m.startNewFolder()
 		return m, nil
-	case "e":
+	case actionEditNote:
 		return m.startEditNote()
-	case "s":
+	case actionSort:
 		m.cycleSortMode()
 		return m, nil
-	case "t":
+	case actionPin:
 		m.togglePinnedSelection()
 		return m, nil
-	case "d":
+	case actionDelete:
 		m.deleteSelected()
 		return m, nil
-	case "y":
+	case actionCopyContent:
 		m.copyCurrentNoteContentToClipboard()
 		return m, nil
-	case "Y", "shift+y":
+	case actionCopyPath:
 		m.copyCurrentNotePathToClipboard()
 		return m, nil
-	case "r":
+	case actionRename:
 		m.startRenameSelected()
 		return m, nil
-	case "R", "shift+r", "ctrl+r":
+	case actionRefresh:
 		return m.handleRefresh()
-	case "m":
+	case actionMove:
 		m.startMoveSelected()
 		return m, nil
-	case "c":
+	case actionGitCommit:
 		return m.handleGitCommitStart()
-	case "p":
+	case actionGitPull:
 		return m.handleGitPull()
-	case "P", "shift+p":
+	case actionGitPush:
 		return m.handleGitPush()
+	case actionExport:
+		m.openExportPopup()
+		return m, nil
+	case actionWikiLinks:
+		m.openWikiLinksPopup()
+		return m, nil
+	case actionSplitToggle:
+		m.toggleSplitMode()
+		return m, nil
+	case actionSplitFocus:
+		m.toggleSplitFocus()
+		return m, nil
+	}
+	if key == "R" || key == "shift+r" {
+		return m.handleRefresh()
 	}
 	return m, nil
 }

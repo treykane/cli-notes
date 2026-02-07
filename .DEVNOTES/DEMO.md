@@ -97,7 +97,10 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | g / G | Jump to top / bottom |
 | Ctrl+P | Open search popup |
 | Ctrl+O | Open recent files popup |
+| Ctrl+W | Open workspace popup |
 | o | Open heading outline popup |
+| x | Open export popup |
+| Shift+L | Open wiki links popup |
 | n | New note |
 | f | New folder |
 | e | Edit note |
@@ -108,6 +111,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | t | Pin/unpin selected item |
 | y / Y | Copy note content / path to clipboard |
 | Shift+R or Ctrl+R | Refresh |
+| z | Toggle split mode |
+| Tab | Toggle split focus |
 | c* | Git add + commit |
 | p* | Git pull --ff-only |
 | P* | Git push |
@@ -154,6 +159,30 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 ### 15. Note Templates
 - Add template files under `~/.cli-notes/templates/` (or configured `templates_dir`)
 - Press `n` to open a template picker before entering the new note name
+
+### 16. Frontmatter Metadata + Tag Search
+- Add frontmatter fields (`title`, `date`, `category`, `tags`) between `---` delimiters
+- Tree rows show compact `TAGS:` badges for notes with frontmatter tags
+- In `Ctrl+P`, use `tag:<name>` tokens (for example `tag:go`) to filter matches
+
+### 17. Workspace Switching
+- Configure multiple named workspaces in config (`workspaces` + `active_workspace`)
+- Press `Ctrl+W` to open workspace picker and switch roots quickly
+- Workspace switching rebinds tree/search/render/app state to the selected workspace
+
+### 18. Wiki Links + Autocomplete
+- Add `[[Note Name]]` links inside notes
+- Press `Shift+L` in browse mode to open a wiki-links popup for the current note
+- In edit mode, typing `[[` opens autocomplete sourced from workspace note names/titles
+
+### 19. Export
+- Press `x` to export current note
+- HTML export writes `<note>.html` in the same directory
+- PDF export writes `<note>.pdf` using Pandoc when available
+
+### 20. Split Mode
+- Press `z` to toggle side-by-side split mode for two notes
+- Press `Tab` to switch which pane receives open/jump actions
 
 ## File Storage
 

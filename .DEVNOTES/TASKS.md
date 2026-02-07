@@ -35,14 +35,20 @@
 
 ## Lower Priority — Advanced Features
 
-- [ ] **YAML frontmatter support**: Parse YAML frontmatter (`---` delimited) from notes to extract metadata like tags, title, date, and category. Display tags in the tree view and make them searchable via `Ctrl+P`.
-- [ ] **Tag-based filtering**: When frontmatter tags are supported, add a tag filter mode to the tree view or search popup that shows only notes matching selected tags.
-- [ ] **Wiki-style `[[links]]` between notes**: Detect `[[Note Name]]` patterns in note content and render them as navigable links. In preview mode, clicking or pressing Enter on a link jumps to the referenced note. In edit mode, offer auto-complete for note names.
-- [ ] **Export to HTML / PDF**: Add an export command that converts the current note to HTML (using the existing Glamour renderer or Pandoc if available) and writes it to a file or opens it in a browser. PDF export via Pandoc would be a stretch goal.
-- [ ] **Multiple workspaces / quick directory switching**: Allow users to define multiple `notes_dir` paths in config and switch between them with a keybinding or command. Each workspace maintains its own tree, search index, and render cache.
-- [ ] **Configurable keybindings**: Allow users to customize keybindings via `~/.cli-notes/config.json` or a separate keymap file. Map action names to key combinations with sensible defaults matching current behavior.
-- [ ] **Syntax highlighting in fenced code blocks**: Enhance the editor to apply basic syntax highlighting within fenced code blocks during edit mode. The preview pane already renders these via Glamour, but the editor shows them as plain text.
-- [ ] **Horizontal split / multi-pane editing**: Allow viewing two notes side-by-side or splitting the right pane into preview + source. Useful for referencing one note while editing another.
+- [x] **YAML frontmatter support**: Parse YAML frontmatter (`---` delimited) from notes to extract metadata like tags, title, date, and category. Display tags in the tree view and make them searchable via `Ctrl+P`.
+- [x] **Tag-based filtering**: When frontmatter tags are supported, add a tag filter mode to the tree view or search popup that shows only notes matching selected tags.
+- [x] **Wiki-style `[[links]]` between notes**: Detect `[[Note Name]]` patterns in note content and render them as navigable links. In preview mode, clicking or pressing Enter on a link jumps to the referenced note. In edit mode, offer auto-complete for note names.
+- [x] **Export to HTML / PDF**: Add an export command that converts the current note to HTML (using the existing Glamour renderer or Pandoc if available) and writes it to a file or opens it in a browser. PDF export via Pandoc would be a stretch goal.
+- [x] **Multiple workspaces / quick directory switching**: Allow users to define multiple `notes_dir` paths in config and switch between them with a keybinding or command. Each workspace maintains its own tree, search index, and render cache.
+- [x] **Configurable keybindings**: Allow users to customize keybindings via `~/.cli-notes/config.json` or a separate keymap file. Map action names to key combinations with sensible defaults matching current behavior.
+- [x] **Syntax highlighting in fenced code blocks**: Enhance the editor to apply basic syntax highlighting within fenced code blocks during edit mode. The preview pane already renders these via Glamour, but the editor shows them as plain text.
+- [x] **Horizontal split / multi-pane editing**: Allow viewing two notes side-by-side or splitting the right pane into preview + source. Useful for referencing one note while editing another.
+
+## Follow-up Improvements
+
+- [ ] **Workspace-aware sort persistence**: Persist tree sort mode per workspace instead of globally so switching workspaces restores each workspace’s previous sort preference.
+- [ ] **Secondary-pane independent scroll memory**: In split mode, persist and restore independent viewport offsets for primary and secondary panes so the second note keeps context while navigating.
+- [ ] **Advanced wiki autocomplete ranking**: Rank suggestions by recent-file frequency and exact-prefix score to improve insertion speed in large note collections.
 
 ## Testing & Quality
 

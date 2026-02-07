@@ -83,7 +83,7 @@ func (m *Model) selectRecentEntry() (tea.Model, tea.Cmd) {
 	m.expandParentDirs(path)
 	m.rebuildTreeKeep(path)
 	m.status = "Jumped to recent: " + m.displayRelative(path)
-	return m, m.setCurrentFile(path)
+	return m, m.setFocusedFile(path)
 }
 
 func (m *Model) openOutlinePopup() {

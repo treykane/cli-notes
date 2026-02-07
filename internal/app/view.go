@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -23,6 +24,14 @@ func (m *Model) View() string {
 		row = m.renderRecentPopupOverlay(m.width, layout.ContentHeight)
 	} else if m.showOutlinePopup {
 		row = m.renderOutlinePopupOverlay(m.width, layout.ContentHeight)
+	} else if m.showWorkspacePopup {
+		row = m.renderWorkspacePopupOverlay(m.width, layout.ContentHeight)
+	} else if m.showExportPopup {
+		row = m.renderExportPopupOverlay(m.width, layout.ContentHeight)
+	} else if m.showWikiLinksPopup {
+		row = m.renderWikiLinksPopupOverlay(m.width, layout.ContentHeight)
+	} else if m.showWikiAutocomplete {
+		row = m.renderWikiAutocompletePopupOverlay(m.width, layout.ContentHeight)
 	}
 	// Clamp the pane row so the last terminal line is always reserved for footer status.
 	row = padBlock(row, m.width, layout.ContentHeight)
@@ -66,6 +75,9 @@ func (m *Model) renderTree(width, height int) string {
 
 // renderRight draws the right-hand pane (editor, input, or markdown viewport).
 func (m *Model) renderRight(width, height int) string {
+	if m.splitMode {
+		return m.renderRightSplit(width, height)
+	}
 	rightPaneStyle := previewPane
 	headerStyle := previewHeader
 	if m.mode == modeEditNote {
@@ -113,7 +125,83 @@ func (m *Model) renderRight(width, height int) string {
 	return rightPaneStyle.Width(width).Height(height).Render(header + "\n" + body)
 }
 
+func (m *Model) renderRightSplit(width, height int) string {
+	leftWidth := width / 2
+	rightWidth := width - leftWidth
+	return lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		m.renderSingleRightPane(leftWidth, height, m.currentFile, false, !m.splitFocusSecondary),
+		m.renderSingleRightPane(rightWidth, height, m.secondaryFile, true, m.splitFocusSecondary),
+	)
+}
+
+func (m *Model) renderSingleRightPane(width, height int, path string, secondary bool, focused bool) string {
+	rightPaneStyle := previewPane
+	headerStyle := previewHeader
+	if m.mode == modeEditNote && !secondary {
+		rightPaneStyle = editPane
+		headerStyle = editHeader
+	}
+
+	innerWidth := max(0, width-rightPaneStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-rightPaneStyle.GetVerticalFrameSize())
+	contentHeight := max(0, innerHeight-1)
+
+	headerLabel := "No note selected"
+	if path != "" {
+		headerLabel = m.displayRelative(path)
+	}
+	if secondary {
+		headerLabel = "[2] " + headerLabel
+	} else {
+		headerLabel = "[1] " + headerLabel
+	}
+	if focused {
+		headerLabel = "▶ " + headerLabel
+	}
+
+	content := "Select a note to view"
+	if path != "" {
+		if m.mode == modeEditNote && !secondary && path == m.currentFile {
+			m.editor.SetWidth(innerWidth)
+			m.editor.SetHeight(contentHeight)
+			content = m.editorViewWithSelectionHighlight(m.editor.View())
+		} else if rendered, ok := m.renderedForPath(path, innerWidth); ok {
+			content = rendered
+		}
+	}
+
+	header := headerStyle.Width(innerWidth).Render(" " + truncate(headerLabel, max(0, innerWidth-1)))
+	body := padBlock(content, innerWidth, contentHeight)
+	return rightPaneStyle.Width(width).Height(height).Render(header + "\n" + body)
+}
+
+func (m *Model) renderedForPath(path string, width int) (string, bool) {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return "", false
+	}
+	bucket := roundWidthToNearestBucket(width)
+	if entry, ok := m.renderCache[path]; ok && entry.width == bucket && entry.mtime.Equal(info.ModTime()) {
+		return entry.content, true
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	_, body := parseFrontmatterAndBody(string(content))
+	rendered := renderMarkdown(body, bucket)
+	m.renderCache[path] = renderCacheEntry{
+		mtime:   info.ModTime(),
+		width:   bucket,
+		content: rendered,
+		raw:     string(content),
+	}
+	return rendered, true
+}
+
 func (m *Model) editorViewWithSelectionHighlight(view string) string {
+	view = highlightFencedCodeInEditorView(view)
 	start, end, ok := m.editorSelectionRange()
 	if !ok {
 		return view
@@ -185,9 +273,22 @@ func (m *Model) statusHelp() string {
 		if m.showOutlinePopup {
 			return "Outline popup: ↑/↓ move  Enter jump  Esc cancel"
 		}
+		if m.showWorkspacePopup {
+			return "Workspace popup: ↑/↓ move  Enter switch  Esc cancel"
+		}
+		if m.showExportPopup {
+			return "Export popup: ↑/↓ move  Enter export  Esc cancel"
+		}
+		if m.showWikiLinksPopup {
+			return "Wiki links popup: ↑/↓ move  Enter jump  Esc cancel"
+		}
+		if m.showWikiAutocomplete {
+			return "Wiki autocomplete: ↑/↓ move  Tab/Enter insert  Esc close"
+		}
 		help := "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  r rename  m move  d delete  Shift+R refresh"
 		help += "  s sort  t pin"
-		help += "  Ctrl+O recents  o outline"
+		help += "  Ctrl+O recents  o outline  Ctrl+W workspaces"
+		help += "  x export  Shift+L wiki links  z split  Tab split-focus"
 		help += "  y copy content  Y copy path"
 		if m.git.isRepo {
 			help += "  c commit  p pull  P push"
@@ -209,6 +310,11 @@ func (m *Model) renderHelp(width, height int) string {
 		"  Ctrl+P                    Open search popup",
 		"  Ctrl+O                    Open recent-files popup",
 		"  o                         Open heading outline popup",
+		"  Ctrl+W                    Open workspace popup",
+		"  x                         Export current note (HTML/PDF)",
+		"  Shift+L                   Open wiki-links popup",
+		"  z                         Toggle split mode",
+		"  Tab                       Toggle split focus",
 		"  n                         New note",
 		"  f                         New folder",
 		"  e                         Edit note",
@@ -334,6 +440,34 @@ func (m *Model) renderOutlinePopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+func (m *Model) renderWorkspacePopupOverlay(width, height int) string {
+	popupWidth := min(80, max(48, width-SearchPopupPadding))
+	popupHeight := min(20, max(WorkspacePopupHeight, height-4))
+	popup := m.renderWorkspacePopup(popupWidth, popupHeight)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
+}
+
+func (m *Model) renderExportPopupOverlay(width, height int) string {
+	popupWidth := min(52, max(40, width-SearchPopupPadding))
+	popupHeight := min(12, max(ExportPopupHeight, height-4))
+	popup := m.renderExportPopup(popupWidth, popupHeight)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
+}
+
+func (m *Model) renderWikiLinksPopupOverlay(width, height int) string {
+	popupWidth := min(90, max(52, width-SearchPopupPadding))
+	popupHeight := min(20, max(WikiLinksPopupHeight, height-4))
+	popup := m.renderWikiLinksPopup(popupWidth, popupHeight)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
+}
+
+func (m *Model) renderWikiAutocompletePopupOverlay(width, height int) string {
+	popupWidth := min(70, max(42, width-SearchPopupPadding))
+	popupHeight := min(16, max(WikiAutocompletePopupHeight, height-4))
+	popup := m.renderWikiAutocompletePopup(popupWidth, popupHeight)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Bottom, popup)
+}
+
 func (m *Model) renderSearchPopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -416,6 +550,52 @@ func (m *Model) renderOutlinePopup(width, height int) string {
 	return popupStyle.Width(width).Height(height).Render(content)
 }
 
+func (m *Model) renderWorkspacePopup(width, height int) string {
+	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
+	lines := []string{
+		titleStyle.Render("Switch Workspace"),
+		"",
+	}
+	limit := max(0, innerHeight-len(lines)-1)
+	for i := 0; i < min(limit, len(m.workspaces)); i++ {
+		ws := m.workspaces[i]
+		label := ws.Name + "  (" + ws.NotesDir + ")"
+		if ws.Name == m.activeWorkspace {
+			label = "* " + label
+		}
+		label = truncate(label, innerWidth)
+		if i == m.workspaceCursor {
+			label = selectedStyle.Render(label)
+		}
+		lines = append(lines, label)
+	}
+	lines = append(lines, mutedStyle.Render("Enter: switch  Esc: close"))
+	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
+	return popupStyle.Width(width).Height(height).Render(content)
+}
+
+func (m *Model) renderExportPopup(width, height int) string {
+	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
+	options := []string{"HTML", "PDF (pandoc)"}
+	lines := []string{
+		titleStyle.Render("Export Note"),
+		"",
+	}
+	for i, opt := range options {
+		line := truncate(opt, innerWidth)
+		if i == m.exportCursor {
+			line = selectedStyle.Render(line)
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, "")
+	lines = append(lines, mutedStyle.Render("Enter: export  Esc: cancel"))
+	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
+	return popupStyle.Width(width).Height(height).Render(content)
+}
+
 func (m *Model) renderTemplatePicker(width, height int) string {
 	lines := []string{
 		titleStyle.Render("Choose Note Template"),
@@ -487,7 +667,11 @@ func (m *Model) formatTreeItem(item treeItem) string {
 	if item.pinned {
 		pin = " " + treePinTag.Render("PIN")
 	}
-	return fmt.Sprintf("%s    %s %s%s", indent, treeFileTag.Render("MD"), treeFileName.Render(item.name), pin)
+	tagBadge := ""
+	if label := compactTagLabel(item.tags, 2); label != "" {
+		tagBadge = " " + treeTagBadge.Render("TAGS:"+label)
+	}
+	return fmt.Sprintf("%s    %s %s%s%s", indent, treeFileTag.Render("MD"), treeFileName.Render(item.name), pin, tagBadge)
 }
 
 func (m *Model) formatTreeItemSelected(item treeItem) string {
@@ -508,7 +692,11 @@ func (m *Model) formatTreeItemSelected(item treeItem) string {
 	if item.pinned {
 		pin = " PIN"
 	}
-	return fmt.Sprintf("%s    MD %s%s", indent, item.name, pin)
+	tagBadge := ""
+	if label := compactTagLabel(item.tags, 2); label != "" {
+		tagBadge = " TAGS:" + label
+	}
+	return fmt.Sprintf("%s    MD %s%s%s", indent, item.name, pin, tagBadge)
 }
 
 // updateLayout recomputes viewport sizing after a window resize.

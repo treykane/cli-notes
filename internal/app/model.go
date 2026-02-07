@@ -88,6 +88,7 @@ type treeItem struct {
 	depth  int
 	isDir  bool
 	pinned bool
+	tags   []string
 }
 
 // Model holds the Bubble Tea state for the entire UI.
@@ -217,6 +218,37 @@ type Model struct {
 	outlineHeadings []noteHeading
 	// Selected row in outline popup.
 	outlineCursor int
+	// Whether the workspace popup is currently visible.
+	showWorkspacePopup bool
+	// Selected row in workspace popup.
+	workspaceCursor int
+	// Whether the export popup is visible.
+	showExportPopup bool
+	// Selected row in export popup.
+	exportCursor int
+	// Whether the wiki-links popup is visible.
+	showWikiLinksPopup bool
+	// Parsed wiki links for current note.
+	wikiLinks []wikiLink
+	// Selected row in wiki-links popup.
+	wikiLinkCursor int
+	// Edit-mode wiki link autocomplete popup.
+	showWikiAutocomplete   bool
+	wikiAutocomplete       []noteTarget
+	wikiAutocompleteCursor int
+
+	// Workspace State
+	workspaces      []config.WorkspaceConfig
+	activeWorkspace string
+
+	// Keybinding State
+	keyForAction map[string]string
+	keyToAction  map[string]string
+
+	// Split-pane state
+	splitMode           bool
+	splitFocusSecondary bool
+	secondaryFile       string
 }
 
 // New prepares the initial UI model and ensures the configured notes directory exists.
@@ -280,7 +312,10 @@ func New() (*Model, error) {
 		editorSelectionActive: false,
 		debugInput:            os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
 		templatesDir:          cfg.TemplatesDir,
+		workspaces:            cfg.Workspaces,
+		activeWorkspace:       cfg.ActiveWorkspace,
 	}
+	m.loadKeybindings(cfg)
 	m.rebuildRecentEntries()
 	m.refreshGitStatus()
 	m.loadPendingDrafts()
@@ -348,12 +383,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDraftAutoSaveTick(msg)
 	case fileWatchTickMsg:
 		return m.handleFileWatchTick(msg)
+	case statusMsg:
+		if strings.TrimSpace(msg.Text) != "" {
+			m.status = msg.Text
+		}
+		return m, nil
 	}
 	return m, nil
 }
 
 // handleKey routes key presses in browse mode.
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.showWorkspacePopup {
+		return m.handleWorkspacePopupKey(msg)
+	}
+	if m.showExportPopup {
+		return m.handleExportPopupKey(msg)
+	}
+	if m.showWikiLinksPopup {
+		return m.handleWikiLinksPopupKey(msg)
+	}
 	if m.showRecentPopup {
 		return m.handleRecentPopupKey(msg)
 	}
@@ -430,7 +479,7 @@ func (m *Model) selectSearchResult() (tea.Model, tea.Cmd) {
 	if item.isDir {
 		return m, nil
 	}
-	return m, m.setCurrentFile(item.path)
+	return m, m.setFocusedFile(item.path)
 }
 
 func (m *Model) expandParentDirs(path string) {

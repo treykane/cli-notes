@@ -231,6 +231,10 @@ func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pi
 			isDir:  entry.entry.IsDir(),
 			pinned: pinned[path],
 		}
+		if !item.isDir && hasSuffixCaseInsensitive(path, ".md") {
+			_, meta := readMarkdownContentAndMetadata(path)
+			item.tags = meta.Tags
+		}
 		*items = append(*items, item)
 		if entry.entry.IsDir() && expanded[path] {
 			walkTree(path, depth+1, expanded, mode, pinned, items)

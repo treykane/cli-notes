@@ -63,3 +63,18 @@ func TestSearchIndexRemovePathRemovesMatches(t *testing.T) {
 		t.Fatal("expected no matches after delete")
 	}
 }
+
+func TestSearchIndexTagQueryMatchesFrontmatterTags(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "Alpha.md"), "---\ntags: [go, cli]\n---\nhello\n")
+	mustWriteFile(t, filepath.Join(root, "Beta.md"), "---\ntags: [ops]\n---\nhello\n")
+
+	idx := newSearchIndex(root)
+	if err := idx.ensureBuilt(); err != nil {
+		t.Fatalf("build index: %v", err)
+	}
+
+	got := relPathSet(root, idx.search("tag:go"))
+	expectContains(t, got, "Alpha.md")
+	expectNotContains(t, got, "Beta.md")
+}

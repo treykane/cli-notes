@@ -52,7 +52,7 @@ func (m *Model) maybeShowSelectedFile() tea.Cmd {
 		return nil
 	}
 	if hasSuffixCaseInsensitive(item.path, ".md") {
-		return m.setCurrentFile(item.path)
+		return m.setFocusedFile(item.path)
 	}
 	return nil
 }

@@ -20,6 +20,14 @@ const (
 	RecentPopupHeight = 12
 	// OutlinePopupHeight is the fixed height of the heading outline popup.
 	OutlinePopupHeight = 14
+	// WorkspacePopupHeight is the fixed height of workspace chooser popup.
+	WorkspacePopupHeight = 12
+	// ExportPopupHeight is the fixed height of export chooser popup.
+	ExportPopupHeight = 8
+	// WikiLinksPopupHeight is the fixed height of wiki links popup.
+	WikiLinksPopupHeight = 14
+	// WikiAutocompletePopupHeight is popup height for edit autocomplete.
+	WikiAutocompletePopupHeight = 10
 )
 
 // Input limits define maximum sizes for user input

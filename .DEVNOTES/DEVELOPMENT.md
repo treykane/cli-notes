@@ -26,7 +26,7 @@ Optional logging:
 
 Notes storage:
 - On first run (or with `--configure`), a configurator prompts for the notes directory and saves it in `~/.cli-notes/config.json` as `notes_dir`.
-- Config also stores `tree_sort` (name/modified/size/created) and `templates_dir`.
+- Config also stores `tree_sort` (name/modified/size/created), `templates_dir`, named `workspaces`, `active_workspace`, and keybinding overrides (`keybindings`/`keymap_file`).
 - Notes are stored as Markdown files in the configured `notes_dir`.
 - The configured directory is created on startup and seeded with `Welcome.md` if empty.
 - Internal app state (draft autosave files) lives under `<notes_dir>/.cli-notes/` and is excluded from tree/search views.
