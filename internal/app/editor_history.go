@@ -33,6 +33,11 @@ func (m *Model) resetEditHistory() {
 
 func (m *Model) pushUndo(snapshot editorSnapshot) {
 	m.editorUndo = append(m.editorUndo, snapshot)
+	// Trim oldest entries when the stack exceeds the configured cap to
+	// prevent unbounded memory growth during long editing sessions.
+	if len(m.editorUndo) > MaxUndoHistory {
+		m.editorUndo = m.editorUndo[len(m.editorUndo)-MaxUndoHistory:]
+	}
 	// Any forward mutation invalidates the redo chain.
 	m.editorRedo = nil
 }

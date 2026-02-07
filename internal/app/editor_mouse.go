@@ -32,7 +32,7 @@ func (m *Model) handleEditMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		m.editorSelectionActive = true
 		m.editorMouseSelecting = true
 		m.editorMouseSelectionOrigin = offset
-		applyEditorSelectionVisual(&m.editor, true)
+		applyEditorSelectionVisual(&m.editor)
 		m.updateEditorSelectionStatus()
 	case tea.MouseActionMotion:
 		if !m.editorMouseSelecting {

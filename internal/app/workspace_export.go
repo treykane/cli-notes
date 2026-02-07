@@ -31,9 +31,9 @@
 //
 // # Transient Popups
 //
-// closeTransientPopups is the central function for dismissing all overlay
-// popups. It is called whenever a new popup is opened to enforce the
-// one-popup-at-a-time invariant.
+// Overlay dismissal is handled by closeOverlay (defined in overlay.go), which
+// is called whenever a new popup is opened to enforce the one-popup-at-a-time
+// invariant.
 package app
 
 import (
@@ -271,14 +271,6 @@ func (m *Model) exportCurrentNotePDF() tea.Cmd {
 // back to the Update loop without needing direct access to the Model.
 type statusMsg struct {
 	Text string
-}
-
-// closeTransientPopups dismisses all overlay popups (search, recent files,
-// outline, workspace, export, wiki links, and wiki autocomplete). This is
-// called before opening a new popup to enforce the invariant that at most
-// one popup overlay is visible at any time.
-func (m *Model) closeTransientPopups() {
-	m.closeOverlay()
 }
 
 // toggleSplitMode enables or disables the horizontal split-pane view.

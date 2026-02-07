@@ -25,7 +25,7 @@ func (m *Model) clearEditorSelection() {
 	m.editorSelectionActive = false
 	m.editorMouseSelecting = false
 	m.editorMouseSelectionOrigin = noEditorSelectionAnchor
-	applyEditorSelectionVisual(&m.editor, false)
+	applyEditorSelectionVisual(&m.editor)
 }
 
 // hasEditorSelectionAnchor reports whether a selection anchor is currently
@@ -112,7 +112,7 @@ func (m *Model) toggleEditorSelectionAnchor() {
 	}
 	m.editorSelectionAnchor = m.currentEditorCursorOffset()
 	m.editorSelectionActive = true
-	applyEditorSelectionVisual(&m.editor, true)
+	applyEditorSelectionVisual(&m.editor)
 	m.updateEditorSelectionStatus()
 }
 
@@ -140,7 +140,7 @@ func (m *Model) handleEditorShiftSelectionMove(keyMsg tea.KeyMsg) bool {
 	if !m.hasEditorSelectionAnchor() {
 		m.editorSelectionAnchor = m.currentEditorCursorOffset()
 		m.editorSelectionActive = true
-		applyEditorSelectionVisual(&m.editor, true)
+		applyEditorSelectionVisual(&m.editor)
 	}
 
 	// Forward the un-shifted equivalent to the editor widget so the cursor

@@ -25,10 +25,6 @@ import (
 	"strings"
 )
 
-// maxSearchFileBytes mirrors the constant from constants.go for use in
-// file-size guard checks within this file.
-const maxSearchFileBytes int64 = MaxSearchFileBytes
-
 // searchDoc holds the indexed data for a single file or directory.
 //
 // All text fields are stored in lowercase so query matching is case-insensitive
@@ -243,7 +239,7 @@ func (i *searchIndex) removeDescendants(path string) {
 // indexPath creates a searchDoc for the given filesystem entry and stores it
 // in the index. For markdown files, the file is read and its frontmatter
 // parsed to populate title, category, tags, and body content fields. Files
-// larger than maxSearchFileBytes or non-markdown files get a name-only entry.
+// larger than MaxSearchFileBytes or non-markdown files get a name-only entry.
 func (i *searchIndex) indexPath(path, name string, depth int, isDir bool) {
 	doc := searchDoc{
 		item: treeItem{
@@ -269,14 +265,14 @@ func (i *searchIndex) indexPath(path, name string, depth int, isDir bool) {
 // readMarkdownContentAndMetadata reads a markdown file, parses its YAML
 // frontmatter, and returns the body content (without frontmatter) and the
 // extracted metadata. Returns empty values for non-markdown files, directories,
-// files larger than maxSearchFileBytes, or on read errors.
+// files larger than MaxSearchFileBytes, or on read errors.
 func readMarkdownContentAndMetadata(path string) (string, NoteMetadata) {
 	if !strings.EqualFold(filepath.Ext(path), ".md") {
 		return "", NoteMetadata{}
 	}
 
 	info, err := os.Stat(path)
-	if err != nil || info.IsDir() || info.Size() > maxSearchFileBytes {
+	if err != nil || info.IsDir() || info.Size() > MaxSearchFileBytes {
 		return "", NoteMetadata{}
 	}
 

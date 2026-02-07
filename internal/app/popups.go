@@ -6,7 +6,7 @@
 //   - A keybinding opens the popup, populating its data and resetting the cursor.
 //   - Up/Down (or j/k) navigate the list; Enter selects; Esc closes.
 //   - Only one popup is visible at a time — opening one closes others via
-//     closeTransientPopups (defined in workspace_export.go).
+//     closeOverlay (defined in overlay.go).
 //
 // The heading outline popup parses markdown headings from the current note's
 // raw content and renders them with indentation matching their heading level.

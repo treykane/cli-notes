@@ -294,9 +294,8 @@ func applyEditorTheme(editor *textarea.Model) {
 // wraps selected text spans in selectionText style, so this function simply
 // re-applies the default cursor-line and line-number styles to prevent any
 // visual drift when the selection anchor is toggled on or off.
-func applyEditorSelectionVisual(editor *textarea.Model, active bool) {
+func applyEditorSelectionVisual(editor *textarea.Model) {
 	// Keep cursor-line visuals stable; selection highlighting is applied to selected text only.
-	_ = active
 	editor.FocusedStyle.CursorLine = lipgloss.NewStyle().
 		Background(surface).
 		Foreground(textPrimary)

@@ -43,11 +43,6 @@ import (
 	"github.com/charmbracelet/glamour"
 )
 
-// renderDebounce is the delay before triggering a render after the user
-// navigates to a new file. This prevents excessive rendering during rapid
-// tree traversal (e.g. holding down j/k).
-const renderDebounce = RenderDebounce
-
 // renderCacheEntry stores a completed render alongside the inputs that produced
 // it. The mtime and width fields act as cache keys: if the file's modification
 // time or the terminal width bucket has changed, the cached content is stale
@@ -144,7 +139,7 @@ func (m *Model) refreshViewport() tea.Cmd {
 //
 // Slow path (cache miss): A spinner is shown, the renderSeq is incremented
 // (invalidating any in-flight render), and a debounce timer is started. After
-// renderDebounce (500 ms), a renderRequestMsg is emitted which — if its
+// RenderDebounce (500 ms), a renderRequestMsg is emitted which — if its
 // sequence number still matches — triggers the actual async render via
 // renderMarkdownCmd.
 func (m *Model) requestRender(path string) tea.Cmd {
@@ -171,7 +166,7 @@ func (m *Model) requestRender(path string) tea.Cmd {
 	m.pendingWidth = width
 	m.renderingPath = path
 	m.renderingSeq = seq
-	return tea.Tick(renderDebounce, func(time.Time) tea.Msg {
+	return tea.Tick(RenderDebounce, func(time.Time) tea.Msg {
 		return renderRequestMsg{path: path, width: width, seq: seq}
 	})
 }

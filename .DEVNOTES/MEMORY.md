@@ -10,6 +10,8 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-08: Codebase optimization pass: removed custom `min`/`max` functions in favor of Go 1.21 builtins; removed redundant constant aliases (`renderDebounce`, `maxSearchFileBytes`); removed dead code in `normalizeKeyString`; removed unused `active` parameter from `applyEditorSelectionVisual`; removed `closeTransientPopups` wrapper (inlined `closeOverlay`); added `MaxUndoHistory` cap (1000 entries) on editor undo stack to prevent unbounded memory growth. All tests pass; no functional changes.
+- 2026-02-08: Cleaned up TASKS.md: removed all completed items (40+ tasks across High/Medium/Lower priority, Follow-up, and Testing sections); retained 4 open follow-up tasks; added new task categories for code quality/optimization (5 items) and feature ideas (9 items).
 - 2026-02-07: Added edit-mode interaction upgrades: left-click drag mouse selection mapped to shared anchor/range selection state, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with typing-burst coalescing (750ms idle split) plus discrete-history boundaries for formatting/link/heading/paste/save, and multiline selection highlighting in the editor view.
 - 2026-02-07: Refactored popup/search visibility to a single overlay state machine (`overlayMode`) replacing multiple popup booleans; centralized overlay open/close cleanup (including search and wiki-autocomplete teardown) and switched key/view footer routing to overlay-based dispatch.
 - 2026-02-07: Consolidated repeated post-mutation side effects into `applyMutationEffects` (search-index upsert/remove/invalidate, tree rebuild, git refresh, state save, render-cache clear, current-file refresh) and applied it across refresh/watcher/CRUD flows.

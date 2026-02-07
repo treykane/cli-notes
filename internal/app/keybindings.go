@@ -319,12 +319,6 @@ func normalizeKeyString(key string) string {
 	if len([]rune(key)) == 1 && strings.ToUpper(key) == key && strings.ToLower(key) != key {
 		return "shift+" + strings.ToLower(key)
 	}
-	switch strings.ToLower(key) {
-	case "y":
-		if key == "Y" {
-			return "shift+y"
-		}
-	}
 	return strings.ToLower(key)
 }
 

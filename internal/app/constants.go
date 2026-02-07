@@ -62,6 +62,15 @@ const (
 	FilePermission = 0o644
 )
 
+// Editor constants
+const (
+	// MaxUndoHistory is the maximum number of undo snapshots retained in
+	// the editor history stack. When exceeded, the oldest entries are
+	// discarded to prevent unbounded memory growth during long editing
+	// sessions.
+	MaxUndoHistory = 1000
+)
+
 // Search constants
 const (
 	// MaxSearchFileBytes is the maximum file size (in bytes) that will be

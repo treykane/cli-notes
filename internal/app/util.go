@@ -80,22 +80,6 @@ func clamp(value, minVal, maxVal int) int {
 	return value
 }
 
-// min returns the smaller of two ints.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// max returns the larger of two ints.
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // roundWidthToNearestBucket quantizes terminal widths to multiples of
 // RenderWidthBucket (20 columns). This reduces the number of distinct cache
 // entries the render cache needs to maintain — a 1-column resize does not

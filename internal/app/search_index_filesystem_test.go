@@ -87,8 +87,8 @@ func TestSearchIndexReadLowerMarkdownContentLargeFile(t *testing.T) {
 	root := t.TempDir()
 	largeFile := filepath.Join(root, "large.md")
 
-	// Create a file larger than maxSearchFileBytes
-	largeContent := make([]byte, maxSearchFileBytes+1)
+	// Create a file larger than MaxSearchFileBytes
+	largeContent := make([]byte, MaxSearchFileBytes+1)
 	for i := range largeContent {
 		largeContent[i] = 'a'
 	}
