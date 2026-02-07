@@ -6,8 +6,8 @@
 //  1. Main row: a horizontal join of the left tree pane and the right content
 //     pane. When a popup is active, the main row is replaced entirely by the
 //     popup overlay centered on screen.
-//  2. Footer status bar: a single row at the bottom showing mode-specific help
-//     hints, note metrics (W/C/L), git status, and the last status message.
+//  2. Footer status bar: an adaptive 2-3 row block at the bottom showing
+//     grouped interaction hints, context telemetry (W/C/L + git), and status.
 //
 // The View function is called by Bubble Tea on every frame. It must return
 // a complete string representation of the screen — there is no incremental
@@ -34,6 +34,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // View draws the full UI (left tree + right pane + status line).
@@ -47,6 +48,7 @@ func (m *Model) View() string {
 		return "Loading..."
 	}
 
+	footerHeight := m.footerHeightForWidth(m.width)
 	layout := m.calculateLayout()
 	leftPane := m.renderTree(layout.LeftWidth, layout.ContentHeight)
 	rightPane := m.renderRight(layout.RightWidth, layout.ContentHeight)
@@ -66,10 +68,10 @@ func (m *Model) View() string {
 	} else if m.showWikiAutocomplete {
 		row = m.renderWikiAutocompletePopupOverlay(m.width, layout.ContentHeight)
 	}
-	// Clamp the pane row so the last terminal line is always reserved for footer status.
+	// Clamp the pane row so the dynamic footer area remains reserved.
 	row = padBlock(row, m.width, layout.ContentHeight)
 
-	view := row + "\n" + m.renderStatus(m.width)
+	view := row + "\n" + m.renderStatus(m.width, footerHeight)
 	return padBlock(view, m.width, m.height)
 }
 
@@ -315,20 +317,196 @@ func (m *Model) editorViewWithSelectionHighlight(view string) string {
 	return view[:idx] + selectionText.Render(selected) + view[idx+len(selected):]
 }
 
-// renderStatus renders the footer status bar at the bottom of the terminal.
+// renderStatus renders the adaptive multi-row footer status bar.
 //
-// The bar is a single solid-color row (blue in preview mode, magenta in edit
-// mode) that contains, separated by " | ":
-//   - Mode-specific help hints (keys available in current mode)
-//   - Note metrics (word/character/line count) for the current note
-//   - Git status (branch, dirty flag, sync indicator) when in a git repo
-//   - The most recent status message (operation feedback, errors, etc.)
+// The footer reserves 2 or 3 rows depending on available width and content
+// density. Rows are packed greedily from grouped segments in this order:
+//   - Keys: interaction hints for the current mode
+//   - Context: note metrics and git summary
+//   - Status: the latest operation/error message
 //
-// The bar is left-padded by one space and truncated to the terminal width
-// to prevent line wrapping.
-func (m *Model) renderStatus(width int) string {
-	help := m.statusHelp()
-	parts := []string{help}
+// If content still overflows the available rows, the final row is truncated
+// with an ellipsis to make clipping explicit.
+func (m *Model) renderStatus(width, rows int) string {
+	statusRows, _ := m.buildStatusRows(width, rows)
+	style := statusStyle
+	if m.mode == modeEditNote {
+		style = editStatus
+	}
+	for len(statusRows) < rows {
+		statusRows = append(statusRows, "")
+	}
+
+	rendered := make([]string, 0, len(statusRows))
+	for _, line := range statusRows {
+		line = " " + truncate(line, max(0, width-1))
+		rendered = append(rendered, style.Width(width).Render(line))
+	}
+	return strings.Join(rendered, "\n")
+}
+
+// buildStatusRows packs footer segments into up to rowLimit rows. It returns
+// the rendered row strings and whether all segments fit without dropping any.
+func (m *Model) buildStatusRows(width, rowLimit int) ([]string, bool) {
+	if width <= 0 || rowLimit <= 0 {
+		return nil, true
+	}
+
+	help := m.statusHelpSegments()
+	context := m.statusContextSegments()
+	status := m.statusMessageSegment()
+
+	segments := make([]string, 0, len(help)+len(context)+2)
+	if len(help) > 0 {
+		segments = append(segments, "Keys: "+help[0])
+		segments = append(segments, help[1:]...)
+	}
+	if len(context) > 0 {
+		segments = append(segments, "Context: "+context[0])
+		segments = append(segments, context[1:]...)
+	}
+	if status != "" {
+		segments = append(segments, "Status: "+status)
+	}
+
+	rows := make([]string, 1, rowLimit)
+	rowIndex := 0
+	fit := true
+
+	for _, seg := range segments {
+		seg = strings.TrimSpace(seg)
+		if seg == "" {
+			continue
+		}
+		segment := seg
+		if lipgloss.Width(segment) > width {
+			segment = truncateWithEllipsis(segment, width)
+		}
+
+		candidate := segment
+		if rows[rowIndex] != "" {
+			candidate = rows[rowIndex] + " | " + segment
+		}
+		if lipgloss.Width(candidate) <= width {
+			rows[rowIndex] = candidate
+			continue
+		}
+
+		if rowIndex+1 < rowLimit {
+			rowIndex++
+			rows = append(rows, segment)
+			continue
+		}
+
+		fit = false
+		if rows[rowIndex] == "" {
+			rows[rowIndex] = truncateWithEllipsis(segment, width)
+		} else {
+			rows[rowIndex] = truncateWithEllipsis(rows[rowIndex]+" | "+segment, width)
+		}
+		break
+	}
+
+	return rows, fit
+}
+
+func truncateWithEllipsis(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(value) <= width {
+		return value
+	}
+	if width == 1 {
+		return "…"
+	}
+	return ansi.Truncate(value, width-1, "") + "…"
+}
+
+// statusHelpSegments returns mode-specific interaction hints grouped as short
+// segments for multi-row footer packing.
+func (m *Model) statusHelpSegments() []string {
+	switch m.mode {
+	case modeEditNote:
+		return []string{
+			"Ctrl+S save",
+			"Shift+Arrows select",
+			"Alt+S anchor",
+			"Ctrl+B bold",
+			"Alt+I italic",
+			"Ctrl+U underline",
+			"Alt+X strike",
+			"Ctrl+K link",
+			"Ctrl+1..3 heading",
+			"Ctrl+V paste",
+			"Esc cancel",
+		}
+	case modeNewNote, modeNewFolder, modeRenameItem, modeMoveItem, modeGitCommit:
+		return []string{"Enter/Ctrl+S save", "Esc cancel"}
+	case modeTemplatePicker:
+		return []string{"Template picker", "↑/↓ move", "Enter choose", "Esc cancel"}
+	case modeDraftRecovery:
+		return []string{"Draft recovery", "y recover", "n discard", "Esc skip all"}
+	case modeConfirmDelete:
+		return []string{"y confirm delete", "n/Esc cancel"}
+	default:
+		if m.searching {
+			return []string{"Search popup", "type", "↑/↓ move", "Enter jump", "Esc cancel"}
+		}
+		if m.showRecentPopup {
+			return []string{"Recent popup", "↑/↓ move", "Enter jump", "Esc cancel"}
+		}
+		if m.showOutlinePopup {
+			return []string{"Outline popup", "↑/↓ move", "Enter jump", "Esc cancel"}
+		}
+		if m.showWorkspacePopup {
+			return []string{"Workspace popup", "↑/↓ move", "Enter switch", "Esc cancel"}
+		}
+		if m.showExportPopup {
+			return []string{"Export popup", "↑/↓ move", "Enter export", "Esc cancel"}
+		}
+		if m.showWikiLinksPopup {
+			return []string{"Wiki links popup", "↑/↓ move", "Enter jump", "Esc cancel"}
+		}
+		if m.showWikiAutocomplete {
+			return []string{"Wiki autocomplete", "↑/↓ move", "Tab/Enter insert", "Esc close"}
+		}
+		help := []string{
+			"↑/↓ or k/j move",
+			"Enter/→/l toggle",
+			"←/h collapse",
+			"g/G top-bottom",
+			"Ctrl+P search",
+			"n new",
+			"f folder",
+			"e edit",
+			"r rename",
+			"m move",
+			"d delete",
+			"Shift+R refresh",
+			"s sort",
+			"t pin",
+			"Ctrl+O recents",
+			"o outline",
+			"Ctrl+W workspaces",
+			"x export",
+			"Shift+L wiki",
+			"z split",
+			"Tab split-focus",
+			"y copy content",
+			"Y copy path",
+		}
+		if m.git.isRepo {
+			help = append(help, "c commit", "p pull", "P push")
+		}
+		help = append(help, "? help", "q quit", "notes --configure")
+		return help
+	}
+}
+
+// statusContextSegments returns footer context telemetry segments.
+func (m *Model) statusContextSegments() []string {
+	parts := make([]string, 0, 2)
 	if (m.mode == modeBrowse || m.mode == modeEditNote) && m.currentFile != "" {
 		if metrics := m.noteMetricsSummary(); metrics != "" {
 			parts = append(parts, metrics)
@@ -337,66 +515,12 @@ func (m *Model) renderStatus(width int) string {
 	if git := m.gitFooterSummary(); git != "" {
 		parts = append(parts, git)
 	}
-	if m.status != "" {
-		parts = append(parts, m.status)
-	}
-	line := strings.Join(parts, " | ")
-	line = " " + truncate(line, max(0, width-1))
-	style := statusStyle
-	if m.mode == modeEditNote {
-		style = editStatus
-	}
-	return style.Width(width).Render(line)
+	return parts
 }
 
-// statusHelp returns the mode-specific keyboard shortcut hints shown in the
-// footer. Each mode gets a concise summary of available keys so the user
-// always knows what actions are possible without consulting the help screen.
-func (m *Model) statusHelp() string {
-	switch m.mode {
-	case modeEditNote:
-		return "Ctrl+S save  Shift+Arrows select  Alt+S anchor  Ctrl+B bold  Alt+I italic  Ctrl+U underline  Alt+X strike  Ctrl+K link  Ctrl+1..3 heading  Ctrl+V paste  Esc cancel"
-	case modeNewNote, modeNewFolder, modeRenameItem, modeMoveItem, modeGitCommit:
-		return "Enter/Ctrl+S save  Esc cancel"
-	case modeTemplatePicker:
-		return "Template picker: ↑/↓ move  Enter choose  Esc cancel"
-	case modeDraftRecovery:
-		return "Draft recovery: y recover  n discard  Esc skip all"
-	case modeConfirmDelete:
-		return "y confirm delete  n/Esc cancel"
-	default:
-		if m.searching {
-			return "Search popup: type  ↑/↓ move  Enter jump  Esc cancel"
-		}
-		if m.showRecentPopup {
-			return "Recent popup: ↑/↓ move  Enter jump  Esc cancel"
-		}
-		if m.showOutlinePopup {
-			return "Outline popup: ↑/↓ move  Enter jump  Esc cancel"
-		}
-		if m.showWorkspacePopup {
-			return "Workspace popup: ↑/↓ move  Enter switch  Esc cancel"
-		}
-		if m.showExportPopup {
-			return "Export popup: ↑/↓ move  Enter export  Esc cancel"
-		}
-		if m.showWikiLinksPopup {
-			return "Wiki links popup: ↑/↓ move  Enter jump  Esc cancel"
-		}
-		if m.showWikiAutocomplete {
-			return "Wiki autocomplete: ↑/↓ move  Tab/Enter insert  Esc close"
-		}
-		help := "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  r rename  m move  d delete  Shift+R refresh"
-		help += "  s sort  t pin"
-		help += "  Ctrl+O recents  o outline  Ctrl+W workspaces"
-		help += "  x export  Shift+L wiki links  z split  Tab split-focus"
-		help += "  y copy content  Y copy path"
-		if m.git.isRepo {
-			help += "  c commit  p pull  P push"
-		}
-		help += "  ? help  q quit  (reconfigure: notes --configure)"
-		return help
-	}
+// statusMessageSegment returns the latest status message to show in the footer.
+func (m *Model) statusMessageSegment() string {
+	return strings.TrimSpace(m.status)
 }
 
 // renderHelp renders the full-screen help overlay listing all keyboard

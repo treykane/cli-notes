@@ -26,8 +26,14 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 │                  │                                          │
 │ Directory Tree   │  Rendered Markdown View                  │
 │                  │                                          │
-└──────────────────┴──────────────────────────────────────────┘
+├─────────────────────────────────────────────────────────────┤
+│ Keys: ...                                                   │
+│ Context: W/C/L ... | Status: ...                           │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+- Footer is adaptive: it uses 2 rows on typical widths and expands to 3 rows on narrow terminals.
+- Footer rows are grouped by purpose: interaction keys, context telemetry (metrics/git), and status feedback.
 
 ## Features Demonstrated
 

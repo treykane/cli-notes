@@ -9,7 +9,7 @@ This application is a work in progress, it currently works, but I'm working on f
 - Markdown support with rendered preview
 - YAML frontmatter metadata (`title`, `date`, `category`, `tags`)
 - Tag-aware tree rows and `Ctrl+P` filtering with `tag:<name>`
-- Mode-aware colors with distinct preview vs edit accents
+- Semantic Ocean+Citrus palette with distinct preview vs edit accents
 - Colorful tree rows that visually separate folders and notes
 - Directory organization (folders instead of notebooks)
 - Search popup (`Ctrl+P`) for filtering folders by name and notes by name/content
@@ -25,7 +25,8 @@ This application is a work in progress, it currently works, but I'm working on f
 - Persistent per-note positions restore preview and edit locations when revisiting files
 - Cached search index keeps `Ctrl+P` responsive on larger note collections
 - Edit-mode markdown helpers: bold/italic/underline/strikethrough, links, and heading toggles
-- Status-bar note metrics (words/chars/lines) in preview and edit modes
+- Adaptive 2-3 row footer with grouped key hints, context telemetry, and status feedback
+- Footer note metrics (words/chars/lines) in preview and edit modes
 - Tree sorting modes (name/modified/size/created) with per-workspace persistence
 - Auto-saved edit drafts with startup recovery prompts
 - Clipboard integration for copy/paste workflows

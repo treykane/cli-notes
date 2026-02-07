@@ -10,6 +10,7 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-07: Reworked UI styling around a semantic Ocean+Citrus ANSI palette (shared tokens for panes, badges, editor, selection, and footer) and replaced the single-line footer with an adaptive 2-3 row footer that packs grouped keys/context/status segments with overflow ellipsis.
 - 2026-02-08: Added workspace-scoped tree sort persistence via config `tree_sort_by_workspace` (`notes_dir` key -> sort mode), with legacy `tree_sort` retained as fallback/default.
 - 2026-02-08: Extended per-workspace state to persist pane-specific preview offsets (`primary_preview_offset` + `secondary_preview_offset`) while keeping legacy `preview_offset` migration compatibility.
 - 2026-02-08: Upgraded edit-mode wiki autocomplete ordering to rank by exact-prefix match strength plus persisted per-note open-frequency counts in workspace state.

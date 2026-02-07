@@ -23,6 +23,26 @@ import (
 )
 
 var (
+	// Semantic palette tokens (ANSI 256-color) for a cohesive Ocean + Citrus
+	// theme. These tokens are reused across panes, badges, editor, and footer.
+	surface     = lipgloss.Color("236")
+	surfaceAlt  = lipgloss.Color("238")
+	textPrimary = lipgloss.Color("255")
+	textMuted   = lipgloss.Color("250")
+
+	accentBrowse  = lipgloss.Color("39")
+	accentEdit    = lipgloss.Color("44")
+	accentWarn    = lipgloss.Color("214")
+	accentSuccess = lipgloss.Color("114")
+
+	badgeDir  = lipgloss.Color("29")
+	badgeFile = lipgloss.Color("25")
+	badgePin  = lipgloss.Color("214")
+	badgeTags = lipgloss.Color("37")
+
+	selectionBg = lipgloss.Color("230")
+	selectionFg = lipgloss.Color("17")
+
 	// paneStyle is the base style for left and right panes: rounded border
 	// with horizontal padding. previewPane and editPane derive from this
 	// with mode-specific border colors.
@@ -33,11 +53,11 @@ var (
 	// thicker border to visually separate the popup from the background.
 	popupStyle = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).Padding(0, 1)
 
-	// previewPane styles the right pane border in browse/preview mode (blue).
-	previewPane = paneStyle.Copy().BorderForeground(lipgloss.Color("62"))
+	// previewPane styles the right pane border in browse/preview mode.
+	previewPane = paneStyle.Copy().BorderForeground(accentBrowse)
 
-	// editPane styles the right pane border in edit mode (pink/magenta).
-	editPane = paneStyle.Copy().BorderForeground(lipgloss.Color("204"))
+	// editPane styles the right pane border in edit mode.
+	editPane = paneStyle.Copy().BorderForeground(accentEdit)
 
 	// selectedStyle highlights the currently selected tree row or popup entry
 	// by reversing foreground and background colors.
@@ -47,64 +67,63 @@ var (
 	titleStyle = lipgloss.NewStyle().Bold(true)
 
 	// statusStyle renders the footer status bar in preview/browse mode:
-	// white text on a dark blue background for high contrast.
-	statusStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("24"))
+	// primary text on an ocean background for high contrast.
+	statusStyle = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentBrowse)
 
-	// editStatus renders the footer status bar in edit mode: white text on
-	// a magenta background so the user can immediately see which mode is active.
-	editStatus = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("89"))
+	// editStatus renders the footer status bar in edit mode with the edit accent.
+	editStatus = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentEdit)
 
 	// mutedStyle renders de-emphasized text (hints, placeholders, empty-state
 	// messages) in a mid-gray that recedes visually.
-	mutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	mutedStyle = lipgloss.NewStyle().Foreground(textMuted)
 
 	// previewHeader is the solid-color bar at the top of the right pane in
 	// preview mode, showing the current note's relative path.
-	previewHeader = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("24"))
+	previewHeader = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentBrowse)
 
 	// editHeader is the solid-color bar at the top of the right pane in
 	// edit mode, using the edit-mode accent color for visual distinction.
-	editHeader = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("89"))
+	editHeader = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentEdit)
 
 	// treeDirName styles directory names in the tree view (bold green).
-	treeDirName = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("114"))
+	treeDirName = lipgloss.NewStyle().Bold(true).Foreground(accentSuccess)
 
 	// treeFileName styles markdown file names in the tree view (light blue).
-	treeFileName = lipgloss.NewStyle().Foreground(lipgloss.Color("117"))
+	treeFileName = lipgloss.NewStyle().Foreground(accentBrowse)
 
 	// treeDirTag is the badge style for the "DIR" label on directory rows
 	// (white text on dark green background).
-	treeDirTag = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("29"))
+	treeDirTag = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(badgeDir)
 
 	// treeFileTag is the badge style for the "MD" label on markdown file rows
 	// (white text on dark blue background).
-	treeFileTag = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("25"))
+	treeFileTag = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(badgeFile)
 
 	// treePinTag is the badge style for the "PIN" label on pinned items
 	// (black text on yellow background for maximum visibility).
-	treePinTag = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("16")).Background(lipgloss.Color("220"))
+	treePinTag = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("16")).Background(badgePin)
 
 	// treeTagBadge styles the compact "TAGS:..." label shown next to markdown
 	// files that have frontmatter tags (light text on muted purple background).
-	treeTagBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("230")).Background(lipgloss.Color("60"))
+	treeTagBadge = lipgloss.NewStyle().Foreground(textPrimary).Background(badgeTags)
 
 	// treeOpenMark styles the "[-]" marker for expanded directories (green).
-	treeOpenMark = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("121"))
+	treeOpenMark = lipgloss.NewStyle().Bold(true).Foreground(accentSuccess)
 
 	// treeClosedMark styles the "[+]" marker for collapsed directories (orange).
-	treeClosedMark = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	treeClosedMark = lipgloss.NewStyle().Bold(true).Foreground(accentWarn)
 
 	// selectionText styles editor text that is currently selected (white
 	// background with black text for a clear highlight).
-	selectionText = lipgloss.NewStyle().Background(lipgloss.Color("255")).Foreground(lipgloss.Color("16"))
+	selectionText = lipgloss.NewStyle().Background(selectionBg).Foreground(selectionFg)
 
 	// editorCodeLine styles lines inside fenced code blocks in the editor
 	// (light blue to differentiate code from prose).
-	editorCodeLine = lipgloss.NewStyle().Foreground(lipgloss.Color("153"))
+	editorCodeLine = lipgloss.NewStyle().Foreground(lipgloss.Color("117"))
 
 	// editorFenceLine styles the ``` fence delimiters themselves in the
 	// editor (gold/amber for easy identification of code block boundaries).
-	editorFenceLine = lipgloss.NewStyle().Foreground(lipgloss.Color("179"))
+	editorFenceLine = lipgloss.NewStyle().Foreground(accentWarn)
 )
 
 // applyEditorTheme configures the textarea widget's visual appearance to match
@@ -119,10 +138,10 @@ var (
 func applyEditorTheme(editor *textarea.Model) {
 	focused, blurred := textarea.DefaultStyles()
 
-	base := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-	cursorLine := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("252"))
-	lineNumber := lipgloss.NewStyle().Foreground(lipgloss.Color("218"))
-	prompt := lipgloss.NewStyle().Foreground(lipgloss.Color("204"))
+	base := lipgloss.NewStyle().Foreground(textPrimary)
+	cursorLine := lipgloss.NewStyle().Background(surface).Foreground(textPrimary)
+	lineNumber := lipgloss.NewStyle().Foreground(accentBrowse)
+	prompt := lipgloss.NewStyle().Foreground(accentEdit)
 
 	focused.Base = base
 	focused.Text = base
@@ -134,7 +153,7 @@ func applyEditorTheme(editor *textarea.Model) {
 
 	blurred.Base = base
 	blurred.Text = mutedStyle
-	blurred.CursorLine = lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
+	blurred.CursorLine = lipgloss.NewStyle().Foreground(surfaceAlt)
 	blurred.CursorLineNumber = lineNumber
 	blurred.LineNumber = lineNumber
 	blurred.Prompt = prompt
@@ -157,9 +176,9 @@ func applyEditorSelectionVisual(editor *textarea.Model, active bool) {
 	// Keep cursor-line visuals stable; selection highlighting is applied to selected text only.
 	_ = active
 	editor.FocusedStyle.CursorLine = lipgloss.NewStyle().
-		Background(lipgloss.Color("236")).
-		Foreground(lipgloss.Color("252"))
+		Background(surface).
+		Foreground(textPrimary)
 	editor.FocusedStyle.CursorLineNumber = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("218")).
+		Foreground(accentBrowse).
 		Bold(true)
 }

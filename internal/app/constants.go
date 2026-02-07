@@ -28,6 +28,13 @@ const (
 	WikiLinksPopupHeight = 14
 	// WikiAutocompletePopupHeight is popup height for edit autocomplete.
 	WikiAutocompletePopupHeight = 10
+
+	// FooterMinRows is the default number of rows reserved for the bottom
+	// status/help area. The app targets two rows on typical terminal widths.
+	FooterMinRows = 2
+	// FooterMaxRows is the expanded footer height used when content does not
+	// fit within FooterMinRows.
+	FooterMaxRows = 3
 )
 
 // Input limits define maximum sizes for user input
