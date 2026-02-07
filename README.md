@@ -25,6 +25,8 @@ This application is a work in progress, it currently works, but I'm working on f
 - Persistent per-note positions restore preview and edit locations when revisiting files
 - Cached search index keeps `Ctrl+P` responsive on larger note collections
 - Edit-mode markdown helpers: bold/italic/underline/strikethrough, links, and heading toggles
+- Edit-mode undo/redo (`Ctrl+Z` / `Ctrl+Y`) with typing-burst history boundaries
+- Edit-mode mouse selection via left-click drag
 - Adaptive 2-3 row footer with grouped key hints, context telemetry, and status feedback
 - Footer note metrics (words/chars/lines) in preview and edit modes
 - Tree sorting modes (name/modified/size/created) with per-workspace persistence
@@ -124,8 +126,10 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | Key | Action |
 |-----|--------|
 | `Ctrl+S` | Save |
+| `Ctrl+Z` / `Ctrl+Y` | Undo / redo |
 | `Shift+↑` / `Shift+↓` / `Shift+←` / `Shift+→` | Extend selection |
 | `Shift+Home` / `Shift+End` | Extend selection to line boundary |
+| Left click + drag | Select text with mouse |
 | `Alt+S` | Set/clear selection anchor |
 | `Ctrl+B` | Toggle `**bold**` on selection/current word |
 | `Alt+I` | Toggle `*italic*` on selection/current word |
@@ -136,7 +140,7 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `Ctrl+V` | Paste from system clipboard |
 | `Esc` | Cancel |
 
-Edit mode highlights selected text with a light background and dark text.
+Edit mode highlights selected text (including multiline ranges) with a light background and dark text.
 
 ### Template Picker
 

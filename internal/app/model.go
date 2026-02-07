@@ -185,6 +185,18 @@ type Model struct {
 	editorSelectionAnchor int
 	// Whether the editor selection anchor is currently active
 	editorSelectionActive bool
+	// Whether a left-button drag selection is currently active.
+	editorMouseSelecting bool
+	// Offset where the current mouse drag selection started.
+	editorMouseSelectionOrigin int
+	// Undo history stack for edit mode.
+	editorUndo []editorSnapshot
+	// Redo history stack for edit mode.
+	editorRedo []editorSnapshot
+	// Whether an insert/delete typing burst is currently active.
+	typingBurstActive bool
+	// Timestamp of the last key in the active typing burst.
+	typingBurstLastInputAt time.Time
 	// User-configured templates directory.
 	templatesDir string
 	// Loaded templates for picker mode.
@@ -299,31 +311,33 @@ func New() (*Model, error) {
 	spin.Spinner = spinner.Line
 
 	m := &Model{
-		notesDir:              notesDir,
-		items:                 items,
-		expanded:              expanded,
-		sortMode:              sortMode,
-		pinnedPaths:           state.PinnedPaths,
-		recentFiles:           state.RecentFiles,
-		notePositions:         state.Positions,
-		noteOpenCounts:        state.OpenCounts,
-		treeMetadataCache:     map[string]treeMetadataCacheEntry{},
-		searchIndex:           newSearchIndex(notesDir),
-		viewport:              vp,
-		input:                 input,
-		search:                search,
-		editor:                editor,
-		mode:                  modeBrowse,
-		status:                "Ready",
-		spinner:               spin,
-		leftHeight:            0,
-		renderCache:           map[string]renderCacheEntry{},
-		editorSelectionAnchor: noEditorSelectionAnchor,
-		editorSelectionActive: false,
-		debugInput:            os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
-		templatesDir:          cfg.TemplatesDir,
-		workspaces:            cfg.Workspaces,
-		activeWorkspace:       cfg.ActiveWorkspace,
+		notesDir:                   notesDir,
+		items:                      items,
+		expanded:                   expanded,
+		sortMode:                   sortMode,
+		pinnedPaths:                state.PinnedPaths,
+		recentFiles:                state.RecentFiles,
+		notePositions:              state.Positions,
+		noteOpenCounts:             state.OpenCounts,
+		treeMetadataCache:          map[string]treeMetadataCacheEntry{},
+		searchIndex:                newSearchIndex(notesDir),
+		viewport:                   vp,
+		input:                      input,
+		search:                     search,
+		editor:                     editor,
+		mode:                       modeBrowse,
+		status:                     "Ready",
+		spinner:                    spin,
+		leftHeight:                 0,
+		renderCache:                map[string]renderCacheEntry{},
+		editorSelectionAnchor:      noEditorSelectionAnchor,
+		editorSelectionActive:      false,
+		editorMouseSelecting:       false,
+		editorMouseSelectionOrigin: noEditorSelectionAnchor,
+		debugInput:                 os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
+		templatesDir:               cfg.TemplatesDir,
+		workspaces:                 cfg.Workspaces,
+		activeWorkspace:            cfg.ActiveWorkspace,
 	}
 	m.loadKeybindings(cfg)
 	m.rebuildRecentEntries()
@@ -366,6 +380,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleRenderRequest(msg)
 	case renderResultMsg:
 		return m.handleRenderResult(msg)
+	case tea.MouseMsg:
+		return m.handleMouse(msg)
 	case tea.KeyMsg:
 		switch m.mode {
 		case modeEditNote:

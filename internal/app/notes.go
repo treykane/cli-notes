@@ -66,7 +66,9 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- ?: Toggle help\n" +
 	"- Enter or Ctrl+S: Save (when naming new note/folder)\n" +
 	"- Ctrl+S: Save (when editing)\n" +
+	"- Ctrl+Z / Ctrl+Y: Undo / redo (when editing)\n" +
 	"- Shift+Arrows or Shift+Home/End: Extend selection (when editing)\n" +
+	"- Left-click + drag: Select text with mouse (when editing)\n" +
 	"- Alt+S: Set/clear selection anchor (when editing)\n" +
 	"- Ctrl+B / Alt+I / Ctrl+U / Alt+X: Toggle bold/italic/underline/strikethrough on selection/word (when editing)\n" +
 	"- Ctrl+K: Insert [text](url) link template (when editing)\n" +
@@ -234,6 +236,7 @@ func (m *Model) startEditNote() (tea.Model, tea.Cmd) {
 	m.mode = modeEditNote
 	m.showHelp = false
 	m.clearEditorSelection()
+	m.resetEditHistory()
 	m.editor.SetValue(string(content))
 	m.currentNoteContent = string(content)
 	m.restoreEditorCursor(m.currentFile)
@@ -358,10 +361,10 @@ func (m *Model) saveRenameItem() (tea.Model, tea.Cmd) {
 	m.remapTreeMetadataPath(oldPath, newPath)
 	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
 	cmd := m.applyMutationEffects(mutationEffects{
-		removePaths:    []string{oldPath},
-		upsertPaths:    []string{newPath},
-		refreshGit:     true,
-		refreshTree:    true,
+		removePaths:     []string{oldPath},
+		upsertPaths:     []string{newPath},
+		refreshGit:      true,
+		refreshTree:     true,
 		rebuildKeepPath: newPath,
 	})
 	m.status = "Renamed to: " + name
@@ -424,10 +427,10 @@ func (m *Model) saveMoveItem() (tea.Model, tea.Cmd) {
 	m.remapTreeMetadataPath(oldPath, newPath)
 	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
 	cmd := m.applyMutationEffects(mutationEffects{
-		removePaths:    []string{oldPath},
-		upsertPaths:    []string{newPath},
-		refreshGit:     true,
-		refreshTree:    true,
+		removePaths:     []string{oldPath},
+		upsertPaths:     []string{newPath},
+		refreshGit:      true,
+		refreshTree:     true,
 		rebuildKeepPath: newPath,
 	})
 	m.status = "Moved to: " + m.displayRelative(destDir)
@@ -443,6 +446,7 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 		m.status = "No note selected"
 		return m, nil
 	}
+	m.finalizeTypingBurstBoundary()
 	content := normalizeNoteContent(m.editor.Value())
 	if err := os.WriteFile(m.currentFile, []byte(content), FilePermission); err != nil {
 		m.setStatusError("Error saving note", err, "path", m.currentFile)
@@ -455,6 +459,7 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 	m.currentNoteContent = content
 	m.clearDraftForPath(m.currentFile)
 	m.invalidateTreeMetadataPath(m.currentFile)
+	m.resetEditHistory()
 	m.status = "Saved: " + filepath.Base(m.currentFile)
 	cmd := m.applyMutationEffects(mutationEffects{
 		upsertPaths:    []string{m.currentFile},

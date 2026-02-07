@@ -161,16 +161,44 @@ func (m *Model) editorViewWithSelectionHighlight(view string) string {
 	}
 
 	selected := string(runes[start:end])
-	if selected == "" || strings.Contains(selected, "\n") {
+	if selected == "" {
 		return view
 	}
-
-	idx := strings.Index(view, selected)
-	if idx < 0 {
+	segments := selectionSegments(selected)
+	if len(segments) == 0 {
 		return view
 	}
+	return highlightSelectionSegmentsInView(view, segments)
+}
 
-	return view[:idx] + selectionText.Render(selected) + view[idx+len(selected):]
+func selectionSegments(selected string) []string {
+	parts := strings.Split(selected, "\n")
+	segments := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		segments = append(segments, part)
+	}
+	return segments
+}
+
+func highlightSelectionSegmentsInView(view string, segments []string) string {
+	searchFrom := 0
+	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
+		idx := strings.Index(view[searchFrom:], segment)
+		if idx < 0 {
+			continue
+		}
+		absolute := searchFrom + idx
+		highlighted := selectionText.Render(segment)
+		view = view[:absolute] + highlighted + view[absolute+len(segment):]
+		searchFrom = absolute + len(highlighted)
+	}
+	return view
 }
 
 func (m *Model) inputModeMeta() (string, string, string) {

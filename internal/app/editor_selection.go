@@ -23,6 +23,8 @@ const noEditorSelectionAnchor = -1
 func (m *Model) clearEditorSelection() {
 	m.editorSelectionAnchor = noEditorSelectionAnchor
 	m.editorSelectionActive = false
+	m.editorMouseSelecting = false
+	m.editorMouseSelectionOrigin = noEditorSelectionAnchor
 	applyEditorSelectionVisual(&m.editor, false)
 }
 

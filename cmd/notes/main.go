@@ -79,7 +79,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Error("run bubbletea program", "error", err)
 		fmt.Fprintln(os.Stderr, "error:", err)

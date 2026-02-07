@@ -1,6 +1,8 @@
 package app
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -105,41 +107,67 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.closeOverlay()
 		}
 		return m.saveEdit()
+	case "ctrl+z":
+		m.undoEditorChange()
+		return m, nil
+	case "ctrl+y":
+		m.redoEditorChange()
+		return m, nil
 	case "alt+s":
+		m.finalizeTypingBurstBoundary()
 		m.toggleEditorSelectionAnchor()
 		return m, nil
 	case "alt+x":
+		before := m.captureEditorSnapshot()
 		m.applyEditorFormat("~~", "~~", "strikethrough")
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "ctrl+b":
+		before := m.captureEditorSnapshot()
 		m.applyEditorFormat("**", "**", "bold")
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "alt+i":
+		before := m.captureEditorSnapshot()
 		m.applyEditorFormat("*", "*", "italic")
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "ctrl+u":
+		before := m.captureEditorSnapshot()
 		m.applyEditorFormat("<u>", "</u>", "underline")
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "ctrl+k":
+		before := m.captureEditorSnapshot()
 		m.insertMarkdownLinkTemplate()
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "ctrl+1":
+		before := m.captureEditorSnapshot()
 		m.toggleHeading(1)
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "ctrl+2":
+		before := m.captureEditorSnapshot()
 		m.toggleHeading(2)
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "ctrl+3":
+		before := m.captureEditorSnapshot()
 		m.toggleHeading(3)
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "ctrl+v":
+		before := m.captureEditorSnapshot()
 		m.pasteFromClipboardIntoEditor()
+		m.recordDiscreteEditMutation(before, m.captureEditorSnapshot())
 		return m, nil
 	case "esc":
 		m.rememberNotePosition(m.currentFile)
 		m.saveAppState()
 		m.mode = modeBrowse
 		m.clearEditorSelection()
+		m.resetEditHistory()
 		if m.isOverlay(overlayWikiAutocomplete) {
 			m.closeOverlay()
 		}
@@ -147,10 +175,12 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.status = "Edit cancelled"
 		return m, nil
 	default:
+		beforeSnapshot := m.captureEditorSnapshot()
 		before := m.editor.Value()
 		var cmd tea.Cmd
 		m.editor, cmd = m.editor.Update(msg)
 		if before != m.editor.Value() {
+			m.recordTypingMutation(beforeSnapshot, m.captureEditorSnapshot(), time.Now())
 			m.clearEditorSelection()
 			m.maybeTriggerWikiAutocomplete()
 		} else if m.hasEditorSelectionAnchor() {

@@ -103,7 +103,10 @@ func (m *Model) statusHelpSegments() []string {
 	case modeEditNote:
 		return []string{
 			"Ctrl+S save",
+			"Ctrl+Z undo",
+			"Ctrl+Y redo",
 			"Shift+Arrows select",
+			"Mouse drag select",
 			"Alt+S anchor",
 			"Ctrl+B bold",
 			"Alt+I italic",
@@ -276,7 +279,10 @@ func (m *Model) renderHelp(width, height int) string {
 		"",
 		"Edit Note",
 		"  Ctrl+S         Save",
+		"  Ctrl+Z         Undo",
+		"  Ctrl+Y         Redo",
 		"  Shift+Arrows   Extend selection",
+		"  Mouse drag     Select text",
 		"  Shift+Home/End Extend selection to line boundaries",
 		"  Alt+S          Set/clear selection anchor",
 		"  Ctrl+B         Toggle **bold** on selection/word",

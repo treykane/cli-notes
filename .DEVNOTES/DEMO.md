@@ -60,10 +60,12 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 
 ### 4. Edit Notes
 - Press `e` to edit the selected note
-- Save with Ctrl+S
+- Save with `Ctrl+S`
+- Undo/redo with `Ctrl+Z` / `Ctrl+Y`
+- Left-click + drag to select text with the mouse
 - Set a selection anchor with `Alt+S` (move cursor to define range)
 - Or hold `Shift` with arrow keys/home/end to extend selection
-- Selected text is highlighted (light background with dark text)
+- Selected text is highlighted (light background with dark text), including multiline selections
 - Formatting toggles on the active selection (or current word if no selection):
   - `Ctrl+B` for `**bold**`
   - `Alt+I` for `*italic*`
@@ -127,6 +129,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | P* | Git push |
 | Shift+↑/↓/←/→ (edit mode) | Extend selection |
 | Shift+Home/End (edit mode) | Extend selection to line boundary |
+| Left-click + drag (edit mode) | Select text with mouse |
+| Ctrl+Z / Ctrl+Y (edit mode) | Undo / redo |
 | Alt+S (edit mode) | Set/clear selection anchor |
 | Ctrl+B (edit mode) | Toggle `**bold**` on selection/current word |
 | Alt+I (edit mode) | Toggle `*italic*` on selection/current word |

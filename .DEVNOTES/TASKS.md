@@ -6,12 +6,13 @@
 
 ## In Progress
 
-- [ ] Add mouse-driven editor selection using Bubble Tea mouse events and map drag gestures to the shared selection API.
-- [ ] Add Undo/Redo support in edit mode (keyboard shortcuts + predictable history boundaries for format toggles, typing bursts, and save).
-- [ ] Add multiline visual selection highlighting in edit mode (currently text-only highlight is limited to single-line selections).
+- [x] Add mouse-driven editor selection using Bubble Tea mouse events and map drag gestures to the shared selection API.
+- [x] Add Undo/Redo support in edit mode (keyboard shortcuts + predictable history boundaries for format toggles, typing bursts, and save).
+- [x] Add multiline visual selection highlighting in edit mode (currently text-only highlight is limited to single-line selections).
 
 ## New Follow-up Tasks
 
+- [ ] Improve mouse-selection precision for soft-wrapped lines in the textarea (current mapping uses a simplified visual-row projection).
 - [ ] Add a dedicated `overlay_test.go` covering every overlay transition and ensuring `openOverlay`/`closeOverlay` cleanup stays complete as new overlays are added.
 - [ ] Add mutation-pipeline unit tests for `applyMutationEffects` covering path upsert/remove/invalidate ordering and `setCurrentFile` command behavior.
 - [ ] Add targeted benchmarks for tree rebuilds with metadata cache enabled vs. cold cache to track large-workspace performance over time.
