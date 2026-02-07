@@ -46,6 +46,8 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- Enter/Right/l: Expand or collapse folder\n" +
 	"- Left/h: Collapse folder\n" +
 	"- g / G: Jump to top / bottom\n" +
+	"- PgUp / PgDn: Scroll preview up / down one page\n" +
+	"- Ctrl+U / Ctrl+D: Scroll preview up / down half page\n" +
 	"- Ctrl+P: Open search popup\n" +
 	"- Ctrl+O: Open recent files popup\n" +
 	"- Ctrl+W: Open workspace popup\n" +

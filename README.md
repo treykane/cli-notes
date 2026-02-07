@@ -9,7 +9,7 @@ This application is a work in progress, it currently works, but I'm working on f
 - Markdown support with rendered preview
 - YAML frontmatter metadata (`title`, `date`, `category`, `tags`)
 - Tag-aware tree rows and `Ctrl+P` filtering with `tag:<name>`
-- Semantic Ocean+Citrus palette with distinct preview vs edit accents
+- Configurable UI theme presets: Ocean/Citrus, Sunset, Neon Slate
 - Colorful tree rows that visually separate folders and notes
 - Directory organization (folders instead of notebooks)
 - Search popup (`Ctrl+P`) for filtering folders by name and notes by name/content
@@ -83,6 +83,8 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `Enter` or `→` or `l` | Expand/collapse folder |
 | `←` or `h` | Collapse folder |
 | `g` / `G` | Jump to top / bottom |
+| `PgUp` / `PgDn` | Scroll preview up / down by one page |
+| `Ctrl+U` / `Ctrl+D` | Scroll preview up / down by half page |
 | `Ctrl+P` | Open search popup |
 | `Ctrl+O` | Open recent files popup |
 | `Ctrl+W` | Open workspace popup |
@@ -209,6 +211,7 @@ All notes are stored as plain Markdown files in your configured `notes_dir` (set
 - `tree_sort_by_workspace`: sort mode per workspace (`notes_dir` -> `name|modified|size|created`)
 - `keybindings`: inline action-to-key overrides
 - `keymap_file`: optional external keymap JSON path (default `~/.cli-notes/keymap.json`)
+- `theme_preset`: UI palette preset (`ocean_citrus`, `sunset`, `neon_slate`)
 
 ## Requirements
 

@@ -1,6 +1,10 @@
 package app
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
 
 // handleBrowseKey routes key presses in browse mode (not searching).
 func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
@@ -65,6 +69,14 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 	case actionSort:
 		m.cycleSortMode()
 		return m, nil
+	case actionPreviewScrollPageUp:
+		return m.scrollActivePreviewBy(-m.previewPageStep())
+	case actionPreviewScrollPageDown:
+		return m.scrollActivePreviewBy(m.previewPageStep())
+	case actionPreviewScrollHalfUp:
+		return m.scrollActivePreviewBy(-m.previewHalfPageStep())
+	case actionPreviewScrollHalfDown:
+		return m.scrollActivePreviewBy(m.previewHalfPageStep())
 	case actionPin:
 		m.togglePinnedSelection()
 		return m, nil
@@ -207,5 +219,67 @@ func (m *Model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
 	if len(m.searchResults) > 0 {
 		m.searchResultCursor = clamp(m.searchResultCursor+delta, 0, len(m.searchResults)-1)
 	}
+	return m, nil
+}
+
+func (m *Model) previewPageStep() int {
+	return max(1, m.viewport.Height)
+}
+
+func (m *Model) previewHalfPageStep() int {
+	return max(1, m.viewport.Height/2)
+}
+
+func (m *Model) activePreviewTarget() (path string, secondary bool) {
+	if m.splitMode && m.splitFocusSecondary {
+		return m.secondaryFile, true
+	}
+	return m.currentFile, false
+}
+
+func (m *Model) previewLineCount(path string, secondary bool) int {
+	if path == "" {
+		return 0
+	}
+	if !secondary {
+		if total := m.viewport.TotalLineCount(); total > 0 {
+			return total
+		}
+	}
+	rendered, ok := m.renderedForPath(path, m.viewport.Width)
+	if !ok {
+		return 0
+	}
+	return len(strings.Split(rendered, "\n"))
+}
+
+func (m *Model) scrollActivePreviewBy(delta int) (tea.Model, tea.Cmd) {
+	if delta == 0 {
+		return m, nil
+	}
+	path, secondary := m.activePreviewTarget()
+	if path == "" {
+		return m, nil
+	}
+	lineCount := m.previewLineCount(path, secondary)
+	if lineCount <= 0 {
+		return m, nil
+	}
+
+	maxOffset := lineCount - 1
+	currentOffset := m.restorePaneOffset(path, secondary)
+	if !secondary {
+		currentOffset = max(0, m.viewport.YOffset)
+	}
+	nextOffset := clamp(currentOffset+delta, 0, maxOffset)
+	if nextOffset == currentOffset {
+		return m, nil
+	}
+
+	m.setPaneOffset(path, secondary, nextOffset)
+	if !secondary {
+		m.viewport.YOffset = nextOffset
+	}
+	m.saveAppState()
 	return m, nil
 }

@@ -259,6 +259,7 @@ func New() (*Model, error) {
 	if err != nil {
 		return nil, err
 	}
+	applyThemePreset(cfg.ThemePreset)
 	notesDir := cfg.NotesDir
 	sortMode := loadWorkspaceSortMode(cfg, notesDir)
 	if err := ensureNotesDir(notesDir); err != nil {

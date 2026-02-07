@@ -53,6 +53,9 @@ func TestStatusHelpSegmentsByMode(t *testing.T) {
 		if !strings.Contains(joined, "Ctrl+P search") {
 			t.Fatalf("expected browse help to include search, got %q", joined)
 		}
+		if !strings.Contains(joined, "PgUp/PgDn preview") {
+			t.Fatalf("expected browse help to include preview page scroll, got %q", joined)
+		}
 		if !strings.Contains(joined, "q quit") {
 			t.Fatalf("expected browse help to include quit, got %q", joined)
 		}

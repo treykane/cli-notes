@@ -50,6 +50,22 @@ const (
 	// size → created → name …).
 	actionSort = "tree.sort.cycle"
 
+	// actionPreviewScrollPageUp scrolls the active preview pane up by one
+	// viewport page.
+	actionPreviewScrollPageUp = "preview.scroll.page_up"
+
+	// actionPreviewScrollPageDown scrolls the active preview pane down by one
+	// viewport page.
+	actionPreviewScrollPageDown = "preview.scroll.page_down"
+
+	// actionPreviewScrollHalfUp scrolls the active preview pane up by half
+	// a viewport page.
+	actionPreviewScrollHalfUp = "preview.scroll.half_up"
+
+	// actionPreviewScrollHalfDown scrolls the active preview pane down by half
+	// a viewport page.
+	actionPreviewScrollHalfDown = "preview.scroll.half_down"
+
 	// actionPin toggles the pinned state of the currently selected tree item.
 	// Pinned items float to the top of their parent folder regardless of sort.
 	actionPin = "tree.pin.toggle"
@@ -124,30 +140,34 @@ const (
 //   - Special keys: "enter", "esc", "tab", "up", "down", "left", "right"
 //   - Single characters: "n", "f", "e", "?", etc.
 var defaultActionKeys = map[string]string{
-	actionSearch:      "ctrl+p",
-	actionRecent:      "ctrl+o",
-	actionOutline:     "o",
-	actionWorkspace:   "ctrl+w",
-	actionNewNote:     "n",
-	actionNewFolder:   "f",
-	actionEditNote:    "e",
-	actionSort:        "s",
-	actionPin:         "t",
-	actionDelete:      "d",
-	actionCopyContent: "y",
-	actionCopyPath:    "shift+y",
-	actionRename:      "r",
-	actionRefresh:     "ctrl+r",
-	actionMove:        "m",
-	actionGitCommit:   "c",
-	actionGitPull:     "p",
-	actionGitPush:     "shift+p",
-	actionExport:      "x",
-	actionWikiLinks:   "shift+l",
-	actionSplitToggle: "z",
-	actionSplitFocus:  "tab",
-	actionHelp:        "?",
-	actionQuit:        "q",
+	actionSearch:                "ctrl+p",
+	actionRecent:                "ctrl+o",
+	actionOutline:               "o",
+	actionWorkspace:             "ctrl+w",
+	actionNewNote:               "n",
+	actionNewFolder:             "f",
+	actionEditNote:              "e",
+	actionSort:                  "s",
+	actionPreviewScrollPageUp:   "pgup",
+	actionPreviewScrollPageDown: "pgdown",
+	actionPreviewScrollHalfUp:   "ctrl+u",
+	actionPreviewScrollHalfDown: "ctrl+d",
+	actionPin:                   "t",
+	actionDelete:                "d",
+	actionCopyContent:           "y",
+	actionCopyPath:              "shift+y",
+	actionRename:                "r",
+	actionRefresh:               "ctrl+r",
+	actionMove:                  "m",
+	actionGitCommit:             "c",
+	actionGitPull:               "p",
+	actionGitPush:               "shift+p",
+	actionExport:                "x",
+	actionWikiLinks:             "shift+l",
+	actionSplitToggle:           "z",
+	actionSplitFocus:            "tab",
+	actionHelp:                  "?",
+	actionQuit:                  "q",
 }
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,8 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-07: Added config-driven UI theme presets via `theme_preset` (`ocean_citrus`, `sunset`, `neon_slate`) with normalization/fallback to `ocean_citrus`; app startup now applies the selected preset to pane, footer, tree, and editor-adjacent styles.
+- 2026-02-07: Added explicit browse-mode preview scroll keybindings with configurable actions (`preview.scroll.page_up`, `preview.scroll.page_down`, `preview.scroll.half_up`, `preview.scroll.half_down`) defaulting to `PgUp`/`PgDn`/`Ctrl+U`/`Ctrl+D`; scroll offsets now persist for both primary and split secondary panes when using keyboard scrolling.
 - 2026-02-07: Added cross-platform CI matrix workflow (`.github/workflows/ci.yml`) running `go test ./...` on macOS, Linux, and Windows runners to catch platform-specific regressions early.
 - 2026-02-07: Added cross-filesystem move fallback for note/folder moves: when `os.Rename` fails with cross-device (`EXDEV`) errors, the app now performs copy-then-delete with destination cleanup on partial failure.
 - 2026-02-07: Updated created-time sorting semantics: macOS still uses true birth time, Linux now attempts `statx` `STATX_BTIME`, and all other platforms explicitly fall back to modification time (no ctime proxy).

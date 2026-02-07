@@ -44,6 +44,7 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 
 ### 2. View Notes with Rendered Markdown
 - Select a `.md` file to view
+- Scroll preview directly with `PgUp`/`PgDn` (full page) and `Ctrl+U`/`Ctrl+D` (half page)
 - Markdown is rendered with formatting:
   - Headers (#, ##, ###)
   - Bold (**text**)
@@ -101,6 +102,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | Enter or → or l | Expand/collapse folder |
 | ← or h | Collapse folder |
 | g / G | Jump to top / bottom |
+| PgUp / PgDn | Scroll preview up/down one page |
+| Ctrl+U / Ctrl+D | Scroll preview up/down half page |
 | Ctrl+P | Open search popup |
 | Ctrl+O | Open recent files popup |
 | Ctrl+W | Open workspace popup |
@@ -191,6 +194,10 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 - Press `z` to toggle side-by-side split mode for two notes
 - Press `Tab` to switch which pane receives open/jump actions
 - Primary and secondary panes persist independent preview offsets
+
+### 21. Theme Presets
+- Set `theme_preset` in `~/.cli-notes/config.json` to `ocean_citrus`, `sunset`, or `neon_slate`
+- Restart the app to apply the selected UI palette
 
 ## File Storage
 

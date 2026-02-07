@@ -13,6 +13,7 @@
 //   - active_workspace:  Name of the currently active workspace.
 //   - keybindings:       Inline action→key overrides (merged with keymap_file).
 //   - keymap_file:       Path to an external keymap JSON file (default: ~/.cli-notes/keymap.json).
+//   - theme_preset:      UI color preset (ocean_citrus, sunset, neon_slate).
 //
 // # Workspace Migration
 //
@@ -45,6 +46,13 @@ const (
 
 	// configFileName is the name of the JSON configuration file inside configDirName.
 	configFileName = "config.json"
+
+	// ThemePresetOceanCitrus is the default Ocean + Citrus UI palette.
+	ThemePresetOceanCitrus = "ocean_citrus"
+	// ThemePresetSunset is the warm amber/salmon UI palette.
+	ThemePresetSunset = "sunset"
+	// ThemePresetNeonSlate is the cool cyan/lime UI palette.
+	ThemePresetNeonSlate = "neon_slate"
 )
 
 // ErrNotConfigured is returned by Load when no config file exists, signaling
@@ -89,6 +97,10 @@ type Config struct {
 	// KeymapFile is the path to an external keymap JSON file with additional
 	// keybinding overrides. Defaults to ~/.cli-notes/keymap.json if unset.
 	KeymapFile string `json:"keymap_file,omitempty"`
+
+	// ThemePreset selects the app UI color palette. Supported values:
+	// ocean_citrus, sunset, neon_slate.
+	ThemePreset string `json:"theme_preset,omitempty"`
 }
 
 // WorkspaceConfig pairs a human-readable workspace name with the absolute path
@@ -159,12 +171,13 @@ func Exists() (bool, error) {
 //  2. TreeSort defaults to "name" if empty.
 //  3. TemplatesDir defaults to ~/.cli-notes/templates if empty.
 //  4. KeymapFile defaults to ~/.cli-notes/keymap.json if empty.
-//  5. Workspaces are normalized: names are validated for uniqueness, directories
+//  5. ThemePreset defaults to ocean_citrus when missing or invalid.
+//  6. Workspaces are normalized: names are validated for uniqueness, directories
 //     are expanded and checked for duplicates. If no workspaces are configured,
 //     a "default" workspace is created from the legacy notes_dir field.
-//  6. ActiveWorkspace is resolved to an existing workspace name (falls back to
+//  7. ActiveWorkspace is resolved to an existing workspace name (falls back to
 //     the first workspace if the configured name doesn't match).
-//  7. NotesDir is set to the active workspace's directory.
+//  8. NotesDir is set to the active workspace's directory.
 //
 // Returns ErrNotConfigured if the config file does not exist.
 func Load() (Config, error) {
@@ -224,6 +237,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid keymap_file: %w", err)
 	}
 	cfg.KeymapFile = keymapPath
+	cfg.ThemePreset = NormalizeThemePreset(cfg.ThemePreset)
 	if cfg.Keybindings == nil {
 		cfg.Keybindings = map[string]string{}
 	}
@@ -294,6 +308,7 @@ func Save(cfg Config) error {
 		return fmt.Errorf("invalid keymap_file: %w", err)
 	}
 	cfg.KeymapFile = keymapPath
+	cfg.ThemePreset = NormalizeThemePreset(cfg.ThemePreset)
 	if len(cfg.Workspaces) == 0 && strings.TrimSpace(cfg.NotesDir) == "" {
 		return fmt.Errorf("invalid notes_dir: %w", errors.New("path is required"))
 	}
@@ -472,4 +487,21 @@ func normalizeTreeSortByWorkspace(raw map[string]string) map[string]string {
 		}
 	}
 	return normalized
+}
+
+// NormalizeThemePreset canonicalizes theme preset names and falls back to the
+// default preset when the value is empty or unknown.
+func NormalizeThemePreset(raw string) string {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	normalized = strings.NewReplacer("-", "_", " ", "_", "/", "_").Replace(normalized)
+	switch normalized {
+	case "", ThemePresetOceanCitrus, "oceancitrus":
+		return ThemePresetOceanCitrus
+	case ThemePresetSunset:
+		return ThemePresetSunset
+	case ThemePresetNeonSlate, "neonslate":
+		return ThemePresetNeonSlate
+	default:
+		return ThemePresetOceanCitrus
+	}
 }

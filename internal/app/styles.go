@@ -1,11 +1,9 @@
 // styles.go defines the Lipgloss styles used throughout the terminal UI.
 //
-// The UI uses a consistent color palette based on ANSI 256-color codes so it
-// renders correctly in virtually all modern terminal emulators without
-// requiring true-color support. Two visual modes are distinguished by color:
-//
-//   - Preview mode (browse): blue accent (color 62 / 24 / 25)
-//   - Edit mode: pink/magenta accent (color 204 / 89)
+// The UI uses ANSI 256-color palettes so it renders correctly in virtually all
+// modern terminal emulators without requiring true-color support. The palette
+// is selected from config via theme_preset (ocean_citrus, sunset, neon_slate).
+// Preview and edit modes are distinguished by separate accent tokens.
 //
 // Tree rows use green for directories and blue for markdown files, with
 // distinct badge styles for DIR/MD/PIN/TAGS labels. The selected row is
@@ -20,28 +18,29 @@ package app
 import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/treykane/cli-notes/internal/config"
 )
 
 var (
-	// Semantic palette tokens (ANSI 256-color) for a cohesive Ocean + Citrus
-	// theme. These tokens are reused across panes, badges, editor, and footer.
-	surface     = lipgloss.Color("236")
-	surfaceAlt  = lipgloss.Color("238")
-	textPrimary = lipgloss.Color("255")
-	textMuted   = lipgloss.Color("250")
+	// Semantic palette tokens reused across panes, badges, editor, and footer.
+	// Values are set by applyThemePreset during app startup.
+	surface     lipgloss.Color
+	surfaceAlt  lipgloss.Color
+	textPrimary lipgloss.Color
+	textMuted   lipgloss.Color
 
-	accentBrowse  = lipgloss.Color("39")
-	accentEdit    = lipgloss.Color("44")
-	accentWarn    = lipgloss.Color("214")
-	accentSuccess = lipgloss.Color("114")
+	accentBrowse  lipgloss.Color
+	accentEdit    lipgloss.Color
+	accentWarn    lipgloss.Color
+	accentSuccess lipgloss.Color
 
-	badgeDir  = lipgloss.Color("29")
-	badgeFile = lipgloss.Color("25")
-	badgePin  = lipgloss.Color("214")
-	badgeTags = lipgloss.Color("37")
+	badgeDir  lipgloss.Color
+	badgeFile lipgloss.Color
+	badgePin  lipgloss.Color
+	badgeTags lipgloss.Color
 
-	selectionBg = lipgloss.Color("230")
-	selectionFg = lipgloss.Color("17")
+	selectionBg lipgloss.Color
+	selectionFg lipgloss.Color
 
 	// paneStyle is the base style for left and right panes: rounded border
 	// with horizontal padding. previewPane and editPane derive from this
@@ -119,12 +118,135 @@ var (
 
 	// editorCodeLine styles lines inside fenced code blocks in the editor
 	// (light blue to differentiate code from prose).
-	editorCodeLine = lipgloss.NewStyle().Foreground(lipgloss.Color("117"))
+	editorCodeLine = lipgloss.NewStyle()
 
 	// editorFenceLine styles the ``` fence delimiters themselves in the
 	// editor (gold/amber for easy identification of code block boundaries).
-	editorFenceLine = lipgloss.NewStyle().Foreground(accentWarn)
+	editorFenceLine = lipgloss.NewStyle()
 )
+
+type themePalette struct {
+	surface     string
+	surfaceAlt  string
+	textPrimary string
+	textMuted   string
+
+	accentBrowse  string
+	accentEdit    string
+	accentWarn    string
+	accentSuccess string
+
+	badgeDir  string
+	badgeFile string
+	badgePin  string
+	badgeTags string
+
+	selectionBg  string
+	selectionFg  string
+	editorCodeFg string
+}
+
+func init() {
+	applyThemePreset(config.ThemePresetOceanCitrus)
+}
+
+func paletteForPreset(preset string) themePalette {
+	switch config.NormalizeThemePreset(preset) {
+	case config.ThemePresetSunset:
+		return themePalette{
+			surface:       "236",
+			surfaceAlt:    "238",
+			textPrimary:   "230",
+			textMuted:     "180",
+			accentBrowse:  "209",
+			accentEdit:    "175",
+			accentWarn:    "220",
+			accentSuccess: "150",
+			badgeDir:      "94",
+			badgeFile:     "130",
+			badgePin:      "220",
+			badgeTags:     "131",
+			selectionBg:   "224",
+			selectionFg:   "52",
+			editorCodeFg:  "216",
+		}
+	case config.ThemePresetNeonSlate:
+		return themePalette{
+			surface:       "234",
+			surfaceAlt:    "236",
+			textPrimary:   "255",
+			textMuted:     "249",
+			accentBrowse:  "51",
+			accentEdit:    "141",
+			accentWarn:    "227",
+			accentSuccess: "118",
+			badgeDir:      "22",
+			badgeFile:     "24",
+			badgePin:      "227",
+			badgeTags:     "60",
+			selectionBg:   "195",
+			selectionFg:   "16",
+			editorCodeFg:  "87",
+		}
+	default:
+		return themePalette{
+			surface:       "236",
+			surfaceAlt:    "238",
+			textPrimary:   "255",
+			textMuted:     "250",
+			accentBrowse:  "39",
+			accentEdit:    "44",
+			accentWarn:    "214",
+			accentSuccess: "114",
+			badgeDir:      "29",
+			badgeFile:     "25",
+			badgePin:      "214",
+			badgeTags:     "37",
+			selectionBg:   "230",
+			selectionFg:   "17",
+			editorCodeFg:  "117",
+		}
+	}
+}
+
+// applyThemePreset rebuilds global style tokens for the selected theme.
+func applyThemePreset(preset string) {
+	p := paletteForPreset(preset)
+
+	surface = lipgloss.Color(p.surface)
+	surfaceAlt = lipgloss.Color(p.surfaceAlt)
+	textPrimary = lipgloss.Color(p.textPrimary)
+	textMuted = lipgloss.Color(p.textMuted)
+	accentBrowse = lipgloss.Color(p.accentBrowse)
+	accentEdit = lipgloss.Color(p.accentEdit)
+	accentWarn = lipgloss.Color(p.accentWarn)
+	accentSuccess = lipgloss.Color(p.accentSuccess)
+	badgeDir = lipgloss.Color(p.badgeDir)
+	badgeFile = lipgloss.Color(p.badgeFile)
+	badgePin = lipgloss.Color(p.badgePin)
+	badgeTags = lipgloss.Color(p.badgeTags)
+	selectionBg = lipgloss.Color(p.selectionBg)
+	selectionFg = lipgloss.Color(p.selectionFg)
+
+	previewPane = paneStyle.Copy().BorderForeground(accentBrowse)
+	editPane = paneStyle.Copy().BorderForeground(accentEdit)
+	statusStyle = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentBrowse)
+	editStatus = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentEdit)
+	mutedStyle = lipgloss.NewStyle().Foreground(textMuted)
+	previewHeader = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentBrowse)
+	editHeader = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(accentEdit)
+	treeDirName = lipgloss.NewStyle().Bold(true).Foreground(accentSuccess)
+	treeFileName = lipgloss.NewStyle().Foreground(accentBrowse)
+	treeDirTag = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(badgeDir)
+	treeFileTag = lipgloss.NewStyle().Bold(true).Foreground(textPrimary).Background(badgeFile)
+	treePinTag = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("16")).Background(badgePin)
+	treeTagBadge = lipgloss.NewStyle().Foreground(textPrimary).Background(badgeTags)
+	treeOpenMark = lipgloss.NewStyle().Bold(true).Foreground(accentSuccess)
+	treeClosedMark = lipgloss.NewStyle().Bold(true).Foreground(accentWarn)
+	selectionText = lipgloss.NewStyle().Background(selectionBg).Foreground(selectionFg)
+	editorCodeLine = lipgloss.NewStyle().Foreground(lipgloss.Color(p.editorCodeFg))
+	editorFenceLine = lipgloss.NewStyle().Foreground(accentWarn)
+}
 
 // applyEditorTheme configures the textarea widget's visual appearance to match
 // the app's dark theme. It sets distinct styles for focused and blurred states:

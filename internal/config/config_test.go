@@ -46,6 +46,9 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	if loaded.TreeSort != "name" {
 		t.Fatalf("expected default tree sort %q, got %q", "name", loaded.TreeSort)
 	}
+	if loaded.ThemePreset != ThemePresetOceanCitrus {
+		t.Fatalf("expected default theme preset %q, got %q", ThemePresetOceanCitrus, loaded.ThemePreset)
+	}
 	expectedTemplates := filepath.Join(home, ".cli-notes", "templates")
 	if loaded.TemplatesDir != expectedTemplates {
 		t.Fatalf("expected templates dir %q, got %q", expectedTemplates, loaded.TemplatesDir)
@@ -211,5 +214,57 @@ func TestLoadIgnoresInvalidWorkspaceSortEntries(t *testing.T) {
 	}
 	if cfg.TreeSort != "created" {
 		t.Fatalf("expected fallback tree_sort to stay %q, got %q", "created", cfg.TreeSort)
+	}
+}
+
+func TestLoadNormalizesThemePreset(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path, err := ConfigPath()
+	if err != nil {
+		t.Fatalf("config path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	data := `{
+  "notes_dir": "~/notes",
+  "theme_preset": "Neon-Slate"
+}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.ThemePreset != ThemePresetNeonSlate {
+		t.Fatalf("expected normalized theme %q, got %q", ThemePresetNeonSlate, cfg.ThemePreset)
+	}
+}
+
+func TestLoadFallsBackToDefaultThemePresetOnInvalidValue(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path, err := ConfigPath()
+	if err != nil {
+		t.Fatalf("config path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	data := `{
+  "notes_dir": "~/notes",
+  "theme_preset": "bogus-theme"
+}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.ThemePreset != ThemePresetOceanCitrus {
+		t.Fatalf("expected fallback theme %q, got %q", ThemePresetOceanCitrus, cfg.ThemePreset)
 	}
 }
