@@ -52,7 +52,7 @@ func TestBuildTreeSortsAndRespectsExpandedDirectories(t *testing.T) {
 	items := buildTree(root, map[string]bool{
 		root:                         true,
 		filepath.Join(root, "Alpha"): true,
-	}, sortModeName)
+	}, sortModeName, nil)
 
 	want := []string{
 		"Alpha",
@@ -89,7 +89,7 @@ func TestBuildTreeCollapsedDirectoryExcludesChildren(t *testing.T) {
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, "Docs", "Guide.md"), "guide\n")
 
-	items := buildTree(root, map[string]bool{root: true}, sortModeName)
+	items := buildTree(root, map[string]bool{root: true}, sortModeName, nil)
 	got := relPathSet(root, items)
 
 	expectContains(t, got, "Docs")

@@ -83,10 +83,11 @@ const (
 
 // treeItem represents a single row in the left-hand tree pane.
 type treeItem struct {
-	path  string
-	name  string
-	depth int
-	isDir bool
+	path   string
+	name   string
+	depth  int
+	isDir  bool
+	pinned bool
 }
 
 // Model holds the Bubble Tea state for the entire UI.
@@ -104,6 +105,12 @@ type Model struct {
 	searchIndex *searchIndex
 	// Current tree sorting mode
 	sortMode sortMode
+	// Pinned note/folder paths.
+	pinnedPaths map[string]bool
+	// Recently viewed/edited note paths (most recent first).
+	recentFiles []string
+	// Remembered per-note preview/editor positions.
+	notePositions map[string]notePosition
 
 	// Tree Navigation
 	// Index of the currently selected item in items slice
@@ -194,6 +201,22 @@ type Model struct {
 	renderingPath string
 	// Sequence number of the in-flight render
 	renderingSeq int
+	// Last observed filesystem snapshot for external-change detection.
+	fileWatchSnapshot fileWatchSnapshot
+
+	// Popup State
+	// Whether the recent-files popup is currently visible.
+	showRecentPopup bool
+	// Selected row in recent-files popup.
+	recentCursor int
+	// Visible recent entries (existing note files).
+	recentEntries []string
+	// Whether the heading outline popup is currently visible.
+	showOutlinePopup bool
+	// Parsed headings for current note outline popup.
+	outlineHeadings []noteHeading
+	// Selected row in outline popup.
+	outlineCursor int
 }
 
 // New prepares the initial UI model and ensures the configured notes directory exists.
@@ -207,9 +230,13 @@ func New() (*Model, error) {
 	if err := ensureNotesDir(notesDir); err != nil {
 		return nil, err
 	}
+	state, err := loadAppState(notesDir)
+	if err != nil {
+		appLog.Warn("load app state", "path", appStatePath(notesDir), "error", err)
+	}
 
 	expanded := map[string]bool{notesDir: true}
-	items := buildTree(notesDir, expanded, sortMode)
+	items := buildTree(notesDir, expanded, sortMode, state.PinnedPaths)
 
 	vp := viewport.New(0, 0)
 	vp.SetContent("Select a note to view")
@@ -236,6 +263,9 @@ func New() (*Model, error) {
 		items:                 items,
 		expanded:              expanded,
 		sortMode:              sortMode,
+		pinnedPaths:           state.PinnedPaths,
+		recentFiles:           state.RecentFiles,
+		notePositions:         state.Positions,
 		searchIndex:           newSearchIndex(notesDir),
 		viewport:              vp,
 		input:                 input,
@@ -251,6 +281,7 @@ func New() (*Model, error) {
 		debugInput:            os.Getenv("CLI_NOTES_DEBUG_INPUT") != "",
 		templatesDir:          cfg.TemplatesDir,
 	}
+	m.rebuildRecentEntries()
 	m.refreshGitStatus()
 	m.loadPendingDrafts()
 	return m, nil
@@ -258,7 +289,11 @@ func New() (*Model, error) {
 
 // Init starts the spinner so we can show async rendering progress.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.scheduleDraftAutosave())
+	return tea.Batch(
+		m.spinner.Tick,
+		m.scheduleDraftAutosave(),
+		m.scheduleFileWatchTick(),
+	)
 }
 
 // Update is the Bubble Tea update loop: handle events and emit commands.
@@ -311,12 +346,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case draftAutoSaveTickMsg:
 		return m.handleDraftAutoSaveTick(msg)
+	case fileWatchTickMsg:
+		return m.handleFileWatchTick(msg)
 	}
 	return m, nil
 }
 
 // handleKey routes key presses in browse mode.
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.showRecentPopup {
+		return m.handleRecentPopupKey(msg)
+	}
+	if m.showOutlinePopup {
+		return m.handleOutlinePopupKey(msg)
+	}
 	if m.searching {
 		return m.handleSearchKey(msg)
 	}
@@ -325,6 +368,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) openSearchPopup() {
 	m.searching = true
+	m.showRecentPopup = false
+	m.showOutlinePopup = false
 	m.search.SetValue("")
 	m.search.Focus()
 	m.searchResults = nil

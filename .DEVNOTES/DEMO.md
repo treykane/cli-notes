@@ -96,6 +96,8 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | ← or h | Collapse folder |
 | g / G | Jump to top / bottom |
 | Ctrl+P | Open search popup |
+| Ctrl+O | Open recent files popup |
+| o | Open heading outline popup |
 | n | New note |
 | f | New folder |
 | e | Edit note |
@@ -103,6 +105,7 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 | m | Move selected item |
 | d | Delete selected item (with confirmation) |
 | s | Cycle tree sort mode |
+| t | Pin/unpin selected item |
 | y / Y | Copy note content / path to clipboard |
 | Shift+R or Ctrl+R | Refresh |
 | c* | Git add + commit |
@@ -130,11 +133,25 @@ Tip: run `./notes --configure` any time to re-run setup and change `notes_dir`.
 - Press `Enter` to jump to the selected item
 - Press `Esc` to close the popup
 
-### 11. Draft Recovery
+### 11. Recent Files
+- Press `Ctrl+O` to open the recent-files popup
+- Select with `↑/↓` (or `j/k`) and press `Enter` to jump
+- Recent list is persisted in `<notes_dir>/.cli-notes/state.json`
+
+### 12. Heading Outline
+- With a note open in preview, press `o` to open heading outline
+- Select a heading and press `Enter` to jump the preview to that section
+
+### 13. Pinning Favorites
+- Press `t` on any note/folder to toggle pinning
+- Pinned entries sort to the top of their folder regardless of active sort mode
+- Pin state persists in `<notes_dir>/.cli-notes/state.json`
+
+### 14. Draft Recovery
 - Edit mode auto-saves drafts under `<notes_dir>/.cli-notes/.drafts/`
 - On next launch, unresolved drafts are offered for recovery (`y`) or discard (`n`)
 
-### 12. Note Templates
+### 15. Note Templates
 - Add template files under `~/.cli-notes/templates/` (or configured `templates_dir`)
 - Press `n` to open a template picker before entering the new note name
 

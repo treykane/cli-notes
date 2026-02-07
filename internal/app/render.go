@@ -59,7 +59,12 @@ func (m *Model) maybeShowSelectedFile() tea.Cmd {
 
 // setCurrentFile tracks the file and triggers a render.
 func (m *Model) setCurrentFile(path string) tea.Cmd {
+	if m.currentFile != "" && m.currentFile != path {
+		m.rememberCurrentNotePosition()
+		m.saveAppState()
+	}
 	m.currentFile = path
+	m.trackRecentFile(path)
 	if content, err := os.ReadFile(path); err == nil {
 		m.currentNoteContent = string(content)
 	}
@@ -84,6 +89,7 @@ func (m *Model) requestRender(path string) tea.Cmd {
 		if entry, ok := m.renderCache[path]; ok && entry.width == width && entry.mtime.Equal(info.ModTime()) {
 			m.viewport.SetContent(entry.content)
 			m.currentNoteContent = entry.raw
+			m.restorePreviewOffset(path)
 			m.rendering = false
 			m.renderingPath = ""
 			m.renderingSeq = 0

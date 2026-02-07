@@ -21,6 +21,7 @@ var (
 	treeFileName   = lipgloss.NewStyle().Foreground(lipgloss.Color("117"))
 	treeDirTag     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("29"))
 	treeFileTag    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("25"))
+	treePinTag     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("16")).Background(lipgloss.Color("220"))
 	treeOpenMark   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("121"))
 	treeClosedMark = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
 	selectionText  = lipgloss.NewStyle().Background(lipgloss.Color("255")).Foreground(lipgloss.Color("16"))

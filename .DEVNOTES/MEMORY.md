@@ -10,6 +10,10 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-06: Added poll-based filesystem watching for `notes_dir` external changes, with automatic tree rebuild, search-index invalidation, and markdown render-cache invalidation.
+- 2026-02-06: Added persistent app state in `<notes_dir>/.cli-notes/state.json` for recent files, pinned paths, and per-note position memory (preview offset + edit cursor).
+- 2026-02-06: Added browse-mode productivity popups: `Ctrl+O` recent files quick-jump and `o` heading outline jump-to-section.
+- 2026-02-06: Added browse-mode pin toggle (`t`) and pin-aware tree sorting (pinned entries first within each folder across all sort modes).
 - 2026-02-06: Added editor productivity shortcuts: `Alt+X` strikethrough toggle, `Ctrl+K` markdown link insertion/wrapping, and `Ctrl+1..3` heading toggles for the current line.
 - 2026-02-06: Added footer note metrics (`W/C/L`) derived from raw note content in both preview and edit modes.
 - 2026-02-06: Added browse-mode `s` sort cycling (name/modified/size/created) with persisted config in `tree_sort`.

@@ -22,6 +22,8 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- Left/h: Collapse folder\n" +
 	"- g / G: Jump to top / bottom\n" +
 	"- Ctrl+P: Open search popup\n" +
+	"- Ctrl+O: Open recent files popup\n" +
+	"- o: Open heading outline popup\n" +
 	"- n: Create a new note\n" +
 	"- f: Create a new folder\n" +
 	"- e: Edit the selected note\n" +
@@ -40,6 +42,7 @@ const welcomeNote = "# Welcome to CLI Notes!\n\n" +
 	"- Ctrl+V: Paste from clipboard (when editing)\n" +
 	"- y / Y: Copy current note content / path to clipboard\n" +
 	"- s: Cycle tree sort mode (name/modified/size/created)\n" +
+	"- t: Pin/unpin selected item\n" +
 	"- Esc: Cancel (when naming or editing)\n" +
 	"- q or Ctrl+C: Quit the application\n\n" +
 	"## Getting Started\n\n" +
@@ -194,7 +197,7 @@ func (m *Model) startEditNote() (tea.Model, tea.Cmd) {
 	m.clearEditorSelection()
 	m.editor.SetValue(string(content))
 	m.currentNoteContent = string(content)
-	m.editor.CursorEnd()
+	m.restoreEditorCursor(m.currentFile)
 	m.editor.Focus()
 	m.status = "Editing " + filepath.Base(m.currentFile)
 	return m, nil
@@ -307,6 +310,7 @@ func (m *Model) saveRenameItem() (tea.Model, tea.Cmd) {
 
 	m.mode = modeBrowse
 	m.remapExpandedPaths(oldPath, newPath)
+	m.remapStatePaths(oldPath, newPath)
 	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
 	if m.searchIndex != nil {
 		m.searchIndex.removePath(oldPath)
@@ -368,6 +372,7 @@ func (m *Model) saveMoveItem() (tea.Model, tea.Cmd) {
 	m.mode = modeBrowse
 	m.expanded[destDir] = true
 	m.remapExpandedPaths(oldPath, newPath)
+	m.remapStatePaths(oldPath, newPath)
 	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
 	if m.searchIndex != nil {
 		m.searchIndex.removePath(oldPath)
@@ -396,6 +401,8 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 	}
 
 	m.mode = modeBrowse
+	m.rememberNotePosition(m.currentFile)
+	m.saveAppState()
 	m.clearEditorSelection()
 	m.currentNoteContent = content
 	m.clearDraftForPath(m.currentFile)
@@ -454,8 +461,11 @@ func (m *Model) performDelete(item *treeItem) {
 
 	// Clear viewport if we deleted the current file
 	if item.path == m.currentFile {
+		m.clearStateForPath(item.path)
 		m.currentFile = ""
 		m.viewport.SetContent("Select a note to view")
+	} else {
+		m.clearStateForPath(item.path)
 	}
 
 	// Update search index and refresh tree

@@ -114,7 +114,7 @@ func (m *Model) refreshTree() {
 
 // rebuildTreeKeep rebuilds the tree and keeps the cursor near the given path.
 func (m *Model) rebuildTreeKeep(path string) {
-	m.items = buildTree(m.notesDir, m.expanded, m.sortMode)
+	m.items = buildTree(m.notesDir, m.expanded, m.sortMode, m.pinnedPaths)
 	if len(m.items) == 0 {
 		m.cursor = 0
 		m.treeOffset = 0
@@ -144,9 +144,9 @@ func (m *Model) rebuildTreeKeep(path string) {
 //  3. Sort each level: directories first, then alphabetically within each group
 //
 // This produces a depth-first traversal that matches typical file browser UIs.
-func buildTree(root string, expanded map[string]bool, mode sortMode) []treeItem {
+func buildTree(root string, expanded map[string]bool, mode sortMode, pinned map[string]bool) []treeItem {
 	items := []treeItem{}
-	walkTree(root, 0, expanded, mode, &items)
+	walkTree(root, 0, expanded, mode, pinned, &items)
 	return items
 }
 
@@ -154,7 +154,7 @@ func buildTree(root string, expanded map[string]bool, mode sortMode) []treeItem 
 //
 // Each directory is sorted with folders first, then alphabetically (case-insensitive).
 // Only expanded folders have their children added to the tree.
-func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, items *[]treeItem) {
+func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pinned map[string]bool, items *[]treeItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		appLog.Warn("read tree directory", "path", dir, "error", err)
@@ -195,6 +195,11 @@ func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, it
 	sort.Slice(sortable, func(i, j int) bool {
 		left := sortable[i]
 		right := sortable[j]
+		leftPinned := pinned[left.path]
+		rightPinned := pinned[right.path]
+		if leftPinned != rightPinned {
+			return leftPinned
+		}
 		if left.entry.IsDir() != right.entry.IsDir() {
 			return left.entry.IsDir()
 		}
@@ -220,14 +225,15 @@ func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, it
 	for _, entry := range sortable {
 		path := entry.path
 		item := treeItem{
-			path:  path,
-			name:  entry.entry.Name(),
-			depth: depth,
-			isDir: entry.entry.IsDir(),
+			path:   path,
+			name:   entry.entry.Name(),
+			depth:  depth,
+			isDir:  entry.entry.IsDir(),
+			pinned: pinned[path],
 		}
 		*items = append(*items, item)
 		if entry.entry.IsDir() && expanded[path] {
-			walkTree(path, depth+1, expanded, mode, items)
+			walkTree(path, depth+1, expanded, mode, pinned, items)
 		}
 	}
 }

@@ -16,6 +16,10 @@ const (
 
 	// SearchPopupHeight is the fixed height of the search popup
 	SearchPopupHeight = 10
+	// RecentPopupHeight is the fixed height of the recent-files popup.
+	RecentPopupHeight = 12
+	// OutlinePopupHeight is the fixed height of the heading outline popup.
+	OutlinePopupHeight = 14
 )
 
 // Input limits define maximum sizes for user input
@@ -48,4 +52,12 @@ const (
 	// MaxSearchFileBytes is the maximum file size (in bytes) that will be
 	// searched. Files larger than this are skipped.
 	MaxSearchFileBytes = 1024 * 1024 // 1 MB
+	// MaxRecentFiles is the maximum number of recent files retained in state.
+	MaxRecentFiles = 20
+)
+
+// Watcher constants
+const (
+	// FileWatchInterval is the poll interval for external filesystem changes.
+	FileWatchInterval = 2 * time.Second
 )

@@ -11,6 +11,11 @@ This application is a work in progress, it currently works, but I'm working on f
 - Colorful tree rows that visually separate folders and notes
 - Directory organization (folders instead of notebooks)
 - Search popup (`Ctrl+P`) for filtering folders by name and notes by name/content
+- Recent-files popup (`Ctrl+O`) for quick jumps to previously viewed notes
+- Heading outline popup (`o`) for jump-to-section in long notes
+- Pinning (`t`) keeps favorite notes/folders sorted to the top of their folder
+- Poll-based file watcher auto-refreshes tree/search/render state on external edits
+- Persistent per-note positions restore preview and edit locations when revisiting files
 - Cached search index keeps `Ctrl+P` responsive on larger note collections
 - Edit-mode markdown helpers: bold/italic/underline/strikethrough, links, and heading toggles
 - Status-bar note metrics (words/chars/lines) in preview and edit modes
@@ -71,6 +76,8 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `←` or `h` | Collapse folder |
 | `g` / `G` | Jump to top / bottom |
 | `Ctrl+P` | Open search popup |
+| `Ctrl+O` | Open recent files popup |
+| `o` | Open heading outline popup |
 | `n` | Create a new note |
 | `f` | Create a new folder |
 | `e` | Edit the selected note |
@@ -78,6 +85,7 @@ Use `--configure` to re-run the configurator and change the notes directory.
 | `m` | Move the selected note/folder |
 | `d` | Delete the selected note/folder (with confirmation) |
 | `s` | Cycle tree sort mode (`name` → `modified` → `size` → `created`) |
+| `t` | Pin/unpin selected note/folder |
 | `y` | Copy current note content to clipboard |
 | `Y` | Copy current note path to clipboard |
 | `Shift+R` or `Ctrl+R` | Refresh the directory tree |
@@ -137,6 +145,28 @@ Edit-mode drafts are auto-saved every few seconds in `<notes_dir>/.cli-notes/.dr
 | `↑`/`↓` or `j`/`k` | Move search selection |
 | `Enter` | Jump to selected result |
 | `Esc` | Close popup |
+
+### Recent Files Popup
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` or `j`/`k` | Move selection |
+| `Enter` | Jump to selected recent note |
+| `Esc` | Close popup |
+
+### Heading Outline Popup
+
+| Key | Action |
+|-----|--------|
+| `o` (browse mode) | Open outline for current note |
+| `↑`/`↓` or `j`/`k` | Move heading selection |
+| `Enter` | Jump preview to selected heading |
+| `Esc` | Close popup |
+
+### Persistent UI State
+
+- Recent files, pinned paths, and note positions are stored in `<notes_dir>/.cli-notes/state.json`.
+- Returning to a note restores its preview scroll offset and last edit cursor location.
 
 ## How It Works
 

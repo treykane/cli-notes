@@ -29,6 +29,12 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 	case "ctrl+p":
 		m.openSearchPopup()
 		return m, nil
+	case "ctrl+o":
+		m.openRecentPopup()
+		return m, nil
+	case "o":
+		m.openOutlinePopup()
+		return m, nil
 	case "n":
 		m.startNewNote()
 		return m, nil
@@ -39,6 +45,9 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 		return m.startEditNote()
 	case "s":
 		m.cycleSortMode()
+		return m, nil
+	case "t":
+		m.togglePinnedSelection()
 		return m, nil
 	case "d":
 		m.deleteSelected()
@@ -138,10 +147,13 @@ func (m *Model) handleJumpBottom() (tea.Model, tea.Cmd) {
 
 // handleRefresh rebuilds the tree and search index.
 func (m *Model) handleRefresh() (tea.Model, tea.Cmd) {
+	m.rememberCurrentNotePosition()
+	m.saveAppState()
 	m.refreshTree()
 	if m.searchIndex != nil {
 		m.searchIndex.invalidate()
 	}
+	m.renderCache = map[string]renderCacheEntry{}
 	m.refreshGitStatus()
 	m.status = "Refreshed"
 	return m, nil

@@ -26,11 +26,12 @@
 
 ## Medium Priority — Navigation & UX
 
-- [ ] **File watcher / auto-refresh**: Watch the `notes_dir` for external filesystem changes (e.g. from another editor or `git pull`) and automatically rebuild the tree + invalidate the search index and render cache. Use `fsnotify` or poll-based detection.
-- [ ] **Recent files list**: Track recently viewed/edited notes (up to N items) and surface them in a quick-access popup or section. Persist the list across sessions in config or a separate state file.
-- [ ] **Markdown heading outline / jump-to-section**: In preview mode, parse headings from the current note and display an outline or offer a popup to jump to a specific section. Useful for long documents.
-- [ ] **Pinning / favorites**: Allow pinning notes or folders so they appear at the top of the tree regardless of sort order. Store pin state in a dotfile (e.g. `.pinned`) in the notes directory or in the app config.
-- [ ] **Scroll position memory**: Remember the viewport scroll position and cursor location for previously viewed notes so returning to a note restores the reading position.
+- [x] **File watcher / auto-refresh**: Watch the `notes_dir` for external filesystem changes (e.g. from another editor or `git pull`) and automatically rebuild the tree + invalidate the search index and render cache. Use `fsnotify` or poll-based detection.
+- [x] **Recent files list**: Track recently viewed/edited notes (up to N items) and surface them in a quick-access popup or section. Persist the list across sessions in config or a separate state file.
+- [x] **Markdown heading outline / jump-to-section**: In preview mode, parse headings from the current note and display an outline or offer a popup to jump to a specific section. Useful for long documents.
+- [x] **Pinning / favorites**: Allow pinning notes or folders so they appear at the top of the tree regardless of sort order. Store pin state in a dotfile (e.g. `.pinned`) in the notes directory or in the app config.
+- [x] **Scroll position memory**: Remember the viewport scroll position and cursor location for previously viewed notes so returning to a note restores the reading position.
+- [ ] **Preview-pane scroll keybindings**: Add explicit preview scrolling shortcuts (e.g. PgUp/PgDn/Ctrl+U/Ctrl+D) so scroll-position memory has full keyboard-only ergonomics without relying on jumps or mouse wheel behavior.
 
 ## Lower Priority — Advanced Features
 

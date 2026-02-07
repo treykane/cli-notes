@@ -19,6 +19,10 @@ func (m *Model) View() string {
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
 	if m.searching {
 		row = m.renderSearchPopupOverlay(m.width, layout.ContentHeight)
+	} else if m.showRecentPopup {
+		row = m.renderRecentPopupOverlay(m.width, layout.ContentHeight)
+	} else if m.showOutlinePopup {
+		row = m.renderOutlinePopupOverlay(m.width, layout.ContentHeight)
 	}
 	// Clamp the pane row so the last terminal line is always reserved for footer status.
 	row = padBlock(row, m.width, layout.ContentHeight)
@@ -175,8 +179,15 @@ func (m *Model) statusHelp() string {
 		if m.searching {
 			return "Search popup: type  ↑/↓ move  Enter jump  Esc cancel"
 		}
+		if m.showRecentPopup {
+			return "Recent popup: ↑/↓ move  Enter jump  Esc cancel"
+		}
+		if m.showOutlinePopup {
+			return "Outline popup: ↑/↓ move  Enter jump  Esc cancel"
+		}
 		help := "↑/↓ or k/j move  Enter/→/l toggle  ←/h collapse  g/G top/bottom  Ctrl+P search  n new  f folder  e edit  r rename  m move  d delete  Shift+R refresh"
-		help += "  s sort"
+		help += "  s sort  t pin"
+		help += "  Ctrl+O recents  o outline"
 		help += "  y copy content  Y copy path"
 		if m.git.isRepo {
 			help += "  c commit  p pull  P push"
@@ -196,6 +207,8 @@ func (m *Model) renderHelp(width, height int) string {
 		"  ←, h                      Collapse folder",
 		"  g / G                     Jump to top / bottom",
 		"  Ctrl+P                    Open search popup",
+		"  Ctrl+O                    Open recent-files popup",
+		"  o                         Open heading outline popup",
 		"  n                         New note",
 		"  f                         New folder",
 		"  e                         Edit note",
@@ -204,6 +217,7 @@ func (m *Model) renderHelp(width, height int) string {
 		"  d                         Delete (with confirmation)",
 		"  Shift+R / Ctrl+R          Refresh",
 		"  s                         Cycle tree sort mode",
+		"  t                         Pin/unpin selected item",
 		"  y / Y                     Copy note content / path",
 		"  ?                         Toggle help",
 		"  q or Ctrl+C               Quit",
@@ -225,6 +239,17 @@ func (m *Model) renderHelp(width, height int) string {
 		"  ↑/↓, j/k            Move search selection",
 		"  Enter               Jump to selected result",
 		"  Esc                 Close search popup",
+		"",
+		"Recent Files Popup",
+		"  ↑/↓, j/k            Move recent selection",
+		"  Enter               Jump to selected recent note",
+		"  Esc                 Close popup",
+		"",
+		"Heading Outline Popup",
+		"  o                   Open heading outline for current note",
+		"  ↑/↓, j/k            Move heading selection",
+		"  Enter               Jump preview to heading",
+		"  Esc                 Close popup",
 		"",
 		"New Note/Folder",
 		"  Enter or Ctrl+S  Save",
@@ -295,6 +320,20 @@ func (m *Model) renderSearchPopupOverlay(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
 }
 
+func (m *Model) renderRecentPopupOverlay(width, height int) string {
+	popupWidth := min(70, max(44, width-SearchPopupPadding))
+	popupHeight := min(18, max(RecentPopupHeight, height-4))
+	popup := m.renderRecentPopup(popupWidth, popupHeight)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
+}
+
+func (m *Model) renderOutlinePopupOverlay(width, height int) string {
+	popupWidth := min(80, max(50, width-SearchPopupPadding))
+	popupHeight := min(20, max(OutlinePopupHeight, height-4))
+	popup := m.renderOutlinePopup(popupWidth, popupHeight)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)
+}
+
 func (m *Model) renderSearchPopup(width, height int) string {
 	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
 	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
@@ -325,6 +364,54 @@ func (m *Model) renderSearchPopup(width, height int) string {
 	}
 	lines = append(lines, mutedStyle.Render("Enter: jump  Esc: close"))
 
+	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
+	return popupStyle.Width(width).Height(height).Render(content)
+}
+
+func (m *Model) renderRecentPopup(width, height int) string {
+	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
+	lines := []string{
+		titleStyle.Render("Recent Files (Ctrl+O)"),
+		"",
+	}
+	limit := max(0, innerHeight-len(lines)-1)
+	for i := 0; i < min(limit, len(m.recentEntries)); i++ {
+		label := truncate(m.displayRelative(m.recentEntries[i]), innerWidth)
+		if i == m.recentCursor {
+			label = selectedStyle.Render(label)
+		}
+		lines = append(lines, label)
+	}
+	if len(m.recentEntries) == 0 {
+		lines = append(lines, mutedStyle.Render("No recent files"))
+	}
+	lines = append(lines, mutedStyle.Render("Enter: jump  Esc: close"))
+	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
+	return popupStyle.Width(width).Height(height).Render(content)
+}
+
+func (m *Model) renderOutlinePopup(width, height int) string {
+	innerWidth := max(0, width-popupStyle.GetHorizontalFrameSize())
+	innerHeight := max(0, height-popupStyle.GetVerticalFrameSize())
+	lines := []string{
+		titleStyle.Render("Heading Outline (o)"),
+		"",
+	}
+	limit := max(0, innerHeight-len(lines)-1)
+	for i := 0; i < min(limit, len(m.outlineHeadings)); i++ {
+		heading := m.outlineHeadings[i]
+		indent := strings.Repeat("  ", max(0, heading.Level-1))
+		label := truncate(fmt.Sprintf("%s%s", indent, heading.Title), innerWidth)
+		if i == m.outlineCursor {
+			label = selectedStyle.Render(label)
+		}
+		lines = append(lines, label)
+	}
+	if len(m.outlineHeadings) == 0 {
+		lines = append(lines, mutedStyle.Render("No headings"))
+	}
+	lines = append(lines, mutedStyle.Render("Enter: jump  Esc: close"))
 	content := padBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
 	return popupStyle.Width(width).Height(height).Render(content)
 }
@@ -390,9 +477,17 @@ func (m *Model) formatTreeItem(item treeItem) string {
 		if expanded || strings.TrimSpace(m.search.Value()) != "" {
 			marker = treeOpenMark.Render("[-]")
 		}
-		return fmt.Sprintf("%s%s %s %s", indent, marker, treeDirTag.Render("DIR"), treeDirName.Render(item.name))
+		pin := ""
+		if item.pinned {
+			pin = " " + treePinTag.Render("PIN")
+		}
+		return fmt.Sprintf("%s%s %s %s%s", indent, marker, treeDirTag.Render("DIR"), treeDirName.Render(item.name), pin)
 	}
-	return fmt.Sprintf("%s    %s %s", indent, treeFileTag.Render("MD"), treeFileName.Render(item.name))
+	pin := ""
+	if item.pinned {
+		pin = " " + treePinTag.Render("PIN")
+	}
+	return fmt.Sprintf("%s    %s %s%s", indent, treeFileTag.Render("MD"), treeFileName.Render(item.name), pin)
 }
 
 func (m *Model) formatTreeItemSelected(item treeItem) string {
@@ -403,9 +498,17 @@ func (m *Model) formatTreeItemSelected(item treeItem) string {
 		if expanded || strings.TrimSpace(m.search.Value()) != "" {
 			marker = "[-]"
 		}
-		return fmt.Sprintf("%s%s DIR %s", indent, marker, item.name)
+		pin := ""
+		if item.pinned {
+			pin = " PIN"
+		}
+		return fmt.Sprintf("%s%s DIR %s%s", indent, marker, item.name, pin)
 	}
-	return fmt.Sprintf("%s    MD %s", indent, item.name)
+	pin := ""
+	if item.pinned {
+		pin = " PIN"
+	}
+	return fmt.Sprintf("%s    MD %s%s", indent, item.name, pin)
 }
 
 // updateLayout recomputes viewport sizing after a window resize.

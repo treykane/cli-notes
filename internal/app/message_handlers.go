@@ -81,6 +81,7 @@ func (m *Model) handleRenderResult(msg renderResultMsg) (tea.Model, tea.Cmd) {
 	if msg.width == roundWidthToNearestBucket(m.viewport.Width) {
 		m.viewport.SetContent(msg.content)
 		m.currentNoteContent = msg.raw
+		m.restorePreviewOffset(msg.path)
 		m.clearRenderingState()
 	}
 	return m, nil
@@ -129,6 +130,8 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.pasteFromClipboardIntoEditor()
 		return m, nil
 	case "esc":
+		m.rememberNotePosition(m.currentFile)
+		m.saveAppState()
 		m.mode = modeBrowse
 		m.clearEditorSelection()
 		m.clearDraftForPath(m.currentFile)
