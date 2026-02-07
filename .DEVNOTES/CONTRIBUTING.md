@@ -14,6 +14,8 @@ See `DEVELOPMENT.md` for setup requirements and run commands.
 - Avoid hidden filesystem side effects; notes live in the configured `notes_dir` from `~/.cli-notes/config.json`.
 - Keep the README, `docs/DEVELOPMENT.md`, and in-app help aligned.
 - Preserve note file normalization rules (notes end with exactly one trailing newline).
+- Keep overlay behavior centralized via `overlayMode` helpers (`openOverlay` / `closeOverlay`) so only one popup surface is active at a time.
+- Route filesystem-mutation follow-up work through shared effect helpers (`applyMutationEffects`) instead of ad-hoc refresh sequences.
 
 ## Code Style
 

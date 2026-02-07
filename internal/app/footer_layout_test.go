@@ -73,7 +73,7 @@ func TestStatusHelpSegmentsByMode(t *testing.T) {
 	})
 
 	t.Run("popup", func(t *testing.T) {
-		m := &Model{mode: modeBrowse, searching: true}
+		m := &Model{mode: modeBrowse, overlay: overlaySearch}
 		joined := strings.Join(m.statusHelpSegments(), " | ")
 		if !strings.Contains(joined, "Search popup") {
 			t.Fatalf("expected popup help to include popup context, got %q", joined)

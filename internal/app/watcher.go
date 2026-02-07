@@ -168,12 +168,13 @@ func fileWatchSnapshotsEqual(left, right fileWatchSnapshot) bool {
 //  6. If the currently viewed file was deleted externally, clears the viewport.
 func (m *Model) handleExternalFilesystemChange() tea.Cmd {
 	m.rememberCurrentNotePosition()
-	m.saveAppState()
-	m.refreshTree()
-	if m.searchIndex != nil {
-		m.searchIndex.invalidate()
-	}
-	m.renderCache = map[string]renderCacheEntry{}
+	_ = m.applyMutationEffects(mutationEffects{
+		saveState:        true,
+		refreshTree:      true,
+		invalidateSearch: true,
+		clearRenderCache: true,
+	})
+	m.invalidateTreeMetadataCache()
 	m.rebuildRecentEntries()
 
 	if m.currentFile != "" {

@@ -81,6 +81,20 @@ const (
 	modeDraftRecovery
 )
 
+// overlayMode represents the single active popup/overlay surface.
+type overlayMode int
+
+const (
+	overlayNone overlayMode = iota
+	overlaySearch
+	overlayRecent
+	overlayOutline
+	overlayWorkspace
+	overlayExport
+	overlayWikiLinks
+	overlayWikiAutocomplete
+)
+
 // treeItem represents a single row in the left-hand tree pane.
 type treeItem struct {
 	path   string
@@ -114,6 +128,8 @@ type Model struct {
 	notePositions map[string]notePosition
 	// Per-note open frequency used by autocomplete ranking.
 	noteOpenCounts map[string]int
+	// Frontmatter metadata cache used by tree rendering.
+	treeMetadataCache map[string]treeMetadataCacheEntry
 
 	// Tree Navigation
 	// Index of the currently selected item in items slice
@@ -124,8 +140,6 @@ type Model struct {
 	leftHeight int
 
 	// Search State
-	// Whether the search popup is currently visible
-	searching bool
 	// Items matching the current search query
 	searchResults []treeItem
 	// Index of the selected result in searchResults slice
@@ -207,35 +221,26 @@ type Model struct {
 	// Last observed filesystem snapshot for external-change detection.
 	fileWatchSnapshot fileWatchSnapshot
 
-	// Popup State
-	// Whether the recent-files popup is currently visible.
-	showRecentPopup bool
+	// Overlay State
+	// Current active overlay; at most one overlay is visible at a time.
+	overlay overlayMode
 	// Selected row in recent-files popup.
 	recentCursor int
 	// Visible recent entries (existing note files).
 	recentEntries []string
-	// Whether the heading outline popup is currently visible.
-	showOutlinePopup bool
 	// Parsed headings for current note outline popup.
 	outlineHeadings []noteHeading
 	// Selected row in outline popup.
 	outlineCursor int
-	// Whether the workspace popup is currently visible.
-	showWorkspacePopup bool
 	// Selected row in workspace popup.
 	workspaceCursor int
-	// Whether the export popup is visible.
-	showExportPopup bool
 	// Selected row in export popup.
 	exportCursor int
-	// Whether the wiki-links popup is visible.
-	showWikiLinksPopup bool
 	// Parsed wiki links for current note.
 	wikiLinks []wikiLink
 	// Selected row in wiki-links popup.
 	wikiLinkCursor int
 	// Edit-mode wiki link autocomplete popup.
-	showWikiAutocomplete   bool
 	wikiAutocomplete       []noteTarget
 	wikiAutocompleteCursor int
 
@@ -302,6 +307,7 @@ func New() (*Model, error) {
 		recentFiles:           state.RecentFiles,
 		notePositions:         state.Positions,
 		noteOpenCounts:        state.OpenCounts,
+		treeMetadataCache:     map[string]treeMetadataCacheEntry{},
 		searchIndex:           newSearchIndex(notesDir),
 		viewport:              vp,
 		input:                 input,
@@ -398,31 +404,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey routes key presses in browse mode.
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.showWorkspacePopup {
+	switch m.overlay {
+	case overlayWorkspace:
 		return m.handleWorkspacePopupKey(msg)
-	}
-	if m.showExportPopup {
+	case overlayExport:
 		return m.handleExportPopupKey(msg)
-	}
-	if m.showWikiLinksPopup {
+	case overlayWikiLinks:
 		return m.handleWikiLinksPopupKey(msg)
-	}
-	if m.showRecentPopup {
+	case overlayRecent:
 		return m.handleRecentPopupKey(msg)
-	}
-	if m.showOutlinePopup {
+	case overlayOutline:
 		return m.handleOutlinePopupKey(msg)
-	}
-	if m.searching {
+	case overlaySearch:
 		return m.handleSearchKey(msg)
+	case overlayWikiAutocomplete:
+		// Wiki autocomplete overlay is handled from edit mode only.
+		return m, nil
 	}
 	return m.handleBrowseKey(msg.String())
 }
 
 func (m *Model) openSearchPopup() {
-	m.searching = true
-	m.showRecentPopup = false
-	m.showOutlinePopup = false
+	m.openOverlay(overlaySearch)
 	m.search.SetValue("")
 	m.search.Focus()
 	m.searchResults = nil
@@ -437,7 +440,9 @@ func (m *Model) openSearchPopup() {
 }
 
 func (m *Model) closeSearchPopup() {
-	m.searching = false
+	if m.overlay == overlaySearch {
+		m.closeOverlay()
+	}
 	m.search.Blur()
 	m.search.SetValue("")
 	m.searchResults = nil

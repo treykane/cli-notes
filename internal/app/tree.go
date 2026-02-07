@@ -31,6 +31,11 @@ import (
 	"time"
 )
 
+type treeMetadataCacheEntry struct {
+	modTime time.Time
+	tags    []string
+}
+
 // sortMode determines how entries are ordered within each directory level
 // of the tree. The mode is persisted in config.json under "tree_sort" and
 // can be cycled at runtime with the `s` keybinding.
@@ -149,7 +154,7 @@ func (m *Model) refreshTree() {
 
 // rebuildTreeKeep rebuilds the tree and keeps the cursor near the given path.
 func (m *Model) rebuildTreeKeep(path string) {
-	m.items = buildTree(m.notesDir, m.expanded, m.sortMode, m.pinnedPaths)
+	m.items = buildTreeWithMetadataCache(m.notesDir, m.expanded, m.sortMode, m.pinnedPaths, m.cachedTagsForPath)
 	if len(m.items) == 0 {
 		m.cursor = 0
 		m.treeOffset = 0
@@ -163,6 +168,50 @@ func (m *Model) rebuildTreeKeep(path string) {
 		}
 	}
 	m.adjustTreeOffset()
+}
+
+func (m *Model) cachedTagsForPath(path string, info os.FileInfo) []string {
+	if m.treeMetadataCache == nil {
+		m.treeMetadataCache = map[string]treeMetadataCacheEntry{}
+	}
+	if entry, ok := m.treeMetadataCache[path]; ok && entry.modTime.Equal(info.ModTime()) {
+		return entry.tags
+	}
+	_, meta := readMarkdownContentAndMetadata(path)
+	tags := append([]string(nil), meta.Tags...)
+	m.treeMetadataCache[path] = treeMetadataCacheEntry{
+		modTime: info.ModTime(),
+		tags:    tags,
+	}
+	return tags
+}
+
+func (m *Model) invalidateTreeMetadataPath(path string) {
+	if m.treeMetadataCache == nil || path == "" {
+		return
+	}
+	delete(m.treeMetadataCache, path)
+	prefix := path + string(os.PathSeparator)
+	for key := range m.treeMetadataCache {
+		if strings.HasPrefix(key, prefix) {
+			delete(m.treeMetadataCache, key)
+		}
+	}
+}
+
+func (m *Model) remapTreeMetadataPath(oldPath, newPath string) {
+	if m.treeMetadataCache == nil || oldPath == "" || newPath == "" || oldPath == newPath {
+		return
+	}
+	remapped := make(map[string]treeMetadataCacheEntry, len(m.treeMetadataCache))
+	for path, entry := range m.treeMetadataCache {
+		remapped[replacePathPrefix(path, oldPath, newPath)] = entry
+	}
+	m.treeMetadataCache = remapped
+}
+
+func (m *Model) invalidateTreeMetadataCache() {
+	m.treeMetadataCache = map[string]treeMetadataCacheEntry{}
 }
 
 // buildTree builds a flat list of items for rendering the tree view.
@@ -180,8 +229,12 @@ func (m *Model) rebuildTreeKeep(path string) {
 //
 // This produces a depth-first traversal that matches typical file browser UIs.
 func buildTree(root string, expanded map[string]bool, mode sortMode, pinned map[string]bool) []treeItem {
+	return buildTreeWithMetadataCache(root, expanded, mode, pinned, nil)
+}
+
+func buildTreeWithMetadataCache(root string, expanded map[string]bool, mode sortMode, pinned map[string]bool, metadata func(path string, info os.FileInfo) []string) []treeItem {
 	items := []treeItem{}
-	walkTree(root, 0, expanded, mode, pinned, &items)
+	walkTree(root, 0, expanded, mode, pinned, metadata, &items)
 	return items
 }
 
@@ -201,7 +254,7 @@ func buildTree(root string, expanded map[string]bool, mode sortMode, pinned map[
 //
 // Only expanded folders have their children added to the tree, which keeps the
 // flat items slice compact and makes cursor indexing simple.
-func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pinned map[string]bool, items *[]treeItem) {
+func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pinned map[string]bool, metadata func(path string, info os.FileInfo) []string, items *[]treeItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		appLog.Warn("read tree directory", "path", dir, "error", err)
@@ -279,12 +332,16 @@ func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pi
 			pinned: pinned[path],
 		}
 		if !item.isDir && hasSuffixCaseInsensitive(path, ".md") {
-			_, meta := readMarkdownContentAndMetadata(path)
-			item.tags = meta.Tags
+			if metadata != nil {
+				item.tags = metadata(path, entry.info)
+			} else {
+				_, meta := readMarkdownContentAndMetadata(path)
+				item.tags = meta.Tags
+			}
 		}
 		*items = append(*items, item)
 		if entry.entry.IsDir() && expanded[path] {
-			walkTree(path, depth+1, expanded, mode, pinned, items)
+			walkTree(path, depth+1, expanded, mode, pinned, metadata, items)
 		}
 	}
 }

@@ -67,8 +67,7 @@ func (m *Model) openWikiLinksPopup() {
 			Resolved: ok,
 		})
 	}
-	m.closeTransientPopups()
-	m.showWikiLinksPopup = true
+	m.openOverlay(overlayWikiLinks)
 	m.wikiLinks = wikiRows
 	m.wikiLinkCursor = 0
 	m.status = "Wiki links: Enter to open, Esc to close"
@@ -81,34 +80,32 @@ func (m *Model) handleWikiLinksPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
-	switch msg.String() {
-	case "esc":
-		m.showWikiLinksPopup = false
+	next, selectPressed, closePressed, handled := handlePopupListNav(msg, m.wikiLinkCursor, len(m.wikiLinks))
+	if !handled {
+		return m, nil
+	}
+	if closePressed {
+		m.closeOverlay()
 		m.status = "Wiki links closed"
 		return m, nil
-	case "up", "k", "ctrl+p":
-		m.wikiLinkCursor = clamp(m.wikiLinkCursor-1, 0, len(m.wikiLinks)-1)
+	}
+	if len(m.wikiLinks) == 0 {
 		return m, nil
-	case "down", "j", "ctrl+n":
-		m.wikiLinkCursor = clamp(m.wikiLinkCursor+1, 0, len(m.wikiLinks)-1)
-		return m, nil
-	case "enter":
-		if len(m.wikiLinks) == 0 {
-			return m, nil
-		}
+	}
+	m.wikiLinkCursor = next
+	if selectPressed {
 		link := m.wikiLinks[m.wikiLinkCursor]
 		if !link.Resolved || link.Target == "" {
 			m.status = "Unresolved wiki link: " + link.Label
 			return m, nil
 		}
-		m.showWikiLinksPopup = false
+		m.closeOverlay()
 		m.expandParentDirs(link.Target)
 		m.rebuildTreeKeep(link.Target)
 		m.status = "Opened wiki link: " + link.Label
 		return m, m.setFocusedFile(link.Target)
-	default:
-		return m, nil
 	}
+	return m, nil
 }
 
 // parseWikiLinks extracts unique wiki-link labels from markdown content.
@@ -220,13 +217,12 @@ func (m *Model) renderWikiAutocompletePopup(width, height int) string {
 //     closing brackets into the editor.
 //   - Any other key: not handled — falls through to the normal editor handler.
 func (m *Model) handleWikiAutocompleteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
-	if !m.showWikiAutocomplete {
+	if !m.isOverlay(overlayWikiAutocomplete) {
 		return m, nil, false
 	}
 	switch msg.String() {
 	case "esc":
-		m.showWikiAutocomplete = false
-		m.wikiAutocomplete = nil
+		m.closeOverlay()
 		return m, nil, true
 	case "up", "k", "ctrl+p":
 		if len(m.wikiAutocomplete) > 0 {
@@ -240,12 +236,11 @@ func (m *Model) handleWikiAutocompleteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, b
 		return m, nil, true
 	case "enter", "tab":
 		if len(m.wikiAutocomplete) == 0 {
-			m.showWikiAutocomplete = false
+			m.closeOverlay()
 			return m, nil, true
 		}
 		m.acceptWikiAutocomplete(m.wikiAutocomplete[m.wikiAutocompleteCursor])
-		m.showWikiAutocomplete = false
-		m.wikiAutocomplete = nil
+		m.closeOverlay()
 		return m, nil, true
 	default:
 		return m, nil, false
@@ -262,9 +257,7 @@ func (m *Model) handleWikiAutocompleteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, b
 func (m *Model) maybeTriggerWikiAutocomplete() {
 	prefix, ok := currentWikiPrefix(m.editor.Value(), m.currentEditorCursorOffset())
 	if !ok {
-		m.showWikiAutocomplete = false
-		m.wikiAutocomplete = nil
-		m.wikiAutocompleteCursor = 0
+		m.closeOverlay()
 		return
 	}
 	if m.searchIndex == nil {
@@ -276,12 +269,10 @@ func (m *Model) maybeTriggerWikiAutocomplete() {
 	targets := m.searchIndex.noteTargets()
 	filtered := rankWikiTargets(targets, prefix, m.noteOpenCounts)
 	if len(filtered) == 0 {
-		m.showWikiAutocomplete = false
-		m.wikiAutocomplete = nil
-		m.wikiAutocompleteCursor = 0
+		m.closeOverlay()
 		return
 	}
-	m.showWikiAutocomplete = true
+	m.openOverlay(overlayWikiAutocomplete)
 	m.wikiAutocomplete = filtered
 	m.wikiAutocompleteCursor = clamp(m.wikiAutocompleteCursor, 0, len(filtered)-1)
 }

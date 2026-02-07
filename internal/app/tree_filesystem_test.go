@@ -21,7 +21,7 @@ func TestWalkTreeReadDirError(t *testing.T) {
 
 	logs := captureLogOutput(t, func() {
 		var items []treeItem
-		walkTree(noReadDir, 0, make(map[string]bool), sortModeName, nil, &items)
+		walkTree(noReadDir, 0, make(map[string]bool), sortModeName, nil, nil, &items)
 
 		// Should not crash, but should log a warning
 		if len(items) != 0 {
@@ -137,6 +137,31 @@ func TestBuildTreeHandlesSymlinkErrors(t *testing.T) {
 	}
 	if !found {
 		t.Error("broken symlink should still appear in tree")
+	}
+}
+
+func TestTreeMetadataCacheRemapAndInvalidate(t *testing.T) {
+	m := &Model{
+		treeMetadataCache: map[string]treeMetadataCacheEntry{},
+	}
+	oldPath := "/tmp/old.md"
+	newPath := "/tmp/new.md"
+	m.treeMetadataCache[oldPath] = treeMetadataCacheEntry{tags: []string{"one"}}
+	m.treeMetadataCache[oldPath+"/child.md"] = treeMetadataCacheEntry{tags: []string{"two"}}
+
+	m.remapTreeMetadataPath(oldPath, newPath)
+	if _, ok := m.treeMetadataCache[oldPath]; ok {
+		t.Fatal("expected old key to be remapped")
+	}
+	if _, ok := m.treeMetadataCache[newPath]; !ok {
+		t.Fatal("expected new key after remap")
+	}
+
+	m.invalidateTreeMetadataPath(newPath)
+	for key := range m.treeMetadataCache {
+		if strings.HasPrefix(key, newPath) {
+			t.Fatalf("expected metadata under %q to be invalidated, still found %q", newPath, key)
+		}
 	}
 }
 

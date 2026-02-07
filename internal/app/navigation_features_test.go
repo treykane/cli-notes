@@ -168,17 +168,39 @@ func TestSelectRecentEntryDropsMissingFile(t *testing.T) {
 	m := &Model{notesDir: root, recentFiles: []string{missing}}
 	m.rebuildRecentEntries()
 	m.recentEntries = []string{missing}
-	m.showRecentPopup = true
+	m.overlay = overlayRecent
 	_, _ = m.selectRecentEntry()
 
 	if len(m.recentFiles) != 0 {
 		t.Fatalf("expected missing recent file to be removed, got %v", m.recentFiles)
 	}
-	if m.showRecentPopup != true {
+	if !m.isOverlay(overlayRecent) {
 		// popup stays open so user can choose another item
 		t.Fatalf("expected popup to stay open")
 	}
 	if _, err := os.Stat(appStatePath(root)); err != nil {
 		t.Fatalf("expected app state file to be written: %v", err)
+	}
+}
+
+func TestOpenOverlayReplacesSearchOverlay(t *testing.T) {
+	m := &Model{}
+	m.openOverlay(overlaySearch)
+	m.search.SetValue("term")
+	m.searchResults = []treeItem{{name: "a"}}
+	m.searchResultCursor = 1
+
+	m.openOverlay(overlayRecent)
+	if !m.isOverlay(overlayRecent) {
+		t.Fatalf("expected recent overlay, got %v", m.overlay)
+	}
+	if got := m.search.Value(); got != "" {
+		t.Fatalf("expected search value reset when search overlay closes, got %q", got)
+	}
+	if len(m.searchResults) != 0 {
+		t.Fatalf("expected search results cleared, got %d", len(m.searchResults))
+	}
+	if m.searchResultCursor != 0 {
+		t.Fatalf("expected search cursor reset, got %d", m.searchResultCursor)
 	}
 }

@@ -10,6 +10,12 @@
 - [ ] Add Undo/Redo support in edit mode (keyboard shortcuts + predictable history boundaries for format toggles, typing bursts, and save).
 - [ ] Add multiline visual selection highlighting in edit mode (currently text-only highlight is limited to single-line selections).
 
+## New Follow-up Tasks
+
+- [ ] Add a dedicated `overlay_test.go` covering every overlay transition and ensuring `openOverlay`/`closeOverlay` cleanup stays complete as new overlays are added.
+- [ ] Add mutation-pipeline unit tests for `applyMutationEffects` covering path upsert/remove/invalidate ordering and `setCurrentFile` command behavior.
+- [ ] Add targeted benchmarks for tree rebuilds with metadata cache enabled vs. cold cache to track large-workspace performance over time.
+
 ## High Priority — Core Note Management
 
 - [x] **Rename notes and folders**: Add an `r` keybinding (or similar) in browse mode to rename the selected item in-place. Reuse the existing text input widget, pre-populate with the current name, and update the tree + search index on save.

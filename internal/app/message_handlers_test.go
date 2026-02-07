@@ -263,6 +263,36 @@ func TestFormattingRoundTripForBoldItalicUnderline(t *testing.T) {
 	}
 }
 
+func TestHandleInputModeKeyEscCancelsToBrowse(t *testing.T) {
+	m := &Model{
+		mode: modeNewNote,
+	}
+	gotModel, _ := m.handleInputModeKey(tea.KeyMsg{Type: tea.KeyEsc}, func() (tea.Model, tea.Cmd) {
+		t.Fatal("save should not be called on esc")
+		return m, nil
+	}, "New note cancelled")
+	got := gotModel.(*Model)
+	if got.mode != modeBrowse {
+		t.Fatalf("expected modeBrowse, got %v", got.mode)
+	}
+	if got.status != "New note cancelled" {
+		t.Fatalf("expected cancel status, got %q", got.status)
+	}
+}
+
+func TestHandleInputModeKeyEnterCallsSave(t *testing.T) {
+	m := &Model{mode: modeNewFolder}
+	called := false
+	gotModel, _ := m.handleInputModeKey(tea.KeyMsg{Type: tea.KeyEnter}, func() (tea.Model, tea.Cmd) {
+		called = true
+		return m, nil
+	}, "ignored")
+	_ = gotModel.(*Model)
+	if !called {
+		t.Fatal("expected save callback to be called")
+	}
+}
+
 func TestFormattingNestedToggleItalicAndUnderline(t *testing.T) {
 	t.Run("italic inside bold", func(t *testing.T) {
 		m := newFocusedEditModel("***word***")

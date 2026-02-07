@@ -194,15 +194,16 @@ func (m *Model) handleJumpBottom() (tea.Model, tea.Cmd) {
 // handleRefresh rebuilds the tree and search index.
 func (m *Model) handleRefresh() (tea.Model, tea.Cmd) {
 	m.rememberCurrentNotePosition()
-	m.saveAppState()
-	m.refreshTree()
-	if m.searchIndex != nil {
-		m.searchIndex.invalidate()
-	}
-	m.renderCache = map[string]renderCacheEntry{}
-	m.refreshGitStatus()
+	cmd := m.applyMutationEffects(mutationEffects{
+		saveState:        true,
+		invalidateSearch: true,
+		clearRenderCache: true,
+		refreshTree:      true,
+		refreshGit:       true,
+	})
+	m.invalidateTreeMetadataCache()
 	m.status = "Refreshed"
-	return m, nil
+	return m, cmd
 }
 
 // toggleHelp shows or hides the help screen.

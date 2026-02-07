@@ -271,12 +271,13 @@ func (m *Model) saveNewNote() (tea.Model, tea.Cmd) {
 	m.status = "Created note: " + name
 	m.expanded[m.newParent] = true
 	m.selectedTemplate = nil
-	m.refreshTree()
-	if m.searchIndex != nil {
-		m.searchIndex.upsertPath(path)
-	}
-	m.refreshGitStatus()
-	cmd := m.setCurrentFile(path)
+	m.invalidateTreeMetadataPath(path)
+	cmd := m.applyMutationEffects(mutationEffects{
+		upsertPaths:    []string{path},
+		refreshTree:    true,
+		refreshGit:     true,
+		setCurrentFile: path,
+	})
 	return m, cmd
 }
 
@@ -301,12 +302,13 @@ func (m *Model) saveNewFolder() (tea.Model, tea.Cmd) {
 	m.mode = modeBrowse
 	m.status = "Created folder: " + name
 	m.expanded[m.newParent] = true
-	m.refreshTree()
-	if m.searchIndex != nil {
-		m.searchIndex.upsertPath(path)
-	}
-	m.refreshGitStatus()
-	return m, nil
+	m.invalidateTreeMetadataPath(path)
+	cmd := m.applyMutationEffects(mutationEffects{
+		upsertPaths: []string{path},
+		refreshTree: true,
+		refreshGit:  true,
+	})
+	return m, cmd
 }
 
 // saveRenameItem validates the new name, performs the filesystem rename, and
@@ -353,19 +355,20 @@ func (m *Model) saveRenameItem() (tea.Model, tea.Cmd) {
 	m.mode = modeBrowse
 	m.remapExpandedPaths(oldPath, newPath)
 	m.remapStatePaths(oldPath, newPath)
+	m.remapTreeMetadataPath(oldPath, newPath)
 	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
-	if m.searchIndex != nil {
-		m.searchIndex.removePath(oldPath)
-		m.searchIndex.upsertPath(newPath)
-	}
-	m.refreshGitStatus()
-	m.refreshTree()
-	m.rebuildTreeKeep(newPath)
+	cmd := m.applyMutationEffects(mutationEffects{
+		removePaths:    []string{oldPath},
+		upsertPaths:    []string{newPath},
+		refreshGit:     true,
+		refreshTree:    true,
+		rebuildKeepPath: newPath,
+	})
 	m.status = "Renamed to: " + name
 	if m.currentFile != "" {
 		return m, m.setCurrentFile(m.currentFile)
 	}
-	return m, nil
+	return m, cmd
 }
 
 // saveMoveItem validates the destination folder, performs the filesystem move,
@@ -418,19 +421,20 @@ func (m *Model) saveMoveItem() (tea.Model, tea.Cmd) {
 	m.expanded[destDir] = true
 	m.remapExpandedPaths(oldPath, newPath)
 	m.remapStatePaths(oldPath, newPath)
+	m.remapTreeMetadataPath(oldPath, newPath)
 	m.currentFile = replacePathPrefix(m.currentFile, oldPath, newPath)
-	if m.searchIndex != nil {
-		m.searchIndex.removePath(oldPath)
-		m.searchIndex.upsertPath(newPath)
-	}
-	m.refreshGitStatus()
-	m.refreshTree()
-	m.rebuildTreeKeep(newPath)
+	cmd := m.applyMutationEffects(mutationEffects{
+		removePaths:    []string{oldPath},
+		upsertPaths:    []string{newPath},
+		refreshGit:     true,
+		refreshTree:    true,
+		rebuildKeepPath: newPath,
+	})
 	m.status = "Moved to: " + m.displayRelative(destDir)
 	if m.currentFile != "" {
 		return m, m.setCurrentFile(m.currentFile)
 	}
-	return m, nil
+	return m, cmd
 }
 
 // saveEdit writes the editor contents to the current file.
@@ -447,16 +451,17 @@ func (m *Model) saveEdit() (tea.Model, tea.Cmd) {
 
 	m.mode = modeBrowse
 	m.rememberNotePosition(m.currentFile)
-	m.saveAppState()
 	m.clearEditorSelection()
 	m.currentNoteContent = content
 	m.clearDraftForPath(m.currentFile)
+	m.invalidateTreeMetadataPath(m.currentFile)
 	m.status = "Saved: " + filepath.Base(m.currentFile)
-	if m.searchIndex != nil {
-		m.searchIndex.upsertPath(m.currentFile)
-	}
-	m.refreshGitStatus()
-	cmd := m.setCurrentFile(m.currentFile)
+	cmd := m.applyMutationEffects(mutationEffects{
+		upsertPaths:    []string{m.currentFile},
+		refreshGit:     true,
+		saveState:      true,
+		setCurrentFile: m.currentFile,
+	})
 	return m, cmd
 }
 
@@ -513,12 +518,12 @@ func (m *Model) performDelete(item *treeItem) {
 		m.clearStateForPath(item.path)
 	}
 
-	// Update search index and refresh tree
-	if m.searchIndex != nil {
-		m.searchIndex.removePath(item.path)
-	}
-	m.refreshGitStatus()
-	m.refreshTree()
+	m.invalidateTreeMetadataPath(item.path)
+	_ = m.applyMutationEffects(mutationEffects{
+		removePaths: []string{item.path},
+		refreshGit:  true,
+		refreshTree: true,
+	})
 }
 
 // deleteSelected removes the selected file or empty folder.

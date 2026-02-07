@@ -101,7 +101,9 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	switch key {
 	case "ctrl+s":
-		m.showWikiAutocomplete = false
+		if m.isOverlay(overlayWikiAutocomplete) {
+			m.closeOverlay()
+		}
 		return m.saveEdit()
 	case "alt+s":
 		m.toggleEditorSelectionAnchor()
@@ -138,7 +140,9 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.saveAppState()
 		m.mode = modeBrowse
 		m.clearEditorSelection()
-		m.showWikiAutocomplete = false
+		if m.isOverlay(overlayWikiAutocomplete) {
+			m.closeOverlay()
+		}
 		m.clearDraftForPath(m.currentFile)
 		m.status = "Edit cancelled"
 		return m, nil
@@ -167,80 +171,42 @@ func (m *Model) insertEditorWrapper(open, close string) {
 	}
 }
 
-// handleNewNoteKey processes keypresses while creating a new note.
-func (m *Model) handleNewNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleInputModeKey(msg tea.KeyMsg, save func() (tea.Model, tea.Cmd), cancelStatus string) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
 	switch msg.String() {
 	case "ctrl+s", "enter":
-		return m.saveNewNote()
+		return save()
 	case "esc":
 		m.mode = modeBrowse
-		m.status = "New note cancelled"
+		m.status = cancelStatus
 		return m, nil
 	default:
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 		return m, cmd
 	}
+}
+
+// handleNewNoteKey processes keypresses while creating a new note.
+func (m *Model) handleNewNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	return m.handleInputModeKey(msg, m.saveNewNote, "New note cancelled")
 }
 
 // handleNewFolderKey processes keypresses while creating a new folder.
 func (m *Model) handleNewFolderKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.shouldIgnoreInput(msg) {
-		return m, nil
-	}
-	switch msg.String() {
-	case "ctrl+s", "enter":
-		return m.saveNewFolder()
-	case "esc":
-		m.mode = modeBrowse
-		m.status = "New folder cancelled"
-		return m, nil
-	default:
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, cmd
-	}
+	return m.handleInputModeKey(msg, m.saveNewFolder, "New folder cancelled")
 }
 
 // handleRenameItemKey processes keypresses while renaming an item.
 func (m *Model) handleRenameItemKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.shouldIgnoreInput(msg) {
-		return m, nil
-	}
-	switch msg.String() {
-	case "ctrl+s", "enter":
-		return m.saveRenameItem()
-	case "esc":
-		m.mode = modeBrowse
-		m.status = "Rename cancelled"
-		return m, nil
-	default:
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, cmd
-	}
+	return m.handleInputModeKey(msg, m.saveRenameItem, "Rename cancelled")
 }
 
 // handleMoveItemKey processes keypresses while moving an item.
 func (m *Model) handleMoveItemKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.shouldIgnoreInput(msg) {
-		return m, nil
-	}
-	switch msg.String() {
-	case "ctrl+s", "enter":
-		return m.saveMoveItem()
-	case "esc":
-		m.mode = modeBrowse
-		m.status = "Move cancelled"
-		return m, nil
-	default:
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, cmd
-	}
+	return m.handleInputModeKey(msg, m.saveMoveItem, "Move cancelled")
 }
 
 // handleConfirmDeleteKey processes yes/no confirmation for deletions.
@@ -267,21 +233,9 @@ func (m *Model) handleConfirmDeleteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleGitCommitKey processes keypresses while entering a git commit message.
 func (m *Model) handleGitCommitKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.shouldIgnoreInput(msg) {
-		return m, nil
-	}
-	switch msg.String() {
-	case "ctrl+s", "enter":
+	return m.handleInputModeKey(msg, func() (tea.Model, tea.Cmd) {
 		return m.runGitCommit(m.input.Value())
-	case "esc":
-		m.mode = modeBrowse
-		m.status = "Git commit cancelled"
-		return m, nil
-	default:
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, cmd
-	}
+	}, "Git commit cancelled")
 }
 
 // clearRenderingState resets rendering flags after completion or error.

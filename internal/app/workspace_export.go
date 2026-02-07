@@ -57,8 +57,7 @@ func (m *Model) openWorkspacePopup() {
 		m.status = "No additional workspaces configured"
 		return
 	}
-	m.closeTransientPopups()
-	m.showWorkspacePopup = true
+	m.openOverlay(overlayWorkspace)
 	m.workspaceCursor = 0
 	for i, ws := range m.workspaces {
 		if ws.Name == m.activeWorkspace {
@@ -76,22 +75,23 @@ func (m *Model) handleWorkspacePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
-	switch msg.String() {
-	case "esc":
-		m.showWorkspacePopup = false
-		m.status = "Workspace picker closed"
-		return m, nil
-	case "up", "k", "ctrl+p":
-		m.workspaceCursor = clamp(m.workspaceCursor-1, 0, len(m.workspaces)-1)
-		return m, nil
-	case "down", "j", "ctrl+n":
-		m.workspaceCursor = clamp(m.workspaceCursor+1, 0, len(m.workspaces)-1)
-		return m, nil
-	case "enter":
-		return m.selectWorkspaceEntry()
-	default:
+	next, selectPressed, closePressed, handled := handlePopupListNav(msg, m.workspaceCursor, len(m.workspaces))
+	if !handled {
 		return m, nil
 	}
+	if closePressed {
+		m.closeOverlay()
+		m.status = "Workspace picker closed"
+		return m, nil
+	}
+	if len(m.workspaces) == 0 {
+		return m, nil
+	}
+	m.workspaceCursor = next
+	if selectPressed {
+		return m.selectWorkspaceEntry()
+	}
+	return m, nil
 }
 
 // selectWorkspaceEntry switches to the workspace at the current popup cursor.
@@ -108,12 +108,12 @@ func (m *Model) handleWorkspacePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // If the selected workspace is already active, the popup is simply closed.
 func (m *Model) selectWorkspaceEntry() (tea.Model, tea.Cmd) {
 	if len(m.workspaces) == 0 {
-		m.showWorkspacePopup = false
+		m.closeOverlay()
 		return m, nil
 	}
 	ws := m.workspaces[m.workspaceCursor]
 	if ws.Name == m.activeWorkspace && ws.NotesDir == m.notesDir {
-		m.showWorkspacePopup = false
+		m.closeOverlay()
 		m.status = "Workspace unchanged"
 		return m, nil
 	}
@@ -130,7 +130,8 @@ func (m *Model) selectWorkspaceEntry() (tea.Model, tea.Cmd) {
 	if cfgErr == nil {
 		m.sortMode = loadWorkspaceSortMode(cfg, m.notesDir)
 	}
-	m.items = buildTree(m.notesDir, m.expanded, m.sortMode, nil)
+	m.invalidateTreeMetadataCache()
+	m.items = buildTreeWithMetadataCache(m.notesDir, m.expanded, m.sortMode, nil, m.cachedTagsForPath)
 	m.cursor = 0
 	m.treeOffset = 0
 	state, err := loadAppState(m.notesDir)
@@ -148,7 +149,7 @@ func (m *Model) selectWorkspaceEntry() (tea.Model, tea.Cmd) {
 	m.renderCache = map[string]renderCacheEntry{}
 	m.fileWatchSnapshot = nil
 	m.viewport.SetContent("Select a note to view")
-	m.showWorkspacePopup = false
+	m.closeOverlay()
 	m.status = "Switched workspace: " + ws.Name
 	if err := m.persistActiveWorkspace(); err != nil {
 		m.setStatusError("Switched workspace but failed to persist active workspace", err)
@@ -185,8 +186,7 @@ func (m *Model) openExportPopup() {
 		m.status = "Export supports markdown notes only"
 		return
 	}
-	m.closeTransientPopups()
-	m.showExportPopup = true
+	m.openOverlay(overlayExport)
 	m.exportCursor = 0
 	m.status = "Export: choose HTML or PDF"
 }
@@ -197,26 +197,24 @@ func (m *Model) handleExportPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
-	switch msg.String() {
-	case "esc":
-		m.showExportPopup = false
+	next, selectPressed, closePressed, handled := handlePopupListNav(msg, m.exportCursor, 2)
+	if !handled {
+		return m, nil
+	}
+	if closePressed {
+		m.closeOverlay()
 		m.status = "Export cancelled"
 		return m, nil
-	case "up", "k", "ctrl+p":
-		m.exportCursor = clamp(m.exportCursor-1, 0, 1)
-		return m, nil
-	case "down", "j", "ctrl+n":
-		m.exportCursor = clamp(m.exportCursor+1, 0, 1)
-		return m, nil
-	case "enter":
-		m.showExportPopup = false
+	}
+	m.exportCursor = next
+	if selectPressed {
+		m.closeOverlay()
 		if m.exportCursor == 0 {
 			return m, m.exportCurrentNoteHTML()
 		}
 		return m, m.exportCurrentNotePDF()
-	default:
-		return m, nil
 	}
+	return m, nil
 }
 
 // exportCurrentNoteHTML returns an async Cmd that converts the current note
@@ -280,15 +278,7 @@ type statusMsg struct {
 // called before opening a new popup to enforce the invariant that at most
 // one popup overlay is visible at any time.
 func (m *Model) closeTransientPopups() {
-	if m.searching {
-		m.closeSearchPopup()
-	}
-	m.showRecentPopup = false
-	m.showOutlinePopup = false
-	m.showWorkspacePopup = false
-	m.showExportPopup = false
-	m.showWikiLinksPopup = false
-	m.showWikiAutocomplete = false
+	m.closeOverlay()
 }
 
 // toggleSplitMode enables or disables the horizontal split-pane view.

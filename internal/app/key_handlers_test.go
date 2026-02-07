@@ -202,3 +202,34 @@ func TestHandleBrowseKeyPreviewScrollSplitSecondaryFocusOnlyTouchesSecondary(t *
 		t.Fatalf("expected primary persisted offset unchanged at 13, got %d", got)
 	}
 }
+
+func TestHandleRefreshClearsRenderAndMetadataCaches(t *testing.T) {
+	root := t.TempDir()
+	note := filepath.Join(root, "note.md")
+	mustWriteFile(t, note, "x\n")
+
+	m := &Model{
+		notesDir: root,
+		expanded: map[string]bool{root: true},
+		items: []treeItem{
+			{path: note, name: "note.md"},
+		},
+		renderCache: map[string]renderCacheEntry{
+			note: {content: "cached"},
+		},
+		treeMetadataCache: map[string]treeMetadataCacheEntry{
+			note: {tags: []string{"go"}},
+		},
+	}
+
+	_, _ = m.handleRefresh()
+	if len(m.renderCache) != 0 {
+		t.Fatalf("expected render cache cleared, got %d entries", len(m.renderCache))
+	}
+	if len(m.treeMetadataCache) != 0 {
+		t.Fatalf("expected metadata cache cleared, got %d entries", len(m.treeMetadataCache))
+	}
+	if m.status != "Refreshed" {
+		t.Fatalf("expected refreshed status, got %q", m.status)
+	}
+}

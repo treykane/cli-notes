@@ -10,6 +10,10 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-07: Refactored popup/search visibility to a single overlay state machine (`overlayMode`) replacing multiple popup booleans; centralized overlay open/close cleanup (including search and wiki-autocomplete teardown) and switched key/view footer routing to overlay-based dispatch.
+- 2026-02-07: Consolidated repeated post-mutation side effects into `applyMutationEffects` (search-index upsert/remove/invalidate, tree rebuild, git refresh, state save, render-cache clear, current-file refresh) and applied it across refresh/watcher/CRUD flows.
+- 2026-02-07: Added a tree frontmatter metadata cache keyed by path+mtime with invalidation/remap hooks for edit/delete/refresh/rename/move/workspace switch to reduce repeated tag parsing during tree rebuilds.
+- 2026-02-07: Split large view responsibilities into focused files (`view_root.go`, `view_tree.go`, `view_right.go`, `view_footer.go`, `view_overlays.go`) to reduce `view.go` complexity and isolate rendering concerns.
 - 2026-02-07: Added config-driven UI theme presets via `theme_preset` (`ocean_citrus`, `sunset`, `neon_slate`) with normalization/fallback to `ocean_citrus`; app startup now applies the selected preset to pane, footer, tree, and editor-adjacent styles.
 - 2026-02-07: Added explicit browse-mode preview scroll keybindings with configurable actions (`preview.scroll.page_up`, `preview.scroll.page_down`, `preview.scroll.half_up`, `preview.scroll.half_down`) defaulting to `PgUp`/`PgDn`/`Ctrl+U`/`Ctrl+D`; scroll offsets now persist for both primary and split secondary panes when using keyboard scrolling.
 - 2026-02-07: Added cross-platform CI matrix workflow (`.github/workflows/ci.yml`) running `go test ./...` on macOS, Linux, and Windows runners to catch platform-specific regressions early.

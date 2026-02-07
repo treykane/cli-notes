@@ -43,12 +43,9 @@ type noteHeading struct {
 // that no longer exist on disk. The search popup is closed if open, since
 // only one overlay is shown at a time.
 func (m *Model) openRecentPopup() {
-	if m.searching {
-		m.closeSearchPopup()
-	}
+	m.closeOverlay()
 	m.rebuildRecentEntries()
-	m.showRecentPopup = true
-	m.showOutlinePopup = false
+	m.openOverlay(overlayRecent)
 	m.showHelp = false
 	if len(m.recentEntries) == 0 {
 		m.status = "No recent files yet"
@@ -60,7 +57,9 @@ func (m *Model) openRecentPopup() {
 
 // closeRecentPopup hides the recent-files popup without selecting an entry.
 func (m *Model) closeRecentPopup() {
-	m.showRecentPopup = false
+	if m.isOverlay(overlayRecent) {
+		m.closeOverlay()
+	}
 }
 
 // handleRecentPopupKey routes key presses while the recent-files popup is visible.
@@ -69,30 +68,23 @@ func (m *Model) handleRecentPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
-	if len(m.recentEntries) == 0 {
-		if msg.String() == "esc" {
-			m.closeRecentPopup()
-			m.status = "Recent files closed"
-		}
+	next, selectPressed, closePressed, handled := handlePopupListNav(msg, m.recentCursor, len(m.recentEntries))
+	if !handled {
 		return m, nil
 	}
-
-	switch msg.String() {
-	case "esc":
+	if closePressed {
 		m.closeRecentPopup()
 		m.status = "Recent files closed"
 		return m, nil
-	case "up", "k", "ctrl+p":
-		m.recentCursor = clamp(m.recentCursor-1, 0, len(m.recentEntries)-1)
-		return m, nil
-	case "down", "j", "ctrl+n":
-		m.recentCursor = clamp(m.recentCursor+1, 0, len(m.recentEntries)-1)
-		return m, nil
-	case "enter":
-		return m.selectRecentEntry()
-	default:
+	}
+	if len(m.recentEntries) == 0 {
 		return m, nil
 	}
+	m.recentCursor = next
+	if selectPressed {
+		return m.selectRecentEntry()
+	}
+	return m, nil
 }
 
 // selectRecentEntry opens the file at the current recent-files cursor position.
@@ -129,9 +121,7 @@ func (m *Model) openOutlinePopup() {
 		m.status = "Select a note first"
 		return
 	}
-	if m.searching {
-		m.closeSearchPopup()
-	}
+	m.closeOverlay()
 	headings := parseMarkdownHeadings(m.currentNoteContent)
 	if len(headings) == 0 {
 		m.status = "No markdown headings in current note"
@@ -139,15 +129,16 @@ func (m *Model) openOutlinePopup() {
 	}
 	m.outlineHeadings = headings
 	m.outlineCursor = clamp(m.outlineCursor, 0, len(headings)-1)
-	m.showOutlinePopup = true
-	m.showRecentPopup = false
+	m.openOverlay(overlayOutline)
 	m.showHelp = false
 	m.status = "Outline: Enter to jump, Esc to close"
 }
 
 // closeOutlinePopup hides the heading outline popup without jumping.
 func (m *Model) closeOutlinePopup() {
-	m.showOutlinePopup = false
+	if m.isOverlay(overlayOutline) {
+		m.closeOverlay()
+	}
 }
 
 // handleOutlinePopupKey routes key presses while the outline popup is visible.
@@ -156,32 +147,24 @@ func (m *Model) handleOutlinePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.shouldIgnoreInput(msg) {
 		return m, nil
 	}
-	if len(m.outlineHeadings) == 0 {
-		if msg.String() == "esc" {
-			m.closeOutlinePopup()
-			m.status = "Outline closed"
-		}
+	next, selectPressed, closePressed, handled := handlePopupListNav(msg, m.outlineCursor, len(m.outlineHeadings))
+	if !handled {
 		return m, nil
 	}
-
-	switch msg.String() {
-	case "esc":
+	if closePressed {
 		m.closeOutlinePopup()
 		m.status = "Outline closed"
 		return m, nil
-	case "up", "k", "ctrl+p":
-		m.outlineCursor = clamp(m.outlineCursor-1, 0, len(m.outlineHeadings)-1)
-		return m, nil
-	case "down", "j", "ctrl+n":
-		m.outlineCursor = clamp(m.outlineCursor+1, 0, len(m.outlineHeadings)-1)
-		return m, nil
-	case "enter":
-		m.jumpToOutlineHeading(m.outlineHeadings[m.outlineCursor])
-		m.closeOutlinePopup()
-		return m, nil
-	default:
+	}
+	if len(m.outlineHeadings) == 0 {
 		return m, nil
 	}
+	m.outlineCursor = next
+	if selectPressed {
+		m.jumpToOutlineHeading(m.outlineHeadings[m.outlineCursor])
+		m.closeOutlinePopup()
+	}
+	return m, nil
 }
 
 // jumpToOutlineHeading scrolls the preview viewport so the selected heading is
