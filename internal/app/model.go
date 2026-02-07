@@ -261,7 +261,7 @@ type Model struct {
 	activeWorkspace string
 
 	// Keybinding State
-	keyForAction map[string]string
+	keyForAction map[string][]string
 	keyToAction  map[string]string
 
 	// Split-pane state
@@ -288,7 +288,6 @@ func New() (*Model, error) {
 	}
 
 	expanded := map[string]bool{notesDir: true}
-	items := buildTree(notesDir, expanded, sortMode, state.PinnedPaths)
 
 	vp := viewport.New(0, 0)
 	vp.SetContent("Select a note to view")
@@ -312,7 +311,7 @@ func New() (*Model, error) {
 
 	m := &Model{
 		notesDir:                   notesDir,
-		items:                      items,
+		items:                      nil,
 		expanded:                   expanded,
 		sortMode:                   sortMode,
 		pinnedPaths:                state.PinnedPaths,
@@ -340,6 +339,7 @@ func New() (*Model, error) {
 		activeWorkspace:            cfg.ActiveWorkspace,
 	}
 	m.loadKeybindings(cfg)
+	m.items = buildTreeWithMetadataCache(m.notesDir, m.expanded, m.sortMode, m.pinnedPaths, m.cachedTagsForPath)
 	m.rebuildRecentEntries()
 	m.refreshGitStatus()
 	m.loadPendingDrafts()

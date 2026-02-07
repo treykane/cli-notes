@@ -49,10 +49,12 @@ Notes storage:
 1. `main()` ensures config exists (runs configurator when needed), then starts the app.
 2. `New()` loads config and ensures the configured notes directory exists.
 3. `Update()` handles key input, window resize, and render results.
-4. Opening `Ctrl+P` search uses a cached content index; normal create/edit/delete operations update that index incrementally.
-5. Selecting a Markdown file triggers a debounced render pipeline.
-6. The right pane shows either rendered Markdown, edit mode, or help text.
-7. Edit mode auto-saves drafts every few seconds; startup checks unresolved drafts and prompts for recovery.
+4. Browse-mode key input is routed through action dispatch (`actionForKey`) so all browse actions (including movement/jumps/expand/collapse/search hint) are keybinding-configurable.
+5. Opening `Ctrl+P` search uses a cached content index; normal create/edit/delete operations update that index incrementally.
+6. Search index path removals use a sorted path index + binary prefix range removal for descendant deletes.
+7. Selecting a Markdown file triggers a debounced render pipeline.
+8. The right pane shows either rendered Markdown, edit mode, or help text.
+9. Edit mode auto-saves drafts every few seconds; startup checks unresolved drafts and prompts for recovery.
 
 ## Rendering Pipeline
 
@@ -62,6 +64,7 @@ Markdown rendering is intentionally asynchronous and debounced to keep navigatio
 - `renderMarkdownCmd()` runs file IO + Glamour rendering off the UI thread.
 - `renderCache` stores rendered output keyed by file path + mtime + width bucket.
 - A width bucket (`renderWidthBucket`) improves cache reuse across slight terminal resizes.
+- Width-specific Glamour `TermRenderer`s are cached in an LRU (cap: 8 width buckets) to avoid unbounded growth during repeated resizes.
 
 ## Testing
 

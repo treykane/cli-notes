@@ -48,9 +48,10 @@ type searchDoc struct {
 // watcher detecting external changes), the next ensureBuilt call triggers a
 // complete rebuild.
 type searchIndex struct {
-	root  string               // absolute path to the notes directory root
-	docs  map[string]searchDoc // path -> indexed document
-	ready bool                 // true after a successful build; false after invalidate()
+	root        string               // absolute path to the notes directory root
+	docs        map[string]searchDoc // path -> indexed document
+	sortedPaths []string             // lexicographically sorted paths for prefix range operations
+	ready       bool                 // true after a successful build; false after invalidate()
 }
 
 // newSearchIndex creates an unbuilt search index rooted at the given directory.
@@ -84,6 +85,7 @@ func (i *searchIndex) ensureBuilt() error {
 // ensureBuilt call will retry.
 func (i *searchIndex) build() error {
 	i.docs = map[string]searchDoc{}
+	i.sortedPaths = nil
 	if err := i.walk(i.root, 0); err != nil {
 		i.ready = false
 		return err
@@ -220,7 +222,7 @@ func (i *searchIndex) removePath(path string) {
 	if !i.ready {
 		return
 	}
-	delete(i.docs, path)
+	i.deleteDoc(path)
 	i.removeDescendants(path)
 }
 
@@ -228,11 +230,16 @@ func (i *searchIndex) removePath(path string) {
 // given directory path. Used when a directory is removed or when upsertPath
 // needs to re-walk a directory's contents.
 func (i *searchIndex) removeDescendants(path string) {
+	i.ensurePathIndex()
 	prefix := path + string(os.PathSeparator)
-	for p := range i.docs {
-		if strings.HasPrefix(p, prefix) {
-			delete(i.docs, p)
-		}
+	start := sort.SearchStrings(i.sortedPaths, prefix)
+	end := start
+	for end < len(i.sortedPaths) && strings.HasPrefix(i.sortedPaths[end], prefix) {
+		delete(i.docs, i.sortedPaths[end])
+		end++
+	}
+	if end > start {
+		i.sortedPaths = append(i.sortedPaths[:start], i.sortedPaths[end:]...)
 	}
 }
 
@@ -259,7 +266,43 @@ func (i *searchIndex) indexPath(path, name string, depth int, isDir bool) {
 		doc.tagsLower = metadata.Tags
 		doc.item.tags = metadata.Tags
 	}
+	i.upsertDoc(path, doc)
+}
+
+func (i *searchIndex) ensurePathIndex() {
+	if len(i.sortedPaths) == len(i.docs) {
+		return
+	}
+	i.sortedPaths = i.sortedPaths[:0]
+	for path := range i.docs {
+		i.sortedPaths = append(i.sortedPaths, path)
+	}
+	sort.Strings(i.sortedPaths)
+}
+
+func (i *searchIndex) upsertDoc(path string, doc searchDoc) {
+	if _, exists := i.docs[path]; exists {
+		i.docs[path] = doc
+		return
+	}
+	i.ensurePathIndex()
 	i.docs[path] = doc
+	pos := sort.SearchStrings(i.sortedPaths, path)
+	i.sortedPaths = append(i.sortedPaths, "")
+	copy(i.sortedPaths[pos+1:], i.sortedPaths[pos:])
+	i.sortedPaths[pos] = path
+}
+
+func (i *searchIndex) deleteDoc(path string) {
+	if _, exists := i.docs[path]; !exists {
+		return
+	}
+	i.ensurePathIndex()
+	delete(i.docs, path)
+	pos := sort.SearchStrings(i.sortedPaths, path)
+	if pos < len(i.sortedPaths) && i.sortedPaths[pos] == path {
+		i.sortedPaths = append(i.sortedPaths[:pos], i.sortedPaths[pos+1:]...)
+	}
 }
 
 // readMarkdownContentAndMetadata reads a markdown file, parses its YAML

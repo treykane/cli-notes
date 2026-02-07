@@ -24,6 +24,27 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
+	// actionSearchHint shows a browse-mode hint to use Ctrl+P search.
+	actionSearchHint = "search.hint"
+
+	// actionCursorUp moves the tree selection up by one item.
+	actionCursorUp = "tree.cursor.up"
+
+	// actionCursorDown moves the tree selection down by one item.
+	actionCursorDown = "tree.cursor.down"
+
+	// actionJumpTop moves selection to the first visible tree item.
+	actionJumpTop = "tree.jump.top"
+
+	// actionJumpBottom moves selection to the last visible tree item.
+	actionJumpBottom = "tree.jump.bottom"
+
+	// actionExpandToggle toggles expansion for the selected directory.
+	actionExpandToggle = "tree.expand.toggle"
+
+	// actionCollapse collapses the selected directory.
+	actionCollapse = "tree.collapse"
+
 	// actionSearch opens the Ctrl+P full-text search popup.
 	actionSearch = "search.open"
 
@@ -129,7 +150,7 @@ const (
 	actionPreviewLinkFollow = "preview.link.follow"
 )
 
-// defaultActionKeys maps each action to its factory-default key binding.
+// defaultActionKeys maps each action to its factory-default key bindings.
 //
 // These defaults are designed to be intuitive for users familiar with Vim-
 // style terminal applications. They can be overridden per-user via config.json
@@ -139,35 +160,42 @@ const (
 //   - Modifier keys: "ctrl+", "alt+", "shift+"
 //   - Special keys: "enter", "esc", "tab", "up", "down", "left", "right"
 //   - Single characters: "n", "f", "e", "?", etc.
-var defaultActionKeys = map[string]string{
-	actionSearch:                "ctrl+p",
-	actionRecent:                "ctrl+o",
-	actionOutline:               "o",
-	actionWorkspace:             "ctrl+w",
-	actionNewNote:               "n",
-	actionNewFolder:             "f",
-	actionEditNote:              "e",
-	actionSort:                  "s",
-	actionPreviewScrollPageUp:   "pgup",
-	actionPreviewScrollPageDown: "pgdown",
-	actionPreviewScrollHalfUp:   "ctrl+u",
-	actionPreviewScrollHalfDown: "ctrl+d",
-	actionPin:                   "t",
-	actionDelete:                "d",
-	actionCopyContent:           "y",
-	actionCopyPath:              "shift+y",
-	actionRename:                "r",
-	actionRefresh:               "ctrl+r",
-	actionMove:                  "m",
-	actionGitCommit:             "c",
-	actionGitPull:               "p",
-	actionGitPush:               "shift+p",
-	actionExport:                "x",
-	actionWikiLinks:             "shift+l",
-	actionSplitToggle:           "z",
-	actionSplitFocus:            "tab",
-	actionHelp:                  "?",
-	actionQuit:                  "q",
+var defaultActionKeys = map[string][]string{
+	actionSearchHint:            {"/"},
+	actionCursorUp:              {"up", "k"},
+	actionCursorDown:            {"down", "j", "ctrl+n"},
+	actionJumpTop:               {"g"},
+	actionJumpBottom:            {"shift+g"},
+	actionExpandToggle:          {"enter", "right", "l"},
+	actionCollapse:              {"left", "h"},
+	actionSearch:                {"ctrl+p"},
+	actionRecent:                {"ctrl+o"},
+	actionOutline:               {"o"},
+	actionWorkspace:             {"ctrl+w"},
+	actionNewNote:               {"n"},
+	actionNewFolder:             {"f"},
+	actionEditNote:              {"e"},
+	actionSort:                  {"s"},
+	actionPreviewScrollPageUp:   {"pgup"},
+	actionPreviewScrollPageDown: {"pgdown"},
+	actionPreviewScrollHalfUp:   {"ctrl+u"},
+	actionPreviewScrollHalfDown: {"ctrl+d"},
+	actionPin:                   {"t"},
+	actionDelete:                {"d"},
+	actionCopyContent:           {"y"},
+	actionCopyPath:              {"shift+y"},
+	actionRename:                {"r"},
+	actionRefresh:               {"ctrl+r", "shift+r"},
+	actionMove:                  {"m"},
+	actionGitCommit:             {"c"},
+	actionGitPull:               {"p"},
+	actionGitPush:               {"shift+p"},
+	actionExport:                {"x"},
+	actionWikiLinks:             {"shift+l"},
+	actionSplitToggle:           {"z"},
+	actionSplitFocus:            {"tab"},
+	actionHelp:                  {"?"},
+	actionQuit:                  {"q", "ctrl+c"},
 }
 
 // ---------------------------------------------------------------------------
@@ -187,13 +215,14 @@ var defaultActionKeys = map[string]string{
 // reverse lookup map (key string → action) used at runtime for fast dispatch.
 //
 // Any unknown action names in user overrides are logged as warnings and
-// ignored. Key conflicts (two actions mapped to the same key) are also logged
-// as warnings; the first action to claim a key wins.
+// ignored. Overrides replace an action's full default key set with the
+// configured key. Key conflicts (two actions mapped to the same key) are also
+// logged as warnings; the first action to claim a key wins.
 func (m *Model) loadKeybindings(cfg config.Config) {
 	// Start with a fresh copy of the factory defaults.
-	m.keyForAction = map[string]string{}
-	for action, key := range defaultActionKeys {
-		m.keyForAction[action] = key
+	m.keyForAction = map[string][]string{}
+	for action, keys := range defaultActionKeys {
+		m.keyForAction[action] = append([]string(nil), keys...)
 	}
 
 	// Layer on inline config overrides (lower priority than keymap file).
@@ -243,8 +272,8 @@ func loadKeymapFile(path string) map[string]string {
 	return overrides
 }
 
-// applyKeybindingOverride updates a single action's key binding, replacing
-// whatever was previously assigned.
+// applyKeybindingOverride updates a single action's key binding, replacing the
+// action's full default key set.
 //
 // Both the action and key are trimmed and normalized. If the action string
 // is not recognized (i.e. it does not exist in defaultActionKeys), the
@@ -260,7 +289,7 @@ func (m *Model) applyKeybindingOverride(action, key string) {
 		appLog.Warn("ignore unknown keybinding action", "action", action)
 		return
 	}
-	m.keyForAction[action] = key
+	m.keyForAction[action] = []string{key}
 }
 
 // rebuildActionKeyIndex constructs the reverse lookup map (keyToAction) from
@@ -276,15 +305,17 @@ func (m *Model) applyKeybindingOverride(action, key string) {
 // ambiguous key presses.
 func (m *Model) rebuildActionKeyIndex() {
 	m.keyToAction = map[string]string{}
-	for action, key := range m.keyForAction {
-		if key == "" {
-			continue
+	for action, keys := range m.keyForAction {
+		for _, key := range keys {
+			if key == "" {
+				continue
+			}
+			if existing, ok := m.keyToAction[key]; ok && existing != action {
+				appLog.Warn("keybinding conflict ignored", "key", key, "action", action, "existing_action", existing)
+				continue
+			}
+			m.keyToAction[key] = action
 		}
-		if existing, ok := m.keyToAction[key]; ok && existing != action {
-			appLog.Warn("keybinding conflict ignored", "key", key, "action", action, "existing_action", existing)
-			continue
-		}
-		m.keyToAction[key] = action
 	}
 }
 

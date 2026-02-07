@@ -34,6 +34,7 @@
 package app
 
 import (
+	"container/list"
 	"os"
 	"strings"
 	"sync"
@@ -78,6 +79,10 @@ type renderResultMsg struct {
 }
 
 var (
+	// maxRendererCacheEntries bounds the number of width-specific Glamour
+	// renderers retained in memory.
+	maxRendererCacheEntries = 8
+
 	// rendererCacheMu protects concurrent access to the renderer cache.
 	// Renders can happen on background goroutines via renderMarkdownCmd,
 	// so the cache must be thread-safe.
@@ -88,6 +93,13 @@ var (
 	// JSON and allocating internal buffers, so caching them avoids
 	// repeated setup costs when the terminal width hasn't changed.
 	rendererCache = map[int]*glamour.TermRenderer{}
+
+	// rendererCacheOrder tracks width buckets in LRU order (front = least recent,
+	// back = most recent).
+	rendererCacheOrder = list.New()
+
+	// rendererCacheNodes stores the LRU-list node for each cached width bucket.
+	rendererCacheNodes = map[int]*list.Element{}
 )
 
 // maybeShowSelectedFile triggers a render of the currently selected tree item
@@ -230,6 +242,9 @@ func getRenderer(width int) (*glamour.TermRenderer, error) {
 	rendererCacheMu.Lock()
 	defer rendererCacheMu.Unlock()
 	if renderer, ok := rendererCache[width]; ok {
+		if node, ok := rendererCacheNodes[width]; ok {
+			rendererCacheOrder.MoveToBack(node)
+		}
 		return renderer, nil
 	}
 	renderer, err := glamour.NewTermRenderer(
@@ -240,7 +255,27 @@ func getRenderer(width int) (*glamour.TermRenderer, error) {
 		return nil, err
 	}
 	rendererCache[width] = renderer
+	rendererCacheNodes[width] = rendererCacheOrder.PushBack(width)
+	evictOldestRendererIfNeeded()
 	return renderer, nil
+}
+
+func evictOldestRendererIfNeeded() {
+	for len(rendererCache) > maxRendererCacheEntries && rendererCacheOrder.Len() > 0 {
+		oldest := rendererCacheOrder.Front()
+		width, _ := oldest.Value.(int)
+		rendererCacheOrder.Remove(oldest)
+		delete(rendererCache, width)
+		delete(rendererCacheNodes, width)
+	}
+}
+
+func resetRendererCacheForTests() {
+	rendererCacheMu.Lock()
+	defer rendererCacheMu.Unlock()
+	rendererCache = map[int]*glamour.TermRenderer{}
+	rendererCacheOrder = list.New()
+	rendererCacheNodes = map[int]*list.Element{}
 }
 
 // glamourStyleOption resolves the Glamour rendering style from environment

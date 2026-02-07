@@ -71,6 +71,25 @@ func BenchmarkSearchIndex(b *testing.B) {
 					benchmarkSearchIndexSink += len(results)
 				}
 			})
+
+			b.Run("remove-descendants", func(b *testing.B) {
+				base := filepath.Join(root, "folder-00")
+				if _, err := os.Stat(base); err != nil {
+					b.Fatalf("benchmark base folder missing: %v", err)
+				}
+
+				b.ReportAllocs()
+				b.ResetTimer()
+
+				for i := 0; i < b.N; i++ {
+					idx := newSearchIndex(root)
+					if err := idx.ensureBuilt(); err != nil {
+						b.Fatalf("build index: %v", err)
+					}
+					idx.removeDescendants(base)
+					benchmarkSearchIndexSink += len(idx.docs)
+				}
+			})
 		})
 	}
 }

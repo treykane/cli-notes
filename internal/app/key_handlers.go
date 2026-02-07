@@ -9,39 +9,24 @@ import (
 // handleBrowseKey routes key presses in browse mode (not searching).
 func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 	action := m.actionForKey(key)
-	switch key {
-	case "ctrl+c":
-		return m, tea.Quit
-	case "?":
-		return m.toggleHelp()
-	case "up", "k":
-		return m.handleCursorUp()
-	case "down", "j", "ctrl+n":
-		return m.handleCursorDown()
-	case "g":
-		return m.handleJumpTop()
-	case "G":
-		return m.handleJumpBottom()
-	case "enter", "right", "l":
-		m.toggleExpand(true)
-		return m, nil
-	case "left", "h":
-		m.toggleExpand(false)
-		return m, nil
-	case "/":
+	switch action {
+	case actionSearchHint:
 		m.status = "Use Ctrl+P for search popup"
 		return m, nil
-	case "ctrl+p":
-		m.openSearchPopup()
+	case actionCursorUp:
+		return m.handleCursorUp()
+	case actionCursorDown:
+		return m.handleCursorDown()
+	case actionJumpTop:
+		return m.handleJumpTop()
+	case actionJumpBottom:
+		return m.handleJumpBottom()
+	case actionExpandToggle:
+		m.toggleExpand(true)
 		return m, nil
-	case "ctrl+o":
-		m.openRecentPopup()
+	case actionCollapse:
+		m.toggleExpand(false)
 		return m, nil
-	case "o":
-		m.openOutlinePopup()
-		return m, nil
-	}
-	switch action {
 	case actionQuit:
 		return m, tea.Quit
 	case actionHelp:
@@ -116,9 +101,6 @@ func (m *Model) handleBrowseKey(key string) (tea.Model, tea.Cmd) {
 		m.toggleSplitFocus()
 		return m, nil
 	}
-	if key == "R" || key == "shift+r" {
-		return m.handleRefresh()
-	}
 	return m, nil
 }
 
@@ -135,14 +117,10 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.closeSearchPopup()
 		m.status = "Search cancelled"
 		return m, nil
-	case "up", "k":
+	case "up", "k", "ctrl+p":
 		return m.moveSearchCursor(-1)
-	case "down", "j":
+	case "down", "j", "ctrl+n":
 		return m.moveSearchCursor(1)
-	case "ctrl+n":
-		return m.moveSearchCursor(1)
-	case "ctrl+p":
-		return m.moveSearchCursor(-1)
 	case "enter":
 		return m.selectSearchResult()
 	}

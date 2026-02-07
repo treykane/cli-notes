@@ -83,3 +83,56 @@ func TestRequestRenderStartsAsyncRenderWhenCacheMissing(t *testing.T) {
 		t.Fatalf("expected rendering indicator in viewport, got %q", m.viewport.View())
 	}
 }
+
+func TestGetRendererCacheIsBoundedByCap(t *testing.T) {
+	resetRendererCacheForTests()
+	t.Cleanup(resetRendererCacheForTests)
+
+	oldCap := maxRendererCacheEntries
+	maxRendererCacheEntries = 8
+	t.Cleanup(func() { maxRendererCacheEntries = oldCap })
+
+	for width := 20; width <= 240; width += 20 {
+		if _, err := getRenderer(width); err != nil {
+			t.Fatalf("getRenderer(%d): %v", width, err)
+		}
+	}
+
+	if got := len(rendererCache); got != maxRendererCacheEntries {
+		t.Fatalf("expected renderer cache size %d, got %d", maxRendererCacheEntries, got)
+	}
+	if _, ok := rendererCache[20]; ok {
+		t.Fatal("expected oldest width to be evicted")
+	}
+	if _, ok := rendererCache[240]; !ok {
+		t.Fatal("expected newest width to remain cached")
+	}
+}
+
+func TestGetRendererLRURefreshesRecentlyUsedWidth(t *testing.T) {
+	resetRendererCacheForTests()
+	t.Cleanup(resetRendererCacheForTests)
+
+	oldCap := maxRendererCacheEntries
+	maxRendererCacheEntries = 3
+	t.Cleanup(func() { maxRendererCacheEntries = oldCap })
+
+	for _, width := range []int{10, 20, 30} {
+		if _, err := getRenderer(width); err != nil {
+			t.Fatalf("seed getRenderer(%d): %v", width, err)
+		}
+	}
+	if _, err := getRenderer(10); err != nil {
+		t.Fatalf("refresh getRenderer(10): %v", err)
+	}
+	if _, err := getRenderer(40); err != nil {
+		t.Fatalf("insert getRenderer(40): %v", err)
+	}
+
+	if _, ok := rendererCache[20]; ok {
+		t.Fatal("expected width 20 to be evicted as least recently used")
+	}
+	if _, ok := rendererCache[10]; !ok {
+		t.Fatal("expected width 10 to remain after recent access")
+	}
+}

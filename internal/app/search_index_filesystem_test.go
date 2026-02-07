@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -259,6 +260,48 @@ func TestSearchIndexRemoveDescendants(t *testing.T) {
 	}
 	if _, exists := idx.docs[parentPath]; !exists {
 		t.Error("parent path itself should not be removed by removeDescendants")
+	}
+	assertSearchPathIndexConsistent(t, idx)
+}
+
+func TestSearchIndexPathIndexStaysConsistentAcrossMutations(t *testing.T) {
+	root := t.TempDir()
+	parent := filepath.Join(root, "parent")
+	child := filepath.Join(parent, "child.md")
+	other := filepath.Join(root, "other.md")
+	mustWriteFile(t, child, "child\n")
+	mustWriteFile(t, other, "other\n")
+
+	idx := newSearchIndex(root)
+	if err := idx.ensureBuilt(); err != nil {
+		t.Fatalf("ensureBuilt: %v", err)
+	}
+	assertSearchPathIndexConsistent(t, idx)
+
+	if err := os.Remove(child); err != nil {
+		t.Fatalf("remove child: %v", err)
+	}
+	idx.removePath(parent)
+	assertSearchPathIndexConsistent(t, idx)
+
+	mustWriteFile(t, child, "child-again\n")
+	idx.upsertPath(parent)
+	assertSearchPathIndexConsistent(t, idx)
+}
+
+func assertSearchPathIndexConsistent(t *testing.T, idx *searchIndex) {
+	t.Helper()
+
+	if len(idx.sortedPaths) != len(idx.docs) {
+		t.Fatalf("path index size mismatch: sorted=%d docs=%d", len(idx.sortedPaths), len(idx.docs))
+	}
+	if !sort.StringsAreSorted(idx.sortedPaths) {
+		t.Fatalf("path index should be sorted, got: %v", idx.sortedPaths)
+	}
+	for _, path := range idx.sortedPaths {
+		if _, ok := idx.docs[path]; !ok {
+			t.Fatalf("sorted path %q missing in docs map", path)
+		}
 	}
 }
 

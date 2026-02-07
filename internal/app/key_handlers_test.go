@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func lineBlock(count int) string {
@@ -231,5 +233,45 @@ func TestHandleRefreshClearsRenderAndMetadataCaches(t *testing.T) {
 	}
 	if m.status != "Refreshed" {
 		t.Fatalf("expected refreshed status, got %q", m.status)
+	}
+}
+
+func TestHandleBrowseKeyUsesActionDispatchForSearch(t *testing.T) {
+	m := &Model{
+		search: textinput.New(),
+		keyToAction: map[string]string{
+			"alt+s": actionSearch,
+		},
+	}
+
+	_, _ = m.handleBrowseKey("ctrl+p")
+	if m.isOverlay(overlaySearch) {
+		t.Fatal("expected ctrl+p to do nothing when not bound to search action")
+	}
+
+	_, _ = m.handleBrowseKey("alt+s")
+	if !m.isOverlay(overlaySearch) {
+		t.Fatal("expected custom bound key to open search overlay")
+	}
+}
+
+func TestHandleSearchKeyCtrlBindingsMatchArrowBehavior(t *testing.T) {
+	m := &Model{
+		searchResults: []treeItem{
+			{name: "a"},
+			{name: "b"},
+			{name: "c"},
+		},
+		searchResultCursor: 1,
+	}
+
+	_, _ = m.handleSearchKey(tea.KeyMsg{Type: tea.KeyCtrlP})
+	if got := m.searchResultCursor; got != 0 {
+		t.Fatalf("expected ctrl+p to move cursor up to 0, got %d", got)
+	}
+
+	_, _ = m.handleSearchKey(tea.KeyMsg{Type: tea.KeyCtrlN})
+	if got := m.searchResultCursor; got != 1 {
+		t.Fatalf("expected ctrl+n to move cursor down to 1, got %d", got)
 	}
 }
