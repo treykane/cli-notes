@@ -10,6 +10,10 @@
 - In-app help and README should stay in sync with keybindings.
 
 ## Decisions
+- 2026-02-07: Added cross-platform CI matrix workflow (`.github/workflows/ci.yml`) running `go test ./...` on macOS, Linux, and Windows runners to catch platform-specific regressions early.
+- 2026-02-07: Added cross-filesystem move fallback for note/folder moves: when `os.Rename` fails with cross-device (`EXDEV`) errors, the app now performs copy-then-delete with destination cleanup on partial failure.
+- 2026-02-07: Updated created-time sorting semantics: macOS still uses true birth time, Linux now attempts `statx` `STATX_BTIME`, and all other platforms explicitly fall back to modification time (no ctime proxy).
+- 2026-02-07: Added integration CRUD lifecycle tests (create/edit/save/delete) validating filesystem, tree state, and search index consistency, plus expanded formatting toggle edge-case tests (nested, overlap, boundaries, empty selection).
 - 2026-02-07: Reworked UI styling around a semantic Ocean+Citrus ANSI palette (shared tokens for panes, badges, editor, selection, and footer) and replaced the single-line footer with an adaptive 2-3 row footer that packs grouped keys/context/status segments with overflow ellipsis.
 - 2026-02-08: Added workspace-scoped tree sort persistence via config `tree_sort_by_workspace` (`notes_dir` key -> sort mode), with legacy `tree_sort` retained as fallback/default.
 - 2026-02-08: Extended per-workspace state to persist pane-specific preview offsets (`primary_preview_offset` + `secondary_preview_offset`) while keeping legacy `preview_offset` migration compatibility.

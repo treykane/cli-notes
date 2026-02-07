@@ -16,13 +16,20 @@
 package app
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+var renameForMove = os.Rename
+var copyPathForMove = copyPathRecursive
+var removeSourceForMove = os.RemoveAll
 
 // welcomeNote is the markdown content seeded into a new notes directory on
 // first run. It serves as both a quick-start guide and a smoke test that the
@@ -359,12 +366,9 @@ func (m *Model) saveRenameItem() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// saveMoveItem validates the destination folder, performs the filesystem move
-// via os.Rename, and updates all in-memory state to reflect the new location.
-// Moving a folder into itself (or a descendant) is detected and rejected.
-//
-// Note: os.Rename may fail across filesystem boundaries (EXDEV). A copy-then-
-// delete fallback is tracked as a future improvement in TASKS.md.
+// saveMoveItem validates the destination folder, performs the filesystem move,
+// and updates all in-memory state to reflect the new location. Moving a folder
+// into itself (or a descendant) is detected and rejected.
 func (m *Model) saveMoveItem() (tea.Model, tea.Cmd) {
 	oldPath := m.actionPath
 	if !isWithinRoot(m.notesDir, oldPath) {
@@ -403,7 +407,7 @@ func (m *Model) saveMoveItem() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if err := os.Rename(oldPath, newPath); err != nil {
+	if err := movePathWithFallback(oldPath, newPath); err != nil {
 		m.setStatusError("Error moving item", err, "from", oldPath, "to", newPath)
 		return m, nil
 	}
@@ -617,4 +621,78 @@ func replacePathPrefix(path, oldPrefix, newPrefix string) string {
 		return path
 	}
 	return newPrefix + path[len(oldPrefix):]
+}
+
+func movePathWithFallback(srcPath, dstPath string) error {
+	if err := renameForMove(srcPath, dstPath); err == nil {
+		return nil
+	} else if !isCrossDeviceRenameError(err) {
+		return err
+	}
+
+	if err := copyPathForMove(srcPath, dstPath); err != nil {
+		_ = os.RemoveAll(dstPath)
+		return fmt.Errorf("copy fallback failed: %w", err)
+	}
+	if err := removeSourceForMove(srcPath); err != nil {
+		_ = os.RemoveAll(dstPath)
+		return fmt.Errorf("remove source after copy fallback: %w", err)
+	}
+	return nil
+}
+
+func isCrossDeviceRenameError(err error) bool {
+	if errors.Is(err, syscall.EXDEV) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "cross-device link")
+}
+
+func copyPathRecursive(srcPath, dstPath string) error {
+	info, err := os.Stat(srcPath)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return copyDirRecursive(srcPath, dstPath, info.Mode())
+	}
+	return copyFileWithMode(srcPath, dstPath, info.Mode())
+}
+
+func copyDirRecursive(srcPath, dstPath string, mode os.FileMode) error {
+	if err := os.Mkdir(dstPath, mode.Perm()); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(srcPath)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		srcChild := filepath.Join(srcPath, entry.Name())
+		dstChild := filepath.Join(dstPath, entry.Name())
+		if err := copyPathRecursive(srcChild, dstChild); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyFileWithMode(srcPath, dstPath string, mode os.FileMode) error {
+	src, err := os.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.OpenFile(dstPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, mode.Perm())
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return err
+	}
+	return dst.Close()
 }

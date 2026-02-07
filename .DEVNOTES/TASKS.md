@@ -57,8 +57,8 @@
 
 ## Testing & Quality
 
-- [ ] **Integration tests for note CRUD operations**: Add end-to-end tests that exercise the full create → edit → save → delete lifecycle using a temp `notes_dir`, verifying file contents, tree state, and search index consistency.
-- [ ] **Editor formatting round-trip tests**: Add tests for bold/italic/underline toggle behavior covering edge cases: nested formatting, partial overlap, cursor-at-boundary, and empty selection.
-- [ ] **Cross-platform CI**: Add CI matrix testing on Linux and Windows (WSL) in addition to the existing macOS development environment to catch platform-specific path handling or terminal issues.
-- [ ] **Cross-filesystem move fallback**: Moving with `os.Rename` fails across filesystems (`EXDEV`); add a copy-then-delete fallback for notes/folders when source and destination are on different devices.
-- [ ] **True creation-time sort on Linux**: Current `created` sorting uses stat `ctime` on non-macOS Unix, which is metadata-change time rather than true file birth time. Add a platform-aware birth-time implementation (or explicit label/fallback behavior) to avoid misleading ordering.
+- [x] **Integration tests for note CRUD operations**: Added end-to-end tests that exercise create → edit → save → delete lifecycle using temp `notes_dir`, verifying file contents, tree state, and search index consistency.
+- [x] **Editor formatting round-trip tests**: Added bold/italic/underline tests covering nested formatting, partial overlap, cursor-at-boundary, and empty-selection fallback behavior.
+- [x] **Cross-platform CI**: Added CI matrix testing on macOS/Linux/Windows runners to catch platform-specific path handling and terminal/system differences.
+- [x] **Cross-filesystem move fallback**: Added `os.Rename` cross-device (`EXDEV`) copy-then-delete fallback for note/folder moves, including cleanup on fallback failure.
+- [x] **True creation-time sort on Linux**: Added Linux `statx` birth-time lookup and explicit fallback to modification time when birth time is unavailable.

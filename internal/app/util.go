@@ -128,12 +128,11 @@ func shouldSkipManagedPath(name string) bool {
 }
 
 // resolveCreatedAt returns the best available creation timestamp for a file.
-// On macOS, the true birth time (Birthtimespec) is used. On other Unix systems,
-// the metadata-change time (Ctim) is used as a proxy (see file_time_*.go).
-// If the platform does not support creation time at all, the modification time
-// is returned as a fallback.
-func resolveCreatedAt(info os.FileInfo) time.Time {
-	if t, ok := fileCreationTime(info); ok {
+// On platforms that expose true birth time, that timestamp is returned.
+// When unavailable, the function falls back to the file's modification time
+// to avoid misleading ctime-based ordering semantics.
+func resolveCreatedAt(path string, info os.FileInfo) time.Time {
+	if t, ok := fileCreationTime(path, info); ok {
 		return t
 	}
 	return info.ModTime()

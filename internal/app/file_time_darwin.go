@@ -29,7 +29,7 @@ import (
 // This value is used by the "created" sort mode (sortModeCreated) to order
 // notes by when they were originally created, and by resolveCreatedAt as the
 // preferred source of creation time on macOS.
-func fileCreationTime(info os.FileInfo) (time.Time, bool) {
+func fileCreationTime(_ string, info os.FileInfo) (time.Time, bool) {
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		return time.Time{}, false

@@ -83,6 +83,17 @@ CI benchmark tracking:
 - The PR check fails if any case regresses by more than 20% (`MAX_REGRESSION_PCT`).
 - Benchmark outputs are uploaded as CI artifacts on PR, push-to-main, and weekly scheduled runs.
 
+Cross-platform test CI:
+- Workflow: `.github/workflows/ci.yml`
+- Runs `go test ./...` on `macos-latest`, `ubuntu-latest`, and `windows-latest`.
+- Helps catch path handling, syscall, and terminal compatibility differences across platforms.
+
+Created sort semantics:
+- `created` sort uses true birth time where available:
+  - macOS: `Birthtimespec`
+  - Linux: `statx` `STATX_BTIME` when filesystem/kernel support it
+- If birth time is unavailable, the app falls back to modification time (`ModTime`) rather than metadata-change time (`ctime`).
+
 ## Troubleshooting
 
 - If the UI looks misaligned, ensure your terminal supports ANSI colors and has enough width.

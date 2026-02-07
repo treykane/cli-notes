@@ -228,7 +228,7 @@ func walkTree(dir string, depth int, expanded map[string]bool, mode sortMode, pi
 			appLog.Warn("stat tree entry", "path", path, "error", statErr)
 			continue
 		}
-		created := resolveCreatedAt(info)
+		created := resolveCreatedAt(path, info)
 		sortable = append(sortable, sortableEntry{
 			entry:   entry,
 			path:    path,

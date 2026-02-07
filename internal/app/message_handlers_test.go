@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -228,4 +229,155 @@ func TestHandleConfirmDeleteKeyNDoesNotDeletePendingItem(t *testing.T) {
 	if _, err := os.Stat(notePath); err != nil {
 		t.Fatalf("expected file to remain, stat err: %v", err)
 	}
+}
+
+func TestFormattingRoundTripForBoldItalicUnderline(t *testing.T) {
+	cases := []struct {
+		name    string
+		initial string
+		key     tea.KeyMsg
+	}{
+		{name: "bold", initial: "hello world", key: tea.KeyMsg{Type: tea.KeyCtrlB}},
+		{name: "italic", initial: "hello world", key: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}, Alt: true}},
+		{name: "underline", initial: "hello world", key: tea.KeyMsg{Type: tea.KeyCtrlU}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := newFocusedEditModel(tc.initial)
+			before := m.editor.Value()
+			_, _ = m.handleEditNoteKey(tc.key)
+			first := m.editor.Value()
+			switch tc.name {
+			case "bold":
+				m.setEditorValueAndCursorOffset(first, strings.Index(first, "world")+2)
+			case "italic":
+				m.setEditorValueAndCursorOffset(first, strings.Index(first, "world")+2)
+			case "underline":
+				m.setEditorValueAndCursorOffset(first, strings.Index(first, "world")+2)
+			}
+			_, _ = m.handleEditNoteKey(tc.key)
+			if got := m.editor.Value(); got != before {
+				t.Fatalf("expected round-trip to restore original. want=%q got=%q", before, got)
+			}
+		})
+	}
+}
+
+func TestFormattingNestedToggleItalicAndUnderline(t *testing.T) {
+	t.Run("italic inside bold", func(t *testing.T) {
+		m := newFocusedEditModel("***word***")
+		m.editorSelectionAnchor = 3
+		m.editorSelectionActive = true
+		m.setEditorValueAndCursorOffset("***word***", 7)
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}, Alt: true})
+		if got := m.editor.Value(); got != "**word**" {
+			t.Fatalf("expected nested italic removed only, got %q", got)
+		}
+	})
+
+	t.Run("underline around bold", func(t *testing.T) {
+		m := newFocusedEditModel("<u>**word**</u>")
+		start := strings.Index(m.editor.Value(), "**word**")
+		if start < 0 {
+			t.Fatal("missing bold content")
+		}
+		m.editorSelectionAnchor = start
+		m.editorSelectionActive = true
+		m.setEditorValueAndCursorOffset(m.editor.Value(), start+len("**word**"))
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlU})
+		if got := m.editor.Value(); got != "**word**" {
+			t.Fatalf("expected only underline removed, got %q", got)
+		}
+	})
+}
+
+func TestFormattingPartialOverlapWrapsInsteadOfUnwrap(t *testing.T) {
+	cases := []struct {
+		name   string
+		key    tea.KeyMsg
+		open   string
+		close  string
+		expect string
+	}{
+		{
+			name:   "bold partial overlap",
+			key:    tea.KeyMsg{Type: tea.KeyCtrlB},
+			open:   "**",
+			close:  "**",
+			expect: "****he**llo**",
+		},
+		{
+			name:   "italic partial overlap",
+			key:    tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}, Alt: true},
+			open:   "*",
+			close:  "*",
+			expect: "**he*llo*",
+		},
+		{
+			name:   "underline partial overlap",
+			key:    tea.KeyMsg{Type: tea.KeyCtrlU},
+			open:   "<u>",
+			close:  "</u>",
+			expect: "<u><u>he</u>llo</u>",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			source := tc.open + "hello" + tc.close
+			m := newFocusedEditModel(source)
+			contentStart := len([]rune(tc.open))
+			m.editorSelectionAnchor = contentStart
+			m.editorSelectionActive = true
+			m.setEditorValueAndCursorOffset(source, contentStart+2)
+			_, _ = m.handleEditNoteKey(tc.key)
+			if got := m.editor.Value(); got != tc.expect {
+				t.Fatalf("expected partial overlap to wrap, got %q", got)
+			}
+		})
+	}
+}
+
+func TestFormattingCursorBoundaryTargetsWord(t *testing.T) {
+	t.Run("cursor before word", func(t *testing.T) {
+		m := newFocusedEditModel("hello world")
+		m.setEditorValueAndCursorOffset("hello world", 6)
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlB})
+		if got := m.editor.Value(); got != "hello **world**" {
+			t.Fatalf("expected boundary wrap, got %q", got)
+		}
+	})
+
+	t.Run("cursor at end of word", func(t *testing.T) {
+		m := newFocusedEditModel("hello world")
+		m.setEditorValueAndCursorOffset("hello world", 11)
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}, Alt: true})
+		if got := m.editor.Value(); got != "hello *world*" {
+			t.Fatalf("expected boundary wrap at word end, got %q", got)
+		}
+	})
+}
+
+func TestFormattingEmptySelectionFallsBack(t *testing.T) {
+	t.Run("empty selection on word toggles word", func(t *testing.T) {
+		m := newFocusedEditModel("hello world")
+		m.editorSelectionAnchor = 6
+		m.editorSelectionActive = true
+		m.setEditorValueAndCursorOffset("hello world", 6)
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlU})
+		if got := m.editor.Value(); got != "hello <u>world</u>" {
+			t.Fatalf("expected word fallback, got %q", got)
+		}
+	})
+
+	t.Run("empty selection on whitespace inserts markers", func(t *testing.T) {
+		m := newFocusedEditModel("hello ")
+		m.editorSelectionAnchor = 6
+		m.editorSelectionActive = true
+		m.setEditorValueAndCursorOffset("hello ", 6)
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyCtrlB})
+		if got := m.editor.Value(); got != "hello ****" {
+			t.Fatalf("expected marker insertion fallback, got %q", got)
+		}
+	})
 }

@@ -21,6 +21,6 @@ import (
 // fileCreationTime attempts to retrieve the file's creation (birth) time from
 // its os.FileInfo. On unsupported platforms this always returns the zero time
 // and false, signaling the caller to use the modification time as a fallback.
-func fileCreationTime(info os.FileInfo) (time.Time, bool) {
+func fileCreationTime(_ string, _ os.FileInfo) (time.Time, bool) {
 	return time.Time{}, false
 }

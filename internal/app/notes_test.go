@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -642,3 +643,272 @@ func TestDeleteSelectedStartsConfirmationMode(t *testing.T) {
 
 // Verify Model has required fields for testing
 var _ = tea.Model(&Model{})
+
+func TestNoteCRUDLifecycleIntegration(t *testing.T) {
+	cases := []struct {
+		name       string
+		parentRel  string
+		noteName   string
+		initial    string
+		editedBody string
+		queryToken string
+	}{
+		{
+			name:       "root note lifecycle",
+			parentRel:  ".",
+			noteName:   "lifecycle.md",
+			initial:    "# lifecycle\n\nalpha token\n",
+			editedBody: "# lifecycle\n\nbeta token\n",
+			queryToken: "beta",
+		},
+		{
+			name:       "nested note lifecycle",
+			parentRel:  "projects/sub",
+			noteName:   "nested.md",
+			initial:    "# nested\n\nhello world\n",
+			editedBody: "# nested\n\nupdated phrase\n",
+			queryToken: "updated",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			parent := root
+			if tc.parentRel != "." {
+				parent = filepath.Join(root, tc.parentRel)
+				if err := os.MkdirAll(parent, 0o755); err != nil {
+					t.Fatalf("mkdir parent: %v", err)
+				}
+			}
+
+			m := newTestCRUDModel(root)
+			m.newParent = parent
+			expandAncestors(m.expanded, root, parent)
+			m.input.SetValue(tc.noteName)
+			m.selectedTemplate = &noteTemplate{content: tc.initial}
+
+			model, _ := m.saveNewNote()
+			m = model.(*Model)
+			notePath := filepath.Join(parent, tc.noteName)
+			if got := m.currentFile; got != notePath {
+				t.Fatalf("expected current file %q, got %q", notePath, got)
+			}
+
+			gotContent, err := os.ReadFile(notePath)
+			if err != nil {
+				t.Fatalf("read created note: %v", err)
+			}
+			if want := normalizeNoteContent(tc.initial); string(gotContent) != want {
+				t.Fatalf("unexpected created content\nwant: %q\ngot:  %q", want, string(gotContent))
+			}
+			assertTreeHasPath(t, m.items, notePath)
+			assertSearchHasQuery(t, m.searchIndex, tc.initial, true)
+
+			m.editor.SetValue(tc.editedBody)
+			model, _ = m.saveEdit()
+			m = model.(*Model)
+			gotContent, err = os.ReadFile(notePath)
+			if err != nil {
+				t.Fatalf("read edited note: %v", err)
+			}
+			if want := normalizeNoteContent(tc.editedBody); string(gotContent) != want {
+				t.Fatalf("unexpected edited content\nwant: %q\ngot:  %q", want, string(gotContent))
+			}
+			assertTreeHasPath(t, m.items, notePath)
+			assertSearchHasQuery(t, m.searchIndex, tc.queryToken, true)
+			assertSearchHasQuery(t, m.searchIndex, "alpha", false)
+
+			reselectTreeItem(t, m, notePath)
+			m.deleteSelected()
+			if m.mode != modeConfirmDelete {
+				t.Fatalf("expected confirm delete mode, got %v", m.mode)
+			}
+			model, _ = m.handleConfirmDeleteKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+			m = model.(*Model)
+			if _, err := os.Stat(notePath); !os.IsNotExist(err) {
+				t.Fatalf("expected deleted note, stat err: %v", err)
+			}
+			assertTreeHasPath(t, m.items, notePath, false)
+			assertSearchHasQuery(t, m.searchIndex, tc.queryToken, false)
+		})
+	}
+}
+
+func TestMovePathWithFallbackUsesCopyDeleteOnEXDEVFile(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src.md")
+	dst := filepath.Join(root, "dst.md")
+	if err := os.WriteFile(src, []byte("hello"), 0o640); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+
+	oldRename := renameForMove
+	defer func() { renameForMove = oldRename }()
+	renameForMove = func(oldPath, newPath string) error {
+		return &os.LinkError{Op: "rename", Old: oldPath, New: newPath, Err: syscall.EXDEV}
+	}
+
+	if err := movePathWithFallback(src, dst); err != nil {
+		t.Fatalf("move with fallback: %v", err)
+	}
+	if _, err := os.Stat(src); !os.IsNotExist(err) {
+		t.Fatalf("expected source removed, stat err: %v", err)
+	}
+	content, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("read dst: %v", err)
+	}
+	if string(content) != "hello" {
+		t.Fatalf("expected dst content copied, got %q", string(content))
+	}
+}
+
+func TestMovePathWithFallbackUsesCopyDeleteOnEXDEVFolder(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src")
+	dst := filepath.Join(root, "dst")
+	if err := os.MkdirAll(filepath.Join(src, "nested"), 0o755); err != nil {
+		t.Fatalf("mkdir src: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "nested", "note.md"), []byte("nested"), 0o644); err != nil {
+		t.Fatalf("write nested: %v", err)
+	}
+
+	oldRename := renameForMove
+	defer func() { renameForMove = oldRename }()
+	renameForMove = func(oldPath, newPath string) error {
+		return &os.LinkError{Op: "rename", Old: oldPath, New: newPath, Err: syscall.EXDEV}
+	}
+
+	if err := movePathWithFallback(src, dst); err != nil {
+		t.Fatalf("move folder with fallback: %v", err)
+	}
+	if _, err := os.Stat(src); !os.IsNotExist(err) {
+		t.Fatalf("expected source folder removed, stat err: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(dst, "nested", "note.md"))
+	if err != nil {
+		t.Fatalf("read moved nested file: %v", err)
+	}
+	if string(content) != "nested" {
+		t.Fatalf("unexpected moved content: %q", string(content))
+	}
+}
+
+func TestMovePathWithFallbackCleansDestinationOnCopyFailure(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src.md")
+	dst := filepath.Join(root, "dst.md")
+	if err := os.WriteFile(src, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+
+	oldRename := renameForMove
+	oldCopy := copyPathForMove
+	defer func() {
+		renameForMove = oldRename
+		copyPathForMove = oldCopy
+	}()
+
+	renameForMove = func(oldPath, newPath string) error {
+		return &os.LinkError{Op: "rename", Old: oldPath, New: newPath, Err: syscall.EXDEV}
+	}
+	copyPathForMove = func(oldPath, newPath string) error {
+		if err := os.WriteFile(newPath, []byte("partial"), 0o644); err != nil {
+			t.Fatalf("seed partial destination: %v", err)
+		}
+		return os.ErrPermission
+	}
+
+	if err := movePathWithFallback(src, dst); err == nil {
+		t.Fatal("expected move failure")
+	}
+	if _, err := os.Stat(dst); !os.IsNotExist(err) {
+		t.Fatalf("expected destination cleanup, stat err: %v", err)
+	}
+	if _, err := os.Stat(src); err != nil {
+		t.Fatalf("source should remain after failed fallback: %v", err)
+	}
+}
+
+func newTestCRUDModel(root string) *Model {
+	idx := newSearchIndex(root)
+	if err := idx.ensureBuilt(); err != nil {
+		panic(err)
+	}
+	m := &Model{
+		notesDir:       root,
+		mode:           modeNewNote,
+		expanded:       map[string]bool{root: true},
+		items:          buildTree(root, map[string]bool{root: true}, sortModeName, nil),
+		input:          textinput.New(),
+		editor:         textarea.New(),
+		searchIndex:    idx,
+		notePositions:  map[string]notePosition{},
+		noteOpenCounts: map[string]int{},
+		pinnedPaths:    map[string]bool{},
+		renderCache:    map[string]renderCacheEntry{},
+	}
+	m.editor.Focus()
+	return m
+}
+
+func assertTreeHasPath(t *testing.T, items []treeItem, path string, expected ...bool) {
+	t.Helper()
+	want := true
+	if len(expected) > 0 {
+		want = expected[0]
+	}
+	found := false
+	for _, item := range items {
+		if item.path == path {
+			found = true
+			break
+		}
+	}
+	if found != want {
+		t.Fatalf("tree path presence mismatch for %q: found=%v want=%v", path, found, want)
+	}
+}
+
+func assertSearchHasQuery(t *testing.T, idx *searchIndex, query string, want bool) {
+	t.Helper()
+	if err := idx.ensureBuilt(); err != nil {
+		t.Fatalf("ensure search index built: %v", err)
+	}
+	got := len(idx.search(query)) > 0
+	if got != want {
+		t.Fatalf("search presence mismatch for query %q: got=%v want=%v", query, got, want)
+	}
+}
+
+func reselectTreeItem(t *testing.T, m *Model, targetPath string) {
+	t.Helper()
+	for i, item := range m.items {
+		if item.path == targetPath {
+			m.cursor = i
+			return
+		}
+	}
+	t.Fatalf("target path not found in tree: %q", targetPath)
+}
+
+func expandAncestors(expanded map[string]bool, root, targetDir string) {
+	if expanded == nil {
+		return
+	}
+	dir := filepath.Clean(targetDir)
+	root = filepath.Clean(root)
+	for {
+		expanded[dir] = true
+		if dir == root {
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return
+		}
+		dir = parent
+	}
+}
