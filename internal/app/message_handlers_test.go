@@ -107,6 +107,28 @@ func TestHandleEditNoteKeyShiftSelectThenBoldWrapsSelection(t *testing.T) {
 	}
 }
 
+func TestHandleEditNoteKeyUnshiftedArrowClearsSelectionAnchor(t *testing.T) {
+	m := newFocusedEditModel("hello world")
+
+	for i := 0; i < 5; i++ {
+		_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyShiftLeft})
+	}
+	if !m.editorSelectionActive {
+		t.Fatal("expected selection active after shift selection")
+	}
+
+	_, _ = m.handleEditNoteKey(tea.KeyMsg{Type: tea.KeyLeft})
+	if m.editorSelectionActive {
+		t.Fatal("expected unshifted cursor movement to clear selection")
+	}
+	if m.editorSelectionAnchor != noEditorSelectionAnchor {
+		t.Fatalf("expected anchor cleared, got %d", m.editorSelectionAnchor)
+	}
+	if got := m.status; got != "Selection cleared" {
+		t.Fatalf("expected status %q, got %q", "Selection cleared", got)
+	}
+}
+
 func TestHandleEditNoteKeyCtrlBFallsBackToMarkerInsertion(t *testing.T) {
 	m := newFocusedEditModel("hello ")
 

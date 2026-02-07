@@ -2,10 +2,7 @@
 
 ## Open Follow-up Tasks
 
-- [ ] Improve mouse-selection precision for soft-wrapped lines in the textarea (current mapping uses a simplified visual-row projection).
-- [ ] Add a dedicated `overlay_test.go` covering every overlay transition and ensuring `openOverlay`/`closeOverlay` cleanup stays complete as new overlays are added.
-- [ ] Add mutation-pipeline unit tests for `applyMutationEffects` covering path upsert/remove/invalidate ordering and `setCurrentFile` command behavior.
-- [ ] Add targeted benchmarks for tree rebuilds with metadata cache enabled vs. cold cache to track large-workspace performance over time.
+- [ ] Allow vertical selection when highlighting text
 
 ## Code Quality & Optimization
 

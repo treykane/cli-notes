@@ -85,3 +85,51 @@ func TestMouseSelectionOutsideEditorNoOp(t *testing.T) {
 		t.Fatal("expected no selection change for outside click")
 	}
 }
+
+func TestEditorOffsetFromVisualPositionExactWrapBoundary(t *testing.T) {
+	m := newFocusedEditModel("abcd")
+	m.editor.Prompt = ""
+	m.editor.ShowLineNumbers = false
+	m.editor.SetWidth(4)
+
+	if got := m.editorOffsetFromVisualPosition(0, 2); got != 2 {
+		t.Fatalf("expected row 0 col 2 => offset 2, got %d", got)
+	}
+	if got := m.editorOffsetFromVisualPosition(1, 0); got != 4 {
+		t.Fatalf("expected boundary continuation row 1 col 0 => offset 4, got %d", got)
+	}
+}
+
+func TestEditorOffsetFromVisualPositionWordWrap(t *testing.T) {
+	m := newFocusedEditModel("hello world")
+	m.editor.Prompt = ""
+	m.editor.ShowLineNumbers = false
+	m.editor.SetWidth(7)
+
+	if got := m.editorOffsetFromVisualPosition(1, 0); got != 6 {
+		t.Fatalf("expected wrapped row start offset 6, got %d", got)
+	}
+	if got := m.editorOffsetFromVisualPosition(1, 4); got != 10 {
+		t.Fatalf("expected wrapped row col 4 => offset 10, got %d", got)
+	}
+	if got := m.editorOffsetFromVisualPosition(1, 99); got != 11 {
+		t.Fatalf("expected wrapped row click past text to clamp to line end 11, got %d", got)
+	}
+}
+
+func TestEditorOffsetFromVisualPositionWideRunes(t *testing.T) {
+	m := newFocusedEditModel("ab界cd")
+	m.editor.Prompt = ""
+	m.editor.ShowLineNumbers = false
+	m.editor.SetWidth(4)
+
+	if got := m.editorOffsetFromVisualPosition(0, 2); got != 2 {
+		t.Fatalf("expected wide-rune first column to map to rune offset 2, got %d", got)
+	}
+	if got := m.editorOffsetFromVisualPosition(0, 3); got != 3 {
+		t.Fatalf("expected wide-rune second column to map after rune (offset 3), got %d", got)
+	}
+	if got := m.editorOffsetFromVisualPosition(1, 0); got != 3 {
+		t.Fatalf("expected wrapped continuation start offset 3, got %d", got)
+	}
+}

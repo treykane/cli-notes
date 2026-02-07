@@ -1,4 +1,4 @@
-name: Search Index Benchmarks
+name: Performance Benchmarks
 
 on:
   pull_request:
@@ -25,11 +25,11 @@ permissions:
   contents: read
 
 jobs:
-  search-index-benchmark:
-    name: Search Index Benchmark Suite
+  performance-benchmark:
+    name: Search Index + Tree Benchmark Suite
     runs-on: ubuntu-latest
     env:
-      BENCH_REGEX: '^BenchmarkSearchIndex$'
+      BENCH_REGEX: '^Benchmark(SearchIndex|TreeRebuild)$'
       BENCH_PKG: './internal/app'
       BENCH_COUNT: '5'
       MAX_REGRESSION_PCT: '20'
@@ -72,6 +72,6 @@ jobs:
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: search-index-benchmarks-${{ github.run_number }}
+          name: performance-benchmarks-${{ github.run_number }}
           path: benchmark-results/*.txt
           if-no-files-found: error

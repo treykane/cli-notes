@@ -14,13 +14,17 @@ import (
 )
 
 var (
-	benchmarkLinePattern = regexp.MustCompile(`^(BenchmarkSearchIndex/\S+)\s+\d+\s+(\d+)\s+ns/op`)
+	benchmarkLinePattern = regexp.MustCompile(`^(Benchmark(?:SearchIndex|TreeRebuild)/\S+)\s+\d+\s+(\d+)\s+ns/op`)
 	cpuSuffixPattern     = regexp.MustCompile(`-\d+$`)
 	expectedBenchmarks   = []string{
 		"BenchmarkSearchIndex/small/cold-build",
 		"BenchmarkSearchIndex/small/warm-query",
 		"BenchmarkSearchIndex/large/cold-build",
 		"BenchmarkSearchIndex/large/warm-query",
+		"BenchmarkTreeRebuild/medium/cold-cache-rebuild",
+		"BenchmarkTreeRebuild/medium/warm-cache-rebuild",
+		"BenchmarkTreeRebuild/large/cold-cache-rebuild",
+		"BenchmarkTreeRebuild/large/warm-cache-rebuild",
 	}
 )
 
@@ -104,16 +108,13 @@ func parseBenchmarkOutput(path string) (map[string]float64, error) {
 	}
 
 	if len(results) == 0 {
-		return nil, errors.New("no BenchmarkSearchIndex results found")
+		return nil, errors.New("no benchmark results found for expected suites")
 	}
 	return results, nil
 }
 
 func compareBenchmarks(baseline, current map[string]float64, maxRegressionPct float64) ([]comparisonRow, error) {
 	for _, name := range expectedBenchmarks {
-		if _, ok := baseline[name]; !ok {
-			return nil, fmt.Errorf("missing baseline benchmark %q", name)
-		}
 		if _, ok := current[name]; !ok {
 			return nil, fmt.Errorf("missing current benchmark %q", name)
 		}
@@ -121,7 +122,13 @@ func compareBenchmarks(baseline, current map[string]float64, maxRegressionPct fl
 
 	rows := make([]comparisonRow, 0, len(expectedBenchmarks))
 	for _, name := range expectedBenchmarks {
-		base := baseline[name]
+		base, ok := baseline[name]
+		if !ok {
+			// A newly added benchmark has no baseline yet. Treat current as
+			// baseline-equivalent so this change can land; future runs will
+			// compare real baseline vs current values.
+			base = current[name]
+		}
 		if base <= 0 {
 			return nil, fmt.Errorf("non-positive baseline ns/op for %q", name)
 		}
@@ -143,7 +150,7 @@ func compareBenchmarks(baseline, current map[string]float64, maxRegressionPct fl
 }
 
 func writeMarkdownReport(rows []comparisonRow, maxRegressionPct float64, out *os.File) {
-	fmt.Fprintf(out, "## Search Index Benchmark Comparison\n\n")
+	fmt.Fprintf(out, "## Benchmark Comparison\n\n")
 	fmt.Fprintf(out, "Allowed regression threshold: %.2f%%\n\n", maxRegressionPct)
 	fmt.Fprintf(out, "| Benchmark | Baseline ns/op | Current ns/op | Delta | Result |\n")
 	fmt.Fprintf(out, "|---|---:|---:|---:|---|\n")

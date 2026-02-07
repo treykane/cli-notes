@@ -2,9 +2,12 @@ package app
 
 import (
 	"fmt"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	rw "github.com/mattn/go-runewidth"
+	"github.com/rivo/uniseg"
 )
 
 func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
@@ -100,22 +103,19 @@ func (m *Model) editorOffsetFromMouse(msg tea.MouseMsg) (int, bool) {
 func (m *Model) editorOffsetFromVisualPosition(row, col int) int {
 	value := m.editor.Value()
 	lines := splitEditorLines(value)
-	width := max(1, m.editor.Width())
+	wrapWidth := max(1, m.editor.Width())
 	row = max(0, row)
 	col = max(0, col)
 
 	offset := 0
 	for i, line := range lines {
-		lineLen := len(line)
-		visualRows := visualRowsForLine(lineLen, width)
-		if row < visualRows {
-			lineCol := row*width + col
-			lineCol = clamp(lineCol, 0, lineLen)
-			return clamp(offset+lineCol, 0, len([]rune(value)))
+		wrapped := wrapEditorLineWithSources(line, wrapWidth)
+		if row < len(wrapped) {
+			return clamp(offset+lineOffsetForVisualPosition(wrapped[row], col, len(line)), 0, len([]rune(value)))
 		}
 
-		row -= visualRows
-		offset += lineLen
+		row -= len(wrapped)
+		offset += len(line)
 		if i < len(lines)-1 {
 			offset++
 		}
@@ -123,12 +123,146 @@ func (m *Model) editorOffsetFromVisualPosition(row, col int) int {
 	return clamp(offset, 0, len([]rune(value)))
 }
 
-func visualRowsForLine(lineLen, width int) int {
+type wrappedEditorCell struct {
+	r       rune
+	source  int
+	synth   bool
+	display int
+}
+
+func wrapEditorLineWithSources(line []rune, width int) [][]wrappedEditorCell {
 	if width <= 0 {
 		width = 1
 	}
-	if lineLen <= 0 {
-		return 1
+
+	lines := [][]wrappedEditorCell{{}}
+	word := []wrappedEditorCell{}
+	row := 0
+	spaces := 0
+	sourceSpaces := []int{}
+
+	for idx, r := range line {
+		if unicode.IsSpace(r) {
+			spaces++
+			sourceSpaces = append(sourceSpaces, idx)
+		} else {
+			word = append(word, newWrappedEditorCell(r, idx, false))
+		}
+
+		if spaces > 0 {
+			if wrappedRowDisplayWidth(lines[row])+wrappedCellsDisplayWidth(word)+spaces > width {
+				row++
+				lines = append(lines, []wrappedEditorCell{})
+				lines[row] = append(lines[row], word...)
+				lines[row] = append(lines[row], wrappedEditorSpaces(sourceSpaces, spaces, false)...)
+			} else {
+				lines[row] = append(lines[row], word...)
+				lines[row] = append(lines[row], wrappedEditorSpaces(sourceSpaces, spaces, false)...)
+			}
+			spaces = 0
+			sourceSpaces = nil
+			word = nil
+		} else if len(word) > 0 {
+			lastCharLen := rw.RuneWidth(word[len(word)-1].r)
+			if lastCharLen <= 0 {
+				lastCharLen = 1
+			}
+			if wrappedCellsDisplayWidth(word)+lastCharLen > width {
+				if len(lines[row]) > 0 {
+					row++
+					lines = append(lines, []wrappedEditorCell{})
+				}
+				lines[row] = append(lines[row], word...)
+				word = nil
+			}
+		}
 	}
-	return 1 + (lineLen / width)
+
+	if wrappedRowDisplayWidth(lines[row])+wrappedCellsDisplayWidth(word)+spaces >= width {
+		lines = append(lines, []wrappedEditorCell{})
+		nextRow := row + 1
+		lines[nextRow] = append(lines[nextRow], word...)
+		spaces++
+		lines[nextRow] = append(lines[nextRow], wrappedEditorSpaces(sourceSpaces, spaces, true)...)
+		return lines
+	}
+
+	lines[row] = append(lines[row], word...)
+	spaces++
+	lines[row] = append(lines[row], wrappedEditorSpaces(sourceSpaces, spaces, true)...)
+	return lines
+}
+
+func lineOffsetForVisualPosition(row []wrappedEditorCell, col int, lineLen int) int {
+	col = max(0, col)
+
+	lastSource := -1
+	displayCol := 0
+	for _, cell := range row {
+		if cell.source >= 0 {
+			lastSource = max(lastSource, cell.source)
+		}
+		cellWidth := max(1, cell.display)
+		if col < displayCol+cellWidth {
+			if cell.synth || cell.source < 0 {
+				if lastSource < 0 {
+					return lineLen
+				}
+				return lastSource + 1
+			}
+			if col > displayCol {
+				return cell.source + 1
+			}
+			return cell.source
+		}
+		displayCol += cellWidth
+	}
+
+	if lastSource < 0 {
+		return lineLen
+	}
+	return lastSource + 1
+}
+
+func wrappedRowDisplayWidth(cells []wrappedEditorCell) int {
+	return wrappedCellsDisplayWidth(cells)
+}
+
+func wrappedCellsDisplayWidth(cells []wrappedEditorCell) int {
+	width := 0
+	for _, cell := range cells {
+		width += max(1, cell.display)
+	}
+	return width
+}
+
+func wrappedEditorSpaces(sourceSpaces []int, count int, appendSynthetic bool) []wrappedEditorCell {
+	spaces := make([]wrappedEditorCell, 0, count+1)
+	for i := 0; i < count; i++ {
+		source := -1
+		if i < len(sourceSpaces) {
+			source = sourceSpaces[i]
+		}
+		spaces = append(spaces, newWrappedEditorCell(' ', source, false))
+	}
+	if appendSynthetic {
+		spaces = append(spaces, newWrappedEditorCell(' ', -1, true))
+	}
+	return spaces
+}
+
+func newWrappedEditorCell(r rune, source int, synthetic bool) wrappedEditorCell {
+	display := rw.RuneWidth(r)
+	if display <= 0 {
+		display = uniseg.StringWidth(string(r))
+	}
+	if display <= 0 {
+		display = 1
+	}
+	return wrappedEditorCell{
+		r:       r,
+		source:  source,
+		synth:   synthetic,
+		display: display,
+	}
 }

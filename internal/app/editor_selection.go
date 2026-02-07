@@ -196,6 +196,22 @@ func selectionMovementKeyMsg(keyMsg tea.KeyMsg) (tea.KeyMsg, bool) {
 	}
 }
 
+// isUnshiftedSelectionCollapseKey reports whether a key should collapse and
+// clear an active selection anchor when pressed without Shift.
+func isUnshiftedSelectionCollapseKey(keyMsg tea.KeyMsg) bool {
+	switch keyMsg.Type {
+	case tea.KeyLeft, tea.KeyRight, tea.KeyUp, tea.KeyDown, tea.KeyHome, tea.KeyEnd:
+		return true
+	}
+
+	switch keyMsg.String() {
+	case "left", "right", "up", "down", "home", "end", "ctrl+left", "ctrl+right":
+		return true
+	default:
+		return false
+	}
+}
+
 // updateEditorSelectionStatus updates the status bar to reflect the current
 // selection state. If a valid range is selected, it shows the character count.
 // If only an anchor is set (cursor hasn't moved yet), it shows guidance on

@@ -2,6 +2,27 @@ package app
 
 import tea "github.com/charmbracelet/bubbletea"
 
+var overlayCleanupByMode = map[overlayMode]func(*Model){
+	overlaySearch: func(m *Model) {
+		m.search.Blur()
+		m.search.SetValue("")
+		m.searchResults = nil
+		m.searchResultCursor = 0
+	},
+	overlayWikiAutocomplete: func(m *Model) {
+		m.wikiAutocomplete = nil
+		m.wikiAutocompleteCursor = 0
+	},
+}
+
+func cleanupOverlayModes() []overlayMode {
+	modes := make([]overlayMode, 0, len(overlayCleanupByMode))
+	for mode := range overlayCleanupByMode {
+		modes = append(modes, mode)
+	}
+	return modes
+}
+
 // openOverlay activates one overlay and ensures any previous overlay state is cleaned up.
 func (m *Model) openOverlay(mode overlayMode) {
 	if m.overlay == mode {
@@ -13,15 +34,8 @@ func (m *Model) openOverlay(mode overlayMode) {
 
 // closeOverlay dismisses the active overlay and resets overlay-specific state.
 func (m *Model) closeOverlay() {
-	switch m.overlay {
-	case overlaySearch:
-		m.search.Blur()
-		m.search.SetValue("")
-		m.searchResults = nil
-		m.searchResultCursor = 0
-	case overlayWikiAutocomplete:
-		m.wikiAutocomplete = nil
-		m.wikiAutocompleteCursor = 0
+	if cleanup, ok := overlayCleanupByMode[m.overlay]; ok {
+		cleanup(m)
 	}
 	m.overlay = overlayNone
 }

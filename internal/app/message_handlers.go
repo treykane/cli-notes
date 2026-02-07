@@ -184,7 +184,12 @@ func (m *Model) handleEditNoteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.clearEditorSelection()
 			m.maybeTriggerWikiAutocomplete()
 		} else if m.hasEditorSelectionAnchor() {
-			m.updateEditorSelectionStatus()
+			if isUnshiftedSelectionCollapseKey(msg) {
+				m.clearEditorSelection()
+				m.status = "Selection cleared"
+			} else {
+				m.updateEditorSelectionStatus()
+			}
 		}
 		return m, cmd
 	}
