@@ -8,15 +8,6 @@ on:
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/search-index-benchmarks.yml'
-  push:
-    branches:
-      - main
-    paths:
-      - 'internal/app/**'
-      - 'scripts/ci/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/search-index-benchmarks.yml'
   schedule:
     - cron: '0 9 * * 1'
   workflow_dispatch:
