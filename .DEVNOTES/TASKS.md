@@ -1,13 +1,5 @@
 # Tasks
 
-## Recently Completed
-
-- [x] **Dynamic keybinding legends**: Help/footer key legends now render from active action->keys mapping so user-customized keymaps are reflected.
-- [x] **`--version` CLI flag**: Added `--version` output (`notes <version> (<commit>)`) and CI ldflags wiring.
-- [x] **Search result count indicator**: Ctrl+P now shows `N matches` and `M of N`.
-- [x] **Scrollable help panel**: Help panel now uses a scrollable viewport with keyboard navigation.
-- [x] **Configurable file watcher interval**: Added `file_watch_interval_seconds` config (default `2`, clamped `1..300`).
-
 ## Open Follow-up Tasks
 
 - [ ] Allow vertical selection when highlighting text
